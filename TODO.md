@@ -11,6 +11,34 @@ Plan:
     - Fields entwickeln
     - Factory Colleczion und MongoDB Client implementieren
     - in endpoint -> Messages fetchen + Messages speichern + messages in chatInput geben
+3. Fetch Messages inkl. paginierung (infinitive scroll) und order->desc implementieren
+4. Platform-Service
+    - Application Config für N8N anpassen
+    - GET secret endpoint hinzufügen
+    - GET config endpoint für agent-service hinzufügen
+    - routes zu -> /api/v1/platform-service/* umbenennen
+    - autonomous agents
+        - hier API Key generieren lassen, inkl. rotate
+            - werden in VAULT gespeichert und referenz uri in db auf autonomous-agent
+            - PUT /api/v1/platform-service/tenants/{id}/autonomous-agents/{id}/keys/1|2/rotate
+                - werden 
+5. Agent-Service
+    - Platform-Service abfragen
+    - Config inkl encryption in redis speichern (3min)
+    - traces implementieren
+        - beim messages senden -> in jobQueue nach ende die traces fetchen und speichern (N8N -> traces collection)
+            - traces mit message id ODER autonomous-agent-id speichern 
+        - POST endpoint mit selben service implementieren
+            - hier 
+        - GET endpoint auf message implementieren
+6. Frontend
+    - api-client
+        - platform-service jetzt auch -> /api/v1/platform-service/*
+        - messages und traces endpoints hinzufügen
+    - application config für N8N bei CREATE und EDIT anpassen
+    - conversations page bauen
+7. Langchain + Langgraph API
+    - state kann als traces an API gesendet werden (nutzt API für traces und gibt messageId an)
 
 
 Der Ziel Flow wäre:
