@@ -2,6 +2,7 @@
 package handlers
 
 import (
+	"io"
 	"net/http"
 	"time"
 
@@ -13,17 +14,23 @@ import (
 	"github.com/unifiedui/agent-service/internal/core/docdb"
 	"github.com/unifiedui/agent-service/internal/domain/errors"
 	"github.com/unifiedui/agent-service/internal/domain/models"
+	"github.com/unifiedui/agent-service/internal/services/agents"
+	"github.com/unifiedui/agent-service/internal/services/platform"
 )
 
 // MessagesHandler handles message-related endpoints.
 type MessagesHandler struct {
-	docDBClient docdb.Client
+	docDBClient    docdb.Client
+	platformClient platform.Client
+	agentFactory   *agents.Factory
 }
 
 // NewMessagesHandler creates a new MessagesHandler.
-func NewMessagesHandler(docDBClient docdb.Client) *MessagesHandler {
+func NewMessagesHandler(docDBClient docdb.Client, platformClient platform.Client, agentFactory *agents.Factory) *MessagesHandler {
 	return &MessagesHandler{
-		docDBClient: docDBClient,
+		docDBClient:    docDBClient,
+		platformClient: platformClient,
+		agentFactory:   agentFactory,
 	}
 }
 
@@ -115,12 +122,23 @@ func (h *MessagesHandler) GetMessages(c *gin.Context) {
 	})
 }
 
+// MessageContent represents the message content in the request.
+type MessageContent struct {
+	Content     string   `json:"content" binding:"required,min=1,max=32000"`
+	Attachments []string `json:"attachments,omitempty"`
+}
+
+// InvokeConfig represents configuration options for agent invocation.
+type InvokeConfig struct {
+	ChatHistoryMessageCount int `json:"chatHistoryMessageCount,omitempty"`
+}
+
 // SendMessageRequest represents the request body for sending a message.
 type SendMessageRequest struct {
-	ConversationID string `json:"conversationId" binding:"required"`
-	Content        string `json:"content" binding:"required,min=1,max=32000"`
-	AgentID        string `json:"agentId" binding:"required"`
-	Stream         bool   `json:"stream"`
+	ConversationID string         `json:"conversationId,omitempty"`
+	ApplicationID  string         `json:"applicationId" binding:"required"`
+	Message        MessageContent `json:"message" binding:"required"`
+	InvokeConfig   InvokeConfig   `json:"invokeConfig,omitempty"`
 }
 
 // SendMessageResponse represents the response for sending a message.
@@ -130,12 +148,12 @@ type SendMessageResponse struct {
 
 // SendMessage handles POST /tenants/{tenantId}/conversation/messages
 // @Summary Send a message
-// @Description Sends a message to an AI agent and returns the response (supports SSE streaming)
+// @Description Sends a message to an AI agent and returns the response via SSE streaming
 // @Tags Messages
 // @Accept json
-// @Produce json
+// @Produce text/event-stream
 // @Param tenantId path string true "Tenant ID"
-// @Param request body SendMessageRequest true "Message content with conversationId"
+// @Param request body SendMessageRequest true "Message content with applicationId"
 // @Success 200 {object} SendMessageResponse
 // @Failure 400 {object} dto.ErrorResponse
 // @Failure 401 {object} dto.ErrorResponse
@@ -153,13 +171,34 @@ func (h *MessagesHandler) SendMessage(c *gin.Context) {
 		return
 	}
 
+	// Generate conversation ID if not provided
+	conversationID := req.ConversationID
+	if conversationID == "" {
+		conversationID = generateConversationID()
+	}
+
+	// Get agent configuration from Platform Service
+	agentConfig, err := h.platformClient.GetAgentConfig(ctx, tenantCtx.TenantID, req.ApplicationID)
+	if err != nil {
+		middleware.HandleError(c, errors.NewInternalError("failed to get agent configuration", err))
+		return
+	}
+
+	// Create agent clients using factory
+	agentClients, err := h.agentFactory.CreateClients(agentConfig)
+	if err != nil {
+		middleware.HandleError(c, errors.NewInternalError("failed to create agent clients", err))
+		return
+	}
+	defer agentClients.Close()
+
 	// Create user message
 	userMessage := models.NewMessage(
 		tenantCtx.TenantID,
-		req.ConversationID,
+		conversationID,
 		string(models.RoleUser),
-		req.Content,
-		req.AgentID,
+		req.Message.Content,
+		req.ApplicationID,
 		tenantCtx.UserID,
 	)
 	userMessage.ID = generateMessageID()
@@ -171,71 +210,105 @@ func (h *MessagesHandler) SendMessage(c *gin.Context) {
 	}
 
 	// Handle streaming response
-	if req.Stream {
-		h.handleStreamingResponse(c, tenantCtx, userMessage, req.AgentID)
-		return
-	}
-
-	// Handle non-streaming response
-	h.handleNonStreamingResponse(c, tenantCtx, userMessage, req.AgentID)
+	h.handleStreamingResponse(c, tenantCtx, agentClients, userMessage, conversationID)
 }
 
 // handleStreamingResponse handles SSE streaming for message responses.
-func (h *MessagesHandler) handleStreamingResponse(c *gin.Context, tenantCtx *middleware.TenantContext, userMessage *models.Message, agentID string) {
+func (h *MessagesHandler) handleStreamingResponse(
+	c *gin.Context,
+	tenantCtx *middleware.TenantContext,
+	agentClients *agents.AgentClients,
+	userMessage *models.Message,
+	conversationID string,
+) {
+	ctx := c.Request.Context()
+
+	// Create SSE writer
 	writer, err := sse.NewWriter(c.Writer)
 	if err != nil {
 		middleware.HandleError(c, errors.NewInternalError("streaming not supported", err))
 		return
 	}
 
-	// TODO: Implement actual agent communication
-	// This is a placeholder for demonstration
-
-	// Send message chunks
-	writer.WriteMessageChunk(&sse.MessageChunk{
-		Content:   "This is a placeholder response. ",
-		MessageID: generateMessageID(),
-		Done:      false,
-	})
-
-	writer.WriteMessageChunk(&sse.MessageChunk{
-		Content:   "Agent integration pending.",
-		MessageID: "",
-		Done:      true,
-	})
-
-	writer.WriteDone()
-}
-
-// handleNonStreamingResponse handles non-streaming message responses.
-func (h *MessagesHandler) handleNonStreamingResponse(c *gin.Context, tenantCtx *middleware.TenantContext, userMessage *models.Message, agentID string) {
-	ctx := c.Request.Context()
-
-	// TODO: Implement actual agent communication
-	// This is a placeholder response
-
-	assistantMessage := models.NewMessage(
-		tenantCtx.TenantID,
-		tenantCtx.ConversationID,
-		string(models.RoleAssistant),
-		"This is a placeholder response. Agent integration pending.",
-		agentID,
-		"",
-	)
-	assistantMessage.ID = generateMessageID()
-
-	// Store assistant message
-	if _, err := h.docDBClient.Messages().InsertOne(ctx, assistantMessage); err != nil {
-		middleware.HandleError(c, errors.NewInternalError("failed to store assistant message", err))
-		return
+	// Build invoke request
+	invokeReq := &agents.InvokeRequest{
+		ConversationID: conversationID,
+		Message:        userMessage.Content,
+		SessionID:      conversationID, // Use conversation ID as session ID for now
 	}
 
-	c.JSON(http.StatusOK, SendMessageResponse{
-		Message: assistantMessage,
+	// Get stream reader from workflow client
+	streamReader, err := agentClients.WorkflowClient.InvokeStreamReader(ctx, invokeReq)
+	if err != nil {
+		writer.WriteError("STREAM_ERROR", "Failed to invoke agent", err.Error())
+		writer.WriteDone()
+		return
+	}
+	defer streamReader.Close()
+
+	// Create assistant message ID
+	assistantMessageID := generateMessageID()
+	var fullContent string
+
+	// Read and forward stream chunks
+	for {
+		chunk, err := streamReader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			writer.WriteError("STREAM_ERROR", "Error reading stream", err.Error())
+			break
+		}
+
+		switch chunk.Type {
+		case agents.ChunkTypeContent:
+			fullContent += chunk.Content
+			writer.WriteMessageChunk(&sse.MessageChunk{
+				Content:   chunk.Content,
+				MessageID: assistantMessageID,
+				Done:      false,
+			})
+		case agents.ChunkTypeMetadata:
+			// Could send metadata as separate event type if needed
+		case agents.ChunkTypeError:
+			if chunk.Error != nil {
+				writer.WriteError("CHUNK_ERROR", "Error in chunk", chunk.Error.Error())
+			}
+		}
+	}
+
+	// Send done chunk
+	writer.WriteMessageChunk(&sse.MessageChunk{
+		Content:   "",
+		MessageID: assistantMessageID,
+		Done:      true,
 	})
+	writer.WriteDone()
+
+	// Store assistant message
+	assistantMessage := models.NewMessage(
+		tenantCtx.TenantID,
+		conversationID,
+		string(models.RoleAssistant),
+		fullContent,
+		userMessage.AgentID,
+		"",
+	)
+	assistantMessage.ID = assistantMessageID
+
+	if _, err := h.docDBClient.Messages().InsertOne(ctx, assistantMessage); err != nil {
+		// Log error but don't fail - message was already sent to client
+		// TODO: Add proper logging
+	}
 }
 
 // generateMessageID generates a unique message ID.
 func generateMessageID() string {
 	return "msg_" + time.Now().Format("20060102150405.000000")
+}
+
+// generateConversationID generates a unique conversation ID.
+func generateConversationID() string {
+	return "conv_" + time.Now().Format("20060102150405.000000")
 }

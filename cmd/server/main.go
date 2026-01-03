@@ -45,6 +45,8 @@ import (
 	rediscache "github.com/unifiedui/agent-service/internal/infrastructure/cache/redis"
 	"github.com/unifiedui/agent-service/internal/infrastructure/docdb/mongodb"
 	dotenvvault "github.com/unifiedui/agent-service/internal/infrastructure/vault/dotenv"
+	"github.com/unifiedui/agent-service/internal/services/agents"
+	"github.com/unifiedui/agent-service/internal/services/platform"
 )
 
 func main() {
@@ -184,9 +186,18 @@ func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb
 	errorMw := middleware.NewErrorMiddleware()
 	authMw := middleware.NewAuthMiddleware(cfg.Platform.URL)
 
+	// Create platform client
+	platformClient := platform.NewClient(&platform.ClientConfig{
+		BaseURL:    cfg.Platform.URL,
+		ConfigPath: cfg.Platform.ConfigPath,
+	})
+
+	// Create agent factory
+	agentFactory := agents.NewFactory()
+
 	// Create handlers
 	healthHandler := handlers.NewHealthHandler(cacheClient, docDBClient)
-	messagesHandler := handlers.NewMessagesHandler(docDBClient)
+	messagesHandler := handlers.NewMessagesHandler(docDBClient, platformClient, agentFactory)
 	tracesHandler := handlers.NewTracesHandler(docDBClient)
 
 	// Setup routes

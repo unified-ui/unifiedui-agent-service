@@ -40,22 +40,37 @@ definitions:
       status:
         type: string
     type: object
-  handlers.SendMessageRequest:
+  handlers.InvokeConfig:
     properties:
-      agentId:
-        type: string
+      chatHistoryMessageCount:
+        type: integer
+    type: object
+  handlers.MessageContent:
+    properties:
+      attachments:
+        items:
+          type: string
+        type: array
       content:
         maxLength: 32000
         minLength: 1
         type: string
+    required:
+    - content
+    type: object
+  handlers.SendMessageRequest:
+    properties:
+      applicationId:
+        type: string
       conversationId:
         type: string
-      stream:
-        type: boolean
+      invokeConfig:
+        $ref: '#/definitions/handlers.InvokeConfig'
+      message:
+        $ref: '#/definitions/handlers.MessageContent'
     required:
-    - agentId
-    - content
-    - conversationId
+    - applicationId
+    - message
     type: object
   handlers.SendMessageResponse:
     properties:
@@ -422,22 +437,22 @@ paths:
     post:
       consumes:
       - application/json
-      description: Sends a message to an AI agent and returns the response (supports
-        SSE streaming)
+      description: Sends a message to an AI agent and returns the response via SSE
+        streaming
       parameters:
       - description: Tenant ID
         in: path
         name: tenantId
         required: true
         type: string
-      - description: Message content with conversationId
+      - description: Message content with applicationId
         in: body
         name: request
         required: true
         schema:
           $ref: '#/definitions/handlers.SendMessageRequest'
       produces:
-      - application/json
+      - text/event-stream
       responses:
         "200":
           description: OK

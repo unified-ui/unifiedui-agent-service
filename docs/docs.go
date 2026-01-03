@@ -260,12 +260,12 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Sends a message to an AI agent and returns the response (supports SSE streaming)",
+                "description": "Sends a message to an AI agent and returns the response via SSE streaming",
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
-                    "application/json"
+                    "text/event-stream"
                 ],
                 "tags": [
                     "Messages"
@@ -280,7 +280,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Message content with conversationId",
+                        "description": "Message content with applicationId",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -450,27 +450,51 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.SendMessageRequest": {
+        "handlers.InvokeConfig": {
+            "type": "object",
+            "properties": {
+                "chatHistoryMessageCount": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.MessageContent": {
             "type": "object",
             "required": [
-                "agentId",
-                "content",
-                "conversationId"
+                "content"
             ],
             "properties": {
-                "agentId": {
-                    "type": "string"
+                "attachments": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "content": {
                     "type": "string",
                     "maxLength": 32000,
                     "minLength": 1
+                }
+            }
+        },
+        "handlers.SendMessageRequest": {
+            "type": "object",
+            "required": [
+                "applicationId",
+                "message"
+            ],
+            "properties": {
+                "applicationId": {
+                    "type": "string"
                 },
                 "conversationId": {
                     "type": "string"
                 },
-                "stream": {
-                    "type": "boolean"
+                "invokeConfig": {
+                    "$ref": "#/definitions/handlers.InvokeConfig"
+                },
+                "message": {
+                    "$ref": "#/definitions/handlers.MessageContent"
                 }
             }
         },

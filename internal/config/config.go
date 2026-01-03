@@ -60,8 +60,9 @@ type VaultConfig struct {
 
 // PlatformConfig holds platform service configuration.
 type PlatformConfig struct {
-	URL     string
-	Timeout time.Duration
+	URL        string
+	ConfigPath string
+	Timeout    time.Duration
 }
 
 // LogConfig holds logging configuration.
@@ -102,8 +103,9 @@ func Load() (*Config, error) {
 			EncryptionKey:    getEnv("SECRETS_ENCRYPTION_KEY", ""),
 		},
 		Platform: PlatformConfig{
-			URL:     getEnv("PLATFORM_SERVICE_URL", "http://localhost:8081"),
-			Timeout: time.Duration(getEnvAsInt("PLATFORM_SERVICE_TIMEOUT_SECONDS", 30)) * time.Second,
+			URL:        getEnv("PLATFORM_SERVICE_URL", "http://localhost:8081"),
+			ConfigPath: getEnv("PLATFORM_CONFIG_PATH", "poc/n8n/config.json"),
+			Timeout:    time.Duration(getEnvAsInt("PLATFORM_SERVICE_TIMEOUT_SECONDS", 30)) * time.Second,
 		},
 		Log: LogConfig{
 			Level:  getEnv("LOG_LEVEL", "info"),
