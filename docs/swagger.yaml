@@ -48,11 +48,14 @@ definitions:
         maxLength: 32000
         minLength: 1
         type: string
+      conversationId:
+        type: string
       stream:
         type: boolean
     required:
     - agentId
     - content
+    - conversationId
     type: object
   handlers.SendMessageResponse:
     properties:
@@ -363,7 +366,7 @@ paths:
       summary: Update traces
       tags:
       - Traces
-  /api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/messages:
+  /api/v1/agent-service/tenants/{tenantId}/conversation/messages:
     get:
       consumes:
       - application/json
@@ -375,7 +378,7 @@ paths:
         required: true
         type: string
       - description: Conversation ID
-        in: path
+        in: query
         name: conversationId
         required: true
         type: string
@@ -427,12 +430,7 @@ paths:
         name: tenantId
         required: true
         type: string
-      - description: Conversation ID
-        in: path
-        name: conversationId
-        required: true
-        type: string
-      - description: Message content
+      - description: Message content with conversationId
         in: body
         name: request
         required: true
@@ -462,7 +460,7 @@ paths:
       summary: Send a message
       tags:
       - Messages
-  /api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/messages/{messageId}/traces:
+  /api/v1/agent-service/tenants/{tenantId}/conversation/messages/{messageId}/traces:
     get:
       consumes:
       - application/json
@@ -473,14 +471,14 @@ paths:
         name: tenantId
         required: true
         type: string
-      - description: Conversation ID
-        in: path
-        name: conversationId
-        required: true
-        type: string
       - description: Message ID
         in: path
         name: messageId
+        required: true
+        type: string
+      - description: Conversation ID
+        in: query
+        name: conversationId
         required: true
         type: string
       produces:

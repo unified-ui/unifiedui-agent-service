@@ -29,8 +29,9 @@ func NewMessagesHandler(docDBClient docdb.Client) *MessagesHandler {
 
 // GetMessagesRequest represents the query parameters for getting messages.
 type GetMessagesRequest struct {
-	Limit  int64 `form:"limit" binding:"omitempty,min=1,max=100"`
-	Offset int64 `form:"offset" binding:"omitempty,min=0"`
+	ConversationID string `form:"conversationId" binding:"required"`
+	Limit          int64  `form:"limit" binding:"omitempty,min=1,max=100"`
+	Offset         int64  `form:"offset" binding:"omitempty,min=0"`
 }
 
 // GetMessagesResponse represents the response for getting messages.
@@ -41,14 +42,14 @@ type GetMessagesResponse struct {
 	Offset   int64             `json:"offset"`
 }
 
-// GetMessages handles GET /tenants/{tenantId}/conversations/{conversationId}/messages
+// GetMessages handles GET /tenants/{tenantId}/conversation/messages
 // @Summary Get messages
 // @Description Retrieves messages for a conversation with pagination
 // @Tags Messages
 // @Accept json
 // @Produce json
 // @Param tenantId path string true "Tenant ID"
-// @Param conversationId path string true "Conversation ID"
+// @Param conversationId query string true "Conversation ID"
 // @Param limit query int false "Maximum number of messages" default(50) minimum(1) maximum(100)
 // @Param offset query int false "Offset for pagination" default(0) minimum(0)
 // @Success 200 {object} GetMessagesResponse
@@ -56,7 +57,7 @@ type GetMessagesResponse struct {
 // @Failure 401 {object} dto.ErrorResponse
 // @Failure 500 {object} dto.ErrorResponse
 // @Security BearerAuth
-// @Router /api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/messages [get]
+// @Router /api/v1/agent-service/tenants/{tenantId}/conversation/messages [get]
 func (h *MessagesHandler) GetMessages(c *gin.Context) {
 	ctx := c.Request.Context()
 	tenantCtx := middleware.GetTenantContext(c)
@@ -76,7 +77,7 @@ func (h *MessagesHandler) GetMessages(c *gin.Context) {
 	// Build filter
 	filter := bson.M{
 		"tenantId":       tenantCtx.TenantID,
-		"conversationId": tenantCtx.ConversationID,
+		"conversationId": req.ConversationID,
 	}
 
 	// Get total count
@@ -116,9 +117,10 @@ func (h *MessagesHandler) GetMessages(c *gin.Context) {
 
 // SendMessageRequest represents the request body for sending a message.
 type SendMessageRequest struct {
-	Content string `json:"content" binding:"required,min=1,max=32000"`
-	AgentID string `json:"agentId" binding:"required"`
-	Stream  bool   `json:"stream"`
+	ConversationID string `json:"conversationId" binding:"required"`
+	Content        string `json:"content" binding:"required,min=1,max=32000"`
+	AgentID        string `json:"agentId" binding:"required"`
+	Stream         bool   `json:"stream"`
 }
 
 // SendMessageResponse represents the response for sending a message.
@@ -126,21 +128,20 @@ type SendMessageResponse struct {
 	Message *models.Message `json:"message"`
 }
 
-// SendMessage handles POST /tenants/{tenantId}/conversations/{conversationId}/messages
+// SendMessage handles POST /tenants/{tenantId}/conversation/messages
 // @Summary Send a message
 // @Description Sends a message to an AI agent and returns the response (supports SSE streaming)
 // @Tags Messages
 // @Accept json
 // @Produce json
 // @Param tenantId path string true "Tenant ID"
-// @Param conversationId path string true "Conversation ID"
-// @Param request body SendMessageRequest true "Message content"
+// @Param request body SendMessageRequest true "Message content with conversationId"
 // @Success 200 {object} SendMessageResponse
 // @Failure 400 {object} dto.ErrorResponse
 // @Failure 401 {object} dto.ErrorResponse
 // @Failure 500 {object} dto.ErrorResponse
 // @Security BearerAuth
-// @Router /api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/messages [post]
+// @Router /api/v1/agent-service/tenants/{tenantId}/conversation/messages [post]
 func (h *MessagesHandler) SendMessage(c *gin.Context) {
 	ctx := c.Request.Context()
 	tenantCtx := middleware.GetTenantContext(c)
@@ -155,7 +156,7 @@ func (h *MessagesHandler) SendMessage(c *gin.Context) {
 	// Create user message
 	userMessage := models.NewMessage(
 		tenantCtx.TenantID,
-		tenantCtx.ConversationID,
+		req.ConversationID,
 		string(models.RoleUser),
 		req.Content,
 		req.AgentID,

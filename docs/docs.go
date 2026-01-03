@@ -176,7 +176,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/messages": {
+        "/api/v1/agent-service/tenants/{tenantId}/conversation/messages": {
             "get": {
                 "security": [
                     {
@@ -206,7 +206,7 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Conversation ID",
                         "name": "conversationId",
-                        "in": "path",
+                        "in": "query",
                         "required": true
                     },
                     {
@@ -280,14 +280,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "type": "string",
-                        "description": "Conversation ID",
-                        "name": "conversationId",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Message content",
+                        "description": "Message content with conversationId",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -324,7 +317,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/messages/{messageId}/traces": {
+        "/api/v1/agent-service/tenants/{tenantId}/conversation/messages/{messageId}/traces": {
             "get": {
                 "security": [
                     {
@@ -352,16 +345,16 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Conversation ID",
-                        "name": "conversationId",
+                        "description": "Message ID",
+                        "name": "messageId",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "string",
-                        "description": "Message ID",
-                        "name": "messageId",
-                        "in": "path",
+                        "description": "Conversation ID",
+                        "name": "conversationId",
+                        "in": "query",
                         "required": true
                     }
                 ],
@@ -461,7 +454,8 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "agentId",
-                "content"
+                "content",
+                "conversationId"
             ],
             "properties": {
                 "agentId": {
@@ -471,6 +465,9 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 32000,
                     "minLength": 1
+                },
+                "conversationId": {
+                    "type": "string"
                 },
                 "stream": {
                     "type": "boolean"

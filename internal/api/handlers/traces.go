@@ -32,29 +32,36 @@ type GetMessageTracesResponse struct {
 	Total  int64           `json:"total"`
 }
 
-// GetMessageTraces handles GET /tenants/{tenantId}/conversations/{conversationId}/messages/{messageId}/traces
+// GetMessageTraces handles GET /tenants/{tenantId}/conversation/messages/{messageId}/traces
 // @Summary Get message traces
 // @Description Retrieves all traces associated with a specific message
 // @Tags Traces
 // @Accept json
 // @Produce json
 // @Param tenantId path string true "Tenant ID"
-// @Param conversationId path string true "Conversation ID"
 // @Param messageId path string true "Message ID"
+// @Param conversationId query string true "Conversation ID"
 // @Success 200 {object} GetMessageTracesResponse
 // @Failure 400 {object} dto.ErrorResponse
 // @Failure 401 {object} dto.ErrorResponse
 // @Failure 500 {object} dto.ErrorResponse
 // @Security BearerAuth
-// @Router /api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/messages/{messageId}/traces [get]
+// @Router /api/v1/agent-service/tenants/{tenantId}/conversation/messages/{messageId}/traces [get]
 func (h *TracesHandler) GetMessageTraces(c *gin.Context) {
 	ctx := c.Request.Context()
 	tenantCtx := middleware.GetTenantContext(c)
 
+	// Parse query parameter
+	conversationID := c.Query("conversationId")
+	if conversationID == "" {
+		middleware.HandleError(c, errors.NewValidationError("conversationId is required", "missing conversationId query parameter"))
+		return
+	}
+
 	// Build filter
 	filter := bson.M{
 		"tenantId":       tenantCtx.TenantID,
-		"conversationId": tenantCtx.ConversationID,
+		"conversationId": conversationID,
 		"messageId":      tenantCtx.MessageID,
 	}
 

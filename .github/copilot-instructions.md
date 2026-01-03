@@ -171,10 +171,66 @@ unified-ui-agent-service/
 ## API Endpoints
 
 ```
-GET  /api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/messages
-POST /api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/messages
-GET  /api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/messages/{messageId}/traces
+GET  /api/v1/agent-service/health
+GET  /api/v1/agent-service/ready
+GET  /api/v1/agent-service/live
+GET  /api/v1/agent-service/tenants/{tenantId}/conversation/messages
+POST /api/v1/agent-service/tenants/{tenantId}/conversation/messages
+GET  /api/v1/agent-service/tenants/{tenantId}/conversation/messages/{messageId}/traces
 PUT  /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/traces
+```
+
+---
+
+## Swagger API Documentation (MANDATORY)
+
+All HTTP handlers MUST have Swagger annotations. Use `swaggo/swag` for generating OpenAPI docs.
+
+### Swagger Setup
+- Swagger UI available at: `/docs/index.html`
+- Generate docs: `swag init -g cmd/server/main.go -o docs`
+- Import docs in main.go: `_ "github.com/unifiedui/agent-service/docs"`
+
+### Handler Annotation Template
+```go
+// HandlerName handles the endpoint description.
+// @Summary Short summary
+// @Description Detailed description of what the endpoint does
+// @Tags TagName
+// @Accept json
+// @Produce json
+// @Param paramName path string true "Parameter description"
+// @Param request body RequestType true "Request body description"
+// @Success 200 {object} ResponseType "Success description"
+// @Failure 400 {object} dto.ErrorResponse "Bad request"
+// @Failure 401 {object} dto.ErrorResponse "Unauthorized"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/agent-service/path [method]
+func (h *Handler) HandlerName(c *gin.Context) {
+```
+
+### Main.go Swagger Annotations
+```go
+// @title UnifiedUI Agent Service API
+// @version 1.0
+// @description Unified abstraction layer for AI agent backends
+// @termsOfService http://swagger.io/terms/
+// @contact.name API Support
+// @contact.url https://github.com/unifiedui/agent-service
+// @license.name MIT
+// @license.url https://opensource.org/licenses/MIT
+// @host localhost:8085
+// @BasePath /
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+```
+
+### Regenerate Swagger Docs
+After modifying any handler annotations:
+```bash
+swag init -g cmd/server/main.go -o docs
 ```
 
 ---

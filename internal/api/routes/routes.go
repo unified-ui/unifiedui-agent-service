@@ -33,15 +33,15 @@ func Setup(r *gin.Engine, cfg *Config) {
 		// Tenant-scoped routes
 		tenants := protected.Group("/tenants/:tenantId")
 		{
-			// Conversation routes
-			conversations := tenants.Group("/conversations/:conversationId")
+			// Conversation routes (conversationId in request body)
+			conversation := tenants.Group("/conversation")
 			{
 				// Messages
-				conversations.GET("/messages", cfg.MessagesHandler.GetMessages)
-				conversations.POST("/messages", cfg.MessagesHandler.SendMessage)
+				conversation.GET("/messages", cfg.MessagesHandler.GetMessages)
+				conversation.POST("/messages", cfg.MessagesHandler.SendMessage)
 
 				// Message traces
-				conversations.GET("/messages/:messageId/traces", cfg.TracesHandler.GetMessageTraces)
+				conversation.GET("/messages/:messageId/traces", cfg.TracesHandler.GetMessageTraces)
 			}
 
 			// Autonomous agent routes
