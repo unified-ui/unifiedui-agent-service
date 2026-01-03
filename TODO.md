@@ -1,13 +1,16 @@
 # TODOs
 
 Plan:
-1. ✅ AgentWorkflow bauen (Beispiel)
-2. ✅ Human-in-the-Loop Workflow bauen (Beispiel)
 
-3. GO+GIN REST API Projektstruktur aufbauen
-4. N8N Handler implementieren
-    - JSON lesen mit Config
-    - 
+1. N8N Handler implementieren
+    - Config, inkl. Credentials etc als .json entwickeln
+    - Platform-Service Handler implementieren
+        - erstmal JSON Config lesen
+    - stream response from n8n -> AgentNode
+2. Messages Collection entwickeln
+    - Fields entwickeln
+    - Factory Colleczion und MongoDB Client implementieren
+    - in endpoint -> Messages fetchen + Messages speichern + messages in chatInput geben
 
 ## N8N Integration
 
@@ -19,10 +22,27 @@ Plan:
         - hier N8N Chat embedden (https://www.npmjs.com/package/@n8n/chat)
 - use unified-chat-history (chat history wird in chatInput mitgegeben als Markdown)
 
+- /messages request
+```json
+{
+    "conversationId": "uuid|None",
+    "applicationId": "uuid|None",
+    "message": {
+        "content": "msg",
+        "attachements": [
+            
+        ]
+    },
+    "invokeConfig": {
+        "chatHistoryMessageCount": 15
+    }
+}
+```
+
 
 - Platform Service response:
 ```json
-
+siehe ./poc/n8n/config.json
 ```
 
 
