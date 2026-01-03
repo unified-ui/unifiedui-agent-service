@@ -200,7 +200,7 @@ func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb
 	routes.SetupWithMiddleware(router, routesCfg, loggingMw, errorMw)
 
 	// Swagger documentation endpoint
-	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	router.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	return router
 }
