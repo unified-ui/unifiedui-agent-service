@@ -1,0 +1,519 @@
+basePath: /
+definitions:
+  dto.ErrorResponse:
+    properties:
+      code:
+        type: string
+      details:
+        type: string
+      message:
+        type: string
+    type: object
+  handlers.GetMessageTracesResponse:
+    properties:
+      total:
+        type: integer
+      traces:
+        items:
+          $ref: '#/definitions/models.Trace'
+        type: array
+    type: object
+  handlers.GetMessagesResponse:
+    properties:
+      limit:
+        type: integer
+      messages:
+        items:
+          $ref: '#/definitions/models.Message'
+        type: array
+      offset:
+        type: integer
+      total:
+        type: integer
+    type: object
+  handlers.HealthResponse:
+    properties:
+      components:
+        additionalProperties:
+          type: string
+        type: object
+      status:
+        type: string
+    type: object
+  handlers.SendMessageRequest:
+    properties:
+      agentId:
+        type: string
+      content:
+        maxLength: 32000
+        minLength: 1
+        type: string
+      stream:
+        type: boolean
+    required:
+    - agentId
+    - content
+    type: object
+  handlers.SendMessageResponse:
+    properties:
+      message:
+        $ref: '#/definitions/models.Message'
+    type: object
+  handlers.TraceUpdate:
+    properties:
+      conversationId:
+        type: string
+      durationMs:
+        type: integer
+      endedAt:
+        type: string
+      error:
+        type: string
+      input: {}
+      messageId:
+        type: string
+      metadata:
+        $ref: '#/definitions/models.TraceMetadata'
+      name:
+        type: string
+      output: {}
+      parentTraceId:
+        type: string
+      startedAt:
+        type: string
+      status:
+        type: string
+      traceId:
+        type: string
+      type:
+        type: string
+    required:
+    - conversationId
+    - messageId
+    - name
+    - status
+    - traceId
+    - type
+    type: object
+  handlers.UpdateTracesRequest:
+    properties:
+      traces:
+        items:
+          $ref: '#/definitions/handlers.TraceUpdate'
+        minItems: 1
+        type: array
+    required:
+    - traces
+    type: object
+  handlers.UpdateTracesResponse:
+    properties:
+      created:
+        type: integer
+      updated:
+        type: integer
+    type: object
+  models.Message:
+    properties:
+      agentId:
+        type: string
+      content:
+        type: string
+      conversationId:
+        type: string
+      createdAt:
+        type: string
+      id:
+        type: string
+      metadata:
+        $ref: '#/definitions/models.Metadata'
+      role:
+        $ref: '#/definitions/models.MessageRole'
+      tenantId:
+        type: string
+      updatedAt:
+        type: string
+      userId:
+        type: string
+    type: object
+  models.MessageRole:
+    enum:
+    - user
+    - assistant
+    - system
+    type: string
+    x-enum-varnames:
+    - RoleUser
+    - RoleAssistant
+    - RoleSystem
+  models.Metadata:
+    properties:
+      agentType:
+        description: AgentType is the type of agent that processed the message.
+        type: string
+      custom:
+        additionalProperties: true
+        description: Custom holds additional custom metadata.
+        type: object
+      latencyMs:
+        description: Latency is the response latency in milliseconds.
+        type: integer
+      model:
+        description: Model is the model used for generating the response.
+        type: string
+      tokensInput:
+        description: TokensInput is the number of input tokens.
+        type: integer
+      tokensOutput:
+        description: TokensOutput is the number of output tokens.
+        type: integer
+    type: object
+  models.Trace:
+    properties:
+      agentId:
+        type: string
+      conversationId:
+        type: string
+      durationMs:
+        type: integer
+      endedAt:
+        type: string
+      error:
+        type: string
+      id:
+        type: string
+      input: {}
+      messageId:
+        type: string
+      metadata:
+        $ref: '#/definitions/models.TraceMetadata'
+      name:
+        type: string
+      output: {}
+      parentTraceId:
+        type: string
+      startedAt:
+        type: string
+      status:
+        $ref: '#/definitions/models.TraceStatus'
+      tenantId:
+        type: string
+      type:
+        $ref: '#/definitions/models.TraceType'
+    type: object
+  models.TraceMetadata:
+    properties:
+      custom:
+        additionalProperties: true
+        description: Custom holds additional custom metadata.
+        type: object
+      model:
+        description: Model is the model used (for LLM traces).
+        type: string
+      tokensInput:
+        description: TokensInput is the number of input tokens.
+        type: integer
+      tokensOutput:
+        description: TokensOutput is the number of output tokens.
+        type: integer
+      toolInput:
+        description: ToolInput is the input to the tool.
+      toolName:
+        description: ToolName is the name of the tool (for tool traces).
+        type: string
+      toolOutput:
+        description: ToolOutput is the output from the tool.
+    type: object
+  models.TraceStatus:
+    enum:
+    - pending
+    - running
+    - completed
+    - failed
+    type: string
+    x-enum-varnames:
+    - TraceStatusPending
+    - TraceStatusRunning
+    - TraceStatusCompleted
+    - TraceStatusFailed
+  models.TraceType:
+    enum:
+    - llm
+    - tool
+    - agent
+    - chain
+    - retriever
+    type: string
+    x-enum-varnames:
+    - TraceTypeLLM
+    - TraceTypeTool
+    - TraceTypeAgent
+    - TraceTypeChain
+    - TraceTypeRetriever
+host: localhost:8085
+info:
+  contact:
+    email: support@unifiedui.io
+    name: API Support
+    url: https://github.com/unifiedui/chat-service
+  description: Unified abstraction layer for heterogeneous AI agent backends (N8N,
+    Microsoft Foundry, Copilot, LangChain)
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: http://swagger.io/terms/
+  title: UnifiedUI Chat Service API
+  version: "1.0"
+paths:
+  /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/traces:
+    put:
+      consumes:
+      - application/json
+      description: Called by autonomous agents to report their trace data
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Agent ID
+        in: path
+        name: agentId
+        required: true
+        type: string
+      - description: Trace updates
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateTracesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.UpdateTracesResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update traces
+      tags:
+      - Traces
+  /api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/messages:
+    get:
+      consumes:
+      - application/json
+      description: Retrieves messages for a conversation with pagination
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Conversation ID
+        in: path
+        name: conversationId
+        required: true
+        type: string
+      - default: 50
+        description: Maximum number of messages
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset for pagination
+        in: query
+        minimum: 0
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.GetMessagesResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get messages
+      tags:
+      - Messages
+    post:
+      consumes:
+      - application/json
+      description: Sends a message to an AI agent and returns the response (supports
+        SSE streaming)
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Conversation ID
+        in: path
+        name: conversationId
+        required: true
+        type: string
+      - description: Message content
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.SendMessageRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.SendMessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Send a message
+      tags:
+      - Messages
+  /api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/messages/{messageId}/traces:
+    get:
+      consumes:
+      - application/json
+      description: Retrieves all traces associated with a specific message
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Conversation ID
+        in: path
+        name: conversationId
+        required: true
+        type: string
+      - description: Message ID
+        in: path
+        name: messageId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.GetMessageTracesResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get message traces
+      tags:
+      - Traces
+  /health:
+    get:
+      description: Returns the overall health status and component statuses
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Service healthy
+          schema:
+            $ref: '#/definitions/handlers.HealthResponse'
+        "503":
+          description: Service unhealthy
+          schema:
+            $ref: '#/definitions/handlers.HealthResponse'
+      summary: Health check
+      tags:
+      - Health
+  /live:
+    get:
+      description: Returns 200 if the service is alive
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Service alive
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Liveness check
+      tags:
+      - Health
+  /ready:
+    get:
+      description: Returns 200 if the service is ready to accept traffic
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Service ready
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "503":
+          description: Service not ready
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Readiness check
+      tags:
+      - Health
+schemes:
+- http
+- https
+securityDefinitions:
+  BearerAuth:
+    description: Bearer token authentication (MSAL)
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

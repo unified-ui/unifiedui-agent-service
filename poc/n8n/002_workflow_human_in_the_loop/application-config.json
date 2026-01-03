@@ -1,0 +1,12 @@
+{
+    "httpRequest": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/ff13531c-085a-4f0b-916b-88f41783aa3d/chat",
+        "headers": {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer YOUR_API_KEY"
+        },
+        "username": "n8n-workflow-user",
+        "password": "password"
+    }
+}
