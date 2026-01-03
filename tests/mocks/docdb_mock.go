@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/mock"
 
-	"github.com/unifiedui/chat-service/internal/core/docdb"
+	"github.com/unifiedui/agent-service/internal/core/docdb"
 )
 
 // MockCollection is a mock implementation of docdb.Collection.

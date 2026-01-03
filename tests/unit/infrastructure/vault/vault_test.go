@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/unifiedui/chat-service/internal/infrastructure/vault/dotenv"
+	"github.com/unifiedui/agent-service/internal/infrastructure/vault/dotenv"
 )
 
 func TestDotEnvVault_StoreAndGetSecret(t *testing.T) {

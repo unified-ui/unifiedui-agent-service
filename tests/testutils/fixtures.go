@@ -4,7 +4,7 @@ package testutils
 import (
 	"time"
 
-	"github.com/unifiedui/chat-service/internal/domain/models"
+	"github.com/unifiedui/agent-service/internal/domain/models"
 )
 
 // Test constants

@@ -1,7 +1,7 @@
 .PHONY: build run test test-cover lint clean deps
 
 # Build variables
-BINARY_NAME=unifiedui-chat-service
+BINARY_NAME=unifiedui-agent-service
 BUILD_DIR=./bin
 
 # Go variables

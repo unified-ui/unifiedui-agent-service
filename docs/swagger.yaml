@@ -254,7 +254,7 @@ info:
   contact:
     email: support@unifiedui.io
     name: API Support
-    url: https://github.com/unifiedui/chat-service
+    url: https://github.com/unifiedui/agent-service
   description: Unified abstraction layer for heterogeneous AI agent backends (N8N,
     Microsoft Foundry, Copilot, LangChain)
   license:
@@ -264,6 +264,59 @@ info:
   title: UnifiedUI Chat Service API
   version: "1.0"
 paths:
+  /api/v1/agent-service/health:
+    get:
+      description: Returns the overall health status and component statuses
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Service healthy
+          schema:
+            $ref: '#/definitions/handlers.HealthResponse'
+        "503":
+          description: Service unhealthy
+          schema:
+            $ref: '#/definitions/handlers.HealthResponse'
+      summary: Health check
+      tags:
+      - Health
+  /api/v1/agent-service/live:
+    get:
+      description: Returns 200 if the service is alive
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Service alive
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Liveness check
+      tags:
+      - Health
+  /api/v1/agent-service/ready:
+    get:
+      description: Returns 200 if the service is ready to accept traffic
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Service ready
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "503":
+          description: Service not ready
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Readiness check
+      tags:
+      - Health
   /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/traces:
     put:
       consumes:
@@ -454,59 +507,6 @@ paths:
       summary: Get message traces
       tags:
       - Traces
-  /health:
-    get:
-      description: Returns the overall health status and component statuses
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Service healthy
-          schema:
-            $ref: '#/definitions/handlers.HealthResponse'
-        "503":
-          description: Service unhealthy
-          schema:
-            $ref: '#/definitions/handlers.HealthResponse'
-      summary: Health check
-      tags:
-      - Health
-  /live:
-    get:
-      description: Returns 200 if the service is alive
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Service alive
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Liveness check
-      tags:
-      - Health
-  /ready:
-    get:
-      description: Returns 200 if the service is ready to accept traffic
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Service ready
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "503":
-          description: Service not ready
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Readiness check
-      tags:
-      - Health
 schemes:
 - http
 - https

@@ -1,4 +1,4 @@
-# unified-ui-chat-service
+# unified-ui-agent-service
 
 ## N8N Integration
 

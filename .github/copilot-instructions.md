@@ -57,7 +57,7 @@
 ## Project Structure
 
 ```
-unified-ui-chat-service/
+unified-ui-agent-service/
 ├── cmd/
 │   └── server/
 │       └── main.go                 # Application entry point

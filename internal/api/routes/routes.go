@@ -1,11 +1,11 @@
-// Package routes defines the HTTP routes for the UnifiedUI Chat Service.
+// Package routes defines the HTTP routes for the UnifiedUI Agent Service.
 package routes
 
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/unifiedui/chat-service/internal/api/handlers"
-	"github.com/unifiedui/chat-service/internal/api/middleware"
+	"github.com/unifiedui/agent-service/internal/api/handlers"
+	"github.com/unifiedui/agent-service/internal/api/middleware"
 )
 
 // Config holds the dependencies for setting up routes.
@@ -18,19 +18,20 @@ type Config struct {
 
 // Setup configures all routes on the Gin engine.
 func Setup(r *gin.Engine, cfg *Config) {
-	// Health check routes (no auth required)
-	r.GET("/health", cfg.HealthHandler.Health)
-	r.GET("/ready", cfg.HealthHandler.Ready)
-	r.GET("/live", cfg.HealthHandler.Live)
-
-	// API v1 routes
+	// API v1 routes - all routes under /api/v1/agent-service
 	v1 := r.Group("/api/v1/agent-service")
 	{
-		// Apply auth middleware to all API routes
-		v1.Use(cfg.AuthMiddleware.Authenticate())
+		// Health check routes (no auth required)
+		v1.GET("/health", cfg.HealthHandler.Health)
+		v1.GET("/ready", cfg.HealthHandler.Ready)
+		v1.GET("/live", cfg.HealthHandler.Live)
+
+		// Apply auth middleware to protected API routes
+		protected := v1.Group("")
+		protected.Use(cfg.AuthMiddleware.Authenticate())
 
 		// Tenant-scoped routes
-		tenants := v1.Group("/tenants/:tenantId")
+		tenants := protected.Group("/tenants/:tenantId")
 		{
 			// Conversation routes
 			conversations := tenants.Group("/conversations/:conversationId")

@@ -6,8 +6,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/unifiedui/chat-service/internal/core/cache"
-	"github.com/unifiedui/chat-service/internal/core/docdb"
+	"github.com/unifiedui/agent-service/internal/core/cache"
+	"github.com/unifiedui/agent-service/internal/core/docdb"
 )
 
 // HealthHandler handles health check endpoints.
@@ -30,14 +30,14 @@ type HealthResponse struct {
 	Components map[string]string `json:"components,omitempty"`
 }
 
-// Health handles the /health endpoint.
+// Health handles the health endpoint.
 // @Summary Health check
 // @Description Returns the overall health status and component statuses
 // @Tags Health
 // @Produce json
 // @Success 200 {object} HealthResponse "Service healthy"
 // @Failure 503 {object} HealthResponse "Service unhealthy"
-// @Router /health [get]
+// @Router /api/v1/agent-service/health [get]
 func (h *HealthHandler) Health(c *gin.Context) {
 	components := make(map[string]string)
 	healthy := true
@@ -71,14 +71,14 @@ func (h *HealthHandler) Health(c *gin.Context) {
 	})
 }
 
-// Ready handles the /ready endpoint.
+// Ready handles the readiness endpoint.
 // @Summary Readiness check
 // @Description Returns 200 if the service is ready to accept traffic
 // @Tags Health
 // @Produce json
 // @Success 200 {object} map[string]string "Service ready"
 // @Failure 503 {object} map[string]string "Service not ready"
-// @Router /ready [get]
+// @Router /api/v1/agent-service/ready [get]
 func (h *HealthHandler) Ready(c *gin.Context) {
 	// Check all dependencies
 	if err := h.cacheClient.Ping(c.Request.Context()); err != nil {
@@ -102,13 +102,13 @@ func (h *HealthHandler) Ready(c *gin.Context) {
 	})
 }
 
-// Live handles the /live endpoint.
+// Live handles the liveness endpoint.
 // @Summary Liveness check
 // @Description Returns 200 if the service is alive
 // @Tags Health
 // @Produce json
 // @Success 200 {object} map[string]string "Service alive"
-// @Router /live [get]
+// @Router /api/v1/agent-service/live [get]
 func (h *HealthHandler) Live(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status": "alive",

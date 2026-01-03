@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/mock"
 
-	"github.com/unifiedui/chat-service/internal/core/vault"
+	"github.com/unifiedui/agent-service/internal/core/vault"
 )
 
 // MockVault is a mock implementation of vault.Vault.

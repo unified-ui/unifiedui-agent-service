@@ -12,7 +12,7 @@ const docTemplate = `{
         "termsOfService": "http://swagger.io/terms/",
         "contact": {
             "name": "API Support",
-            "url": "https://github.com/unifiedui/chat-service",
+            "url": "https://github.com/unifiedui/agent-service",
             "email": "support@unifiedui.io"
         },
         "license": {
@@ -24,6 +24,87 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/v1/agent-service/health": {
+            "get": {
+                "description": "Returns the overall health status and component statuses",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Health"
+                ],
+                "summary": "Health check",
+                "responses": {
+                    "200": {
+                        "description": "Service healthy",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.HealthResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service unhealthy",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.HealthResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agent-service/live": {
+            "get": {
+                "description": "Returns 200 if the service is alive",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Health"
+                ],
+                "summary": "Liveness check",
+                "responses": {
+                    "200": {
+                        "description": "Service alive",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agent-service/ready": {
+            "get": {
+                "description": "Returns 200 if the service is ready to accept traffic",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Health"
+                ],
+                "summary": "Readiness check",
+                "responses": {
+                    "200": {
+                        "description": "Service ready",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Service not ready",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/traces": {
             "put": {
                 "security": [
@@ -307,87 +388,6 @@ const docTemplate = `{
                         "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/health": {
-            "get": {
-                "description": "Returns the overall health status and component statuses",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Health"
-                ],
-                "summary": "Health check",
-                "responses": {
-                    "200": {
-                        "description": "Service healthy",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.HealthResponse"
-                        }
-                    },
-                    "503": {
-                        "description": "Service unhealthy",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.HealthResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/live": {
-            "get": {
-                "description": "Returns 200 if the service is alive",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Health"
-                ],
-                "summary": "Liveness check",
-                "responses": {
-                    "200": {
-                        "description": "Service alive",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/ready": {
-            "get": {
-                "description": "Returns 200 if the service is ready to accept traffic",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Health"
-                ],
-                "summary": "Readiness check",
-                "responses": {
-                    "200": {
-                        "description": "Service ready",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "503": {
-                        "description": "Service not ready",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
                         }
                     }
                 }

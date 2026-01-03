@@ -1,4 +1,4 @@
-module github.com/unifiedui/chat-service
+module github.com/unifiedui/agent-service
 
 go 1.24.0
 

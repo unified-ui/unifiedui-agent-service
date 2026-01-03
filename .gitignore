@@ -4,8 +4,8 @@
 *.dll
 *.so
 *.dylib
-unified-ui-chat-service
-chat-service
+unified-ui-agent-service
+agent-service
 
 # Build output
 /bin/

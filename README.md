@@ -47,7 +47,7 @@ UnifiedUI Chat Service provides:
 1. Clone the repository:
 ```bash
 git clone <repository-url>
-cd unified-ui-chat-service
+cd unified-ui-agent-service
 ```
 
 2. Copy environment variables:

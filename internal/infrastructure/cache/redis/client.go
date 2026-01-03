@@ -5,7 +5,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/unifiedui/chat-service/internal/core/cache"
+	"github.com/unifiedui/agent-service/internal/core/cache"
 )
 
 // Client implements the cache.Client interface for Redis.

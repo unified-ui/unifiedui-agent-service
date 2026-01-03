@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/mock"
 
-	"github.com/unifiedui/chat-service/internal/core/cache"
+	"github.com/unifiedui/agent-service/internal/core/cache"
 )
 
 // MockCache is a mock implementation of cache.Cache.

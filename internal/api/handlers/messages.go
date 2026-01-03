@@ -8,11 +8,11 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 
-	"github.com/unifiedui/chat-service/internal/api/middleware"
-	"github.com/unifiedui/chat-service/internal/api/sse"
-	"github.com/unifiedui/chat-service/internal/core/docdb"
-	"github.com/unifiedui/chat-service/internal/domain/errors"
-	"github.com/unifiedui/chat-service/internal/domain/models"
+	"github.com/unifiedui/agent-service/internal/api/middleware"
+	"github.com/unifiedui/agent-service/internal/api/sse"
+	"github.com/unifiedui/agent-service/internal/core/docdb"
+	"github.com/unifiedui/agent-service/internal/domain/errors"
+	"github.com/unifiedui/agent-service/internal/domain/models"
 )
 
 // MessagesHandler handles message-related endpoints.

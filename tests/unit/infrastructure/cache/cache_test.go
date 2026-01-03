@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/unifiedui/chat-service/internal/core/cache"
-	rediscache "github.com/unifiedui/chat-service/internal/infrastructure/cache/redis"
+	"github.com/unifiedui/agent-service/internal/core/cache"
+	rediscache "github.com/unifiedui/agent-service/internal/infrastructure/cache/redis"
 )
 
 func setupMiniredis(t *testing.T) (*miniredis.Miniredis, cache.Client) {

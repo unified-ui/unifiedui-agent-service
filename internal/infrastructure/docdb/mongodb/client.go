@@ -8,7 +8,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"github.com/unifiedui/chat-service/internal/core/docdb"
+	"github.com/unifiedui/agent-service/internal/core/docdb"
 )
 
 const (

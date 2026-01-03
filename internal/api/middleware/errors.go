@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 
-	domainerrors "github.com/unifiedui/chat-service/internal/domain/errors"
+	domainerrors "github.com/unifiedui/agent-service/internal/domain/errors"
 )
 
 // ErrorMiddleware handles error recovery and formatting.

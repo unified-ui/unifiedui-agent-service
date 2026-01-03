@@ -8,9 +8,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/unifiedui/chat-service/internal/api/handlers"
-	"github.com/unifiedui/chat-service/tests/mocks"
-	"github.com/unifiedui/chat-service/tests/testutils"
+	"github.com/unifiedui/agent-service/internal/api/handlers"
+	"github.com/unifiedui/agent-service/tests/mocks"
+	"github.com/unifiedui/agent-service/tests/testutils"
 )
 
 func TestHealthHandler_Health_AllHealthy(t *testing.T) {

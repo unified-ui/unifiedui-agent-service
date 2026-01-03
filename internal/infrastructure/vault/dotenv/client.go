@@ -4,7 +4,7 @@ package dotenv
 import (
 	"context"
 
-	"github.com/unifiedui/chat-service/internal/core/vault"
+	"github.com/unifiedui/agent-service/internal/core/vault"
 )
 
 // Client implements the vault.Client interface for DotEnv.

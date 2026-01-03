@@ -5,7 +5,7 @@
 // @termsOfService http://swagger.io/terms/
 
 // @contact.name API Support
-// @contact.url https://github.com/unifiedui/chat-service
+// @contact.url https://github.com/unifiedui/agent-service
 // @contact.email support@unifiedui.io
 
 // @license.name MIT
@@ -34,17 +34,17 @@ import (
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 
-	_ "github.com/unifiedui/chat-service/docs"
-	"github.com/unifiedui/chat-service/internal/api/handlers"
-	"github.com/unifiedui/chat-service/internal/api/middleware"
-	"github.com/unifiedui/chat-service/internal/api/routes"
-	"github.com/unifiedui/chat-service/internal/config"
-	"github.com/unifiedui/chat-service/internal/core/cache"
-	"github.com/unifiedui/chat-service/internal/core/docdb"
-	"github.com/unifiedui/chat-service/internal/core/vault"
-	rediscache "github.com/unifiedui/chat-service/internal/infrastructure/cache/redis"
-	"github.com/unifiedui/chat-service/internal/infrastructure/docdb/mongodb"
-	dotenvvault "github.com/unifiedui/chat-service/internal/infrastructure/vault/dotenv"
+	_ "github.com/unifiedui/agent-service/docs"
+	"github.com/unifiedui/agent-service/internal/api/handlers"
+	"github.com/unifiedui/agent-service/internal/api/middleware"
+	"github.com/unifiedui/agent-service/internal/api/routes"
+	"github.com/unifiedui/agent-service/internal/config"
+	"github.com/unifiedui/agent-service/internal/core/cache"
+	"github.com/unifiedui/agent-service/internal/core/docdb"
+	"github.com/unifiedui/agent-service/internal/core/vault"
+	rediscache "github.com/unifiedui/agent-service/internal/infrastructure/cache/redis"
+	"github.com/unifiedui/agent-service/internal/infrastructure/docdb/mongodb"
+	dotenvvault "github.com/unifiedui/agent-service/internal/infrastructure/vault/dotenv"
 )
 
 func main() {
