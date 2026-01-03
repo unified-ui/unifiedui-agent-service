@@ -22,7 +22,32 @@ type ChatRequest struct {
 	SessionID string `json:"sessionId,omitempty"`
 }
 
-// ChatStreamChunk represents a chunk from the N8N streaming response.
+// N8NStreamType represents the type of N8N stream event.
+type N8NStreamType string
+
+const (
+	N8NStreamTypeBegin N8NStreamType = "begin"
+	N8NStreamTypeItem  N8NStreamType = "item"
+	N8NStreamTypeEnd   N8NStreamType = "end"
+)
+
+// N8NStreamMetadata represents metadata in N8N stream events.
+type N8NStreamMetadata struct {
+	NodeID    string `json:"nodeId,omitempty"`
+	NodeName  string `json:"nodeName,omitempty"`
+	ItemIndex int    `json:"itemIndex,omitempty"`
+	RunIndex  int    `json:"runIndex,omitempty"`
+	Timestamp int64  `json:"timestamp,omitempty"`
+}
+
+// N8NStreamEvent represents a stream event from N8N.
+type N8NStreamEvent struct {
+	Type     N8NStreamType     `json:"type"`
+	Content  string            `json:"content,omitempty"`
+	Metadata N8NStreamMetadata `json:"metadata,omitempty"`
+}
+
+// ChatStreamChunk represents a chunk from the N8N streaming response (legacy format).
 type ChatStreamChunk struct {
 	Content      string                 `json:"content,omitempty"`
 	ExecutionID  string                 `json:"executionId,omitempty"`

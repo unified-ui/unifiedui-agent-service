@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -232,44 +233,47 @@ func (r *streamReader) Read() (*StreamChunk, error) {
 			continue
 		}
 
-		var n8nChunk ChatStreamChunk
-		if err := json.Unmarshal([]byte(line), &n8nChunk); err != nil {
+		// Parse N8N stream event
+		var event N8NStreamEvent
+		if err := json.Unmarshal([]byte(line), &event); err != nil {
 			// Skip non-JSON lines
 			continue
 		}
 
-		chunk := &StreamChunk{
+		// Only process "item" events with content from AI Agent node
+		if event.Type != N8NStreamTypeItem {
+			continue
+		}
+
+		// Skip empty content
+		if event.Content == "" {
+			continue
+		}
+
+		// Check if content is JSON (metadata like executionId)
+		if strings.HasPrefix(event.Content, "{") {
+			var innerData map[string]interface{}
+			if err := json.Unmarshal([]byte(event.Content), &innerData); err == nil {
+				// This is metadata, skip it for now
+				// Could be executionId, runInfo, etc.
+				if execID, ok := innerData["executionId"].(string); ok {
+					return &StreamChunk{
+						Type:        ChunkTypeMetadata,
+						ExecutionID: execID,
+						Metadata:    make(map[string]interface{}),
+					}, nil
+				}
+				// Skip other JSON metadata
+				continue
+			}
+		}
+
+		// Regular text content
+		return &StreamChunk{
+			Type:     ChunkTypeContent,
+			Content:  event.Content,
 			Metadata: make(map[string]interface{}),
-		}
-
-		// Handle content chunks
-		if n8nChunk.Content != "" {
-			chunk.Type = ChunkTypeContent
-			chunk.Content = n8nChunk.Content
-			return chunk, nil
-		}
-
-		// Handle execution info
-		if n8nChunk.ExecutionID != "" {
-			chunk.Type = ChunkTypeMetadata
-			chunk.ExecutionID = n8nChunk.ExecutionID
-			return chunk, nil
-		}
-
-		// Handle run info
-		if n8nChunk.RunInfo != nil {
-			chunk.Type = ChunkTypeMetadata
-			chunk.Metadata["runInfo"] = n8nChunk.RunInfo
-			return chunk, nil
-		}
-
-		// Handle token info
-		if n8nChunk.InputTokens > 0 || n8nChunk.OutputTokens > 0 {
-			chunk.Type = ChunkTypeMetadata
-			chunk.Metadata["inputTokens"] = n8nChunk.InputTokens
-			chunk.Metadata["outputTokens"] = n8nChunk.OutputTokens
-			return chunk, nil
-		}
+		}, nil
 	}
 
 	if err := r.scanner.Err(); err != nil {

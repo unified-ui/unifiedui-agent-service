@@ -12,6 +12,16 @@ Plan:
     - Factory Colleczion und MongoDB Client implementieren
     - in endpoint -> Messages fetchen + Messages speichern + messages in chatInput geben
 
+
+Der Ziel Flow wäre:
+1. Request arrives
+2. Get Config from cache OR if empty: Send request to Platform service
+3. parse response from platform service (or cache) and use factory pattern to create needed clients (in this case: N8NAPIClientV1 and N8NChatWorkflowClientV1)
+4. Invoke Agent system (in this case: n8n chat url with streaming response and send streaming text to client)
+5. store new messages in db (also if error is here (try catch finally -> store))
+6. encrypt secrets in config and store request in cache
+7. send end message (in stream) to client
+
 ## N8N Integration
 
 **N8N ApplicationConfig:**
@@ -30,7 +40,7 @@ Plan:
     "message": {
         "content": "msg",
         "attachements": [
-            
+
         ]
     },
     "invokeConfig": {

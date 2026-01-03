@@ -240,8 +240,8 @@ func (h *MessagesHandler) handleStreamingResponse(
 	// Get stream reader from workflow client
 	streamReader, err := agentClients.WorkflowClient.InvokeStreamReader(ctx, invokeReq)
 	if err != nil {
-		writer.WriteError("STREAM_ERROR", "Failed to invoke agent", err.Error())
-		writer.WriteDone()
+		writer.WriteStreamError("STREAM_ERROR", "Failed to invoke agent", err.Error())
+		writer.WriteStreamEnd()
 		return
 	}
 	defer streamReader.Close()
@@ -250,6 +250,9 @@ func (h *MessagesHandler) handleStreamingResponse(
 	assistantMessageID := generateMessageID()
 	var fullContent string
 
+	// Send STREAM_START
+	writer.WriteStreamStart(assistantMessageID)
+
 	// Read and forward stream chunks
 	for {
 		chunk, err := streamReader.Read()
@@ -257,34 +260,25 @@ func (h *MessagesHandler) handleStreamingResponse(
 			break
 		}
 		if err != nil {
-			writer.WriteError("STREAM_ERROR", "Error reading stream", err.Error())
+			writer.WriteStreamError("STREAM_ERROR", "Error reading stream", err.Error())
 			break
 		}
 
 		switch chunk.Type {
 		case agents.ChunkTypeContent:
 			fullContent += chunk.Content
-			writer.WriteMessageChunk(&sse.MessageChunk{
-				Content:   chunk.Content,
-				MessageID: assistantMessageID,
-				Done:      false,
-			})
+			writer.WriteTextStream(chunk.Content)
 		case agents.ChunkTypeMetadata:
 			// Could send metadata as separate event type if needed
 		case agents.ChunkTypeError:
 			if chunk.Error != nil {
-				writer.WriteError("CHUNK_ERROR", "Error in chunk", chunk.Error.Error())
+				writer.WriteStreamError("CHUNK_ERROR", "Error in chunk", chunk.Error.Error())
 			}
 		}
 	}
 
-	// Send done chunk
-	writer.WriteMessageChunk(&sse.MessageChunk{
-		Content:   "",
-		MessageID: assistantMessageID,
-		Done:      true,
-	})
-	writer.WriteDone()
+	// Send STREAM_END
+	writer.WriteStreamEnd()
 
 	// Store assistant message
 	assistantMessage := models.NewMessage(

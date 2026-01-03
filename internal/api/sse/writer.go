@@ -21,6 +21,27 @@ const (
 	EventDone EventType = "done"
 )
 
+// StreamMessageType represents the type of stream message in the data payload.
+type StreamMessageType string
+
+const (
+	// StreamTypeStart indicates the start of a stream.
+	StreamTypeStart StreamMessageType = "STREAM_START"
+	// StreamTypeTextStream indicates a text content chunk.
+	StreamTypeTextStream StreamMessageType = "TEXT_STREAM"
+	// StreamTypeEnd indicates the end of a stream.
+	StreamTypeEnd StreamMessageType = "STREAM_END"
+	// StreamTypeError indicates an error in the stream.
+	StreamTypeError StreamMessageType = "ERROR"
+)
+
+// StreamMessage represents a unified stream message format.
+type StreamMessage struct {
+	Type    StreamMessageType      `json:"type"`
+	Content string                 `json:"content,omitempty"`
+	Config  map[string]interface{} `json:"config,omitempty"`
+}
+
 // Writer writes Server-Sent Events to an HTTP response.
 type Writer struct {
 	writer  http.ResponseWriter
@@ -80,14 +101,52 @@ func (w *Writer) WriteMessage(content string) error {
 	return w.WriteEvent(EventMessage, content)
 }
 
-// WriteMessageChunk writes a message chunk with content.
+// WriteStreamStart writes the STREAM_START message.
+func (w *Writer) WriteStreamStart(messageID string) error {
+	return w.WriteJSON(EventMessage, &StreamMessage{
+		Type: StreamTypeStart,
+		Config: map[string]interface{}{
+			"messageId": messageID,
+		},
+	})
+}
+
+// WriteTextStream writes a TEXT_STREAM message with content.
+func (w *Writer) WriteTextStream(content string) error {
+	return w.WriteJSON(EventMessage, &StreamMessage{
+		Type:    StreamTypeTextStream,
+		Content: content,
+	})
+}
+
+// WriteStreamEnd writes the STREAM_END message.
+func (w *Writer) WriteStreamEnd() error {
+	return w.WriteJSON(EventMessage, &StreamMessage{
+		Type:   StreamTypeEnd,
+		Config: map[string]interface{}{},
+	})
+}
+
+// WriteStreamError writes an error message in stream format.
+func (w *Writer) WriteStreamError(code, message, details string) error {
+	return w.WriteJSON(EventMessage, &StreamMessage{
+		Type: StreamTypeError,
+		Config: map[string]interface{}{
+			"code":    code,
+			"message": message,
+			"details": details,
+		},
+	})
+}
+
+// MessageChunk is kept for backward compatibility.
 type MessageChunk struct {
 	Content   string `json:"content"`
 	MessageID string `json:"messageId,omitempty"`
 	Done      bool   `json:"done"`
 }
 
-// WriteMessageChunk writes a message chunk event.
+// WriteMessageChunk writes a message chunk event (legacy format).
 func (w *Writer) WriteMessageChunk(chunk *MessageChunk) error {
 	return w.WriteJSON(EventMessage, chunk)
 }
