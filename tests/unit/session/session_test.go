@@ -198,6 +198,67 @@ func TestService_GetSession_CacheError(t *testing.T) {
 	mockCache.AssertExpectations(t)
 }
 
+func TestService_GetSession_DecryptError_ReturnsNil(t *testing.T) {
+	// Arrange - When decryption fails (e.g., key changed), cache should be skipped gracefully
+	mockCache := &mocks.MockCacheClient{}
+	mockEncryptor := &mocks.MockEncryptor{}
+
+	cfg := &session.Config{
+		CacheClient: mockCache,
+		Encryptor:   mockEncryptor,
+	}
+
+	svc, err := session.NewService(cfg)
+	require.NoError(t, err)
+
+	encryptedData := "encrypted-with-old-key"
+
+	mockCache.On("Get", mock.Anything, mock.AnythingOfType("string")).Return([]byte(encryptedData), nil)
+	mockEncryptor.On("Decrypt", encryptedData).Return(nil, errors.New("cipher: message authentication failed"))
+	mockCache.On("Delete", mock.Anything, mock.AnythingOfType("string")).Return(true, nil)
+
+	// Act
+	result, err := svc.GetSession(context.Background(), "tenant", "user", "conv")
+
+	// Assert - Should return nil (not error) so fresh data is fetched
+	require.NoError(t, err)
+	assert.Nil(t, result)
+
+	mockCache.AssertExpectations(t)
+	mockEncryptor.AssertExpectations(t)
+}
+
+func TestService_GetSession_UnmarshalError_ReturnsNil(t *testing.T) {
+	// Arrange - When unmarshal fails (corrupted data), cache should be skipped gracefully
+	mockCache := &mocks.MockCacheClient{}
+	mockEncryptor := &mocks.MockEncryptor{}
+
+	cfg := &session.Config{
+		CacheClient: mockCache,
+		Encryptor:   mockEncryptor,
+	}
+
+	svc, err := session.NewService(cfg)
+	require.NoError(t, err)
+
+	encryptedData := "encrypted-data"
+	invalidJSON := []byte("not valid json")
+
+	mockCache.On("Get", mock.Anything, mock.AnythingOfType("string")).Return([]byte(encryptedData), nil)
+	mockEncryptor.On("Decrypt", encryptedData).Return(invalidJSON, nil)
+	mockCache.On("Delete", mock.Anything, mock.AnythingOfType("string")).Return(true, nil)
+
+	// Act
+	result, err := svc.GetSession(context.Background(), "tenant", "user", "conv")
+
+	// Assert - Should return nil (not error) so fresh data is fetched
+	require.NoError(t, err)
+	assert.Nil(t, result)
+
+	mockCache.AssertExpectations(t)
+	mockEncryptor.AssertExpectations(t)
+}
+
 func TestService_SetSession_Success(t *testing.T) {
 	// Arrange
 	mockCache := &mocks.MockCacheClient{}

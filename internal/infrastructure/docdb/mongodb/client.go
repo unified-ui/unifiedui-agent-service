@@ -74,9 +74,8 @@ func (c *Client) Messages() docdb.MessagesCollection {
 }
 
 // MessagesRaw returns the raw messages collection for direct operations.
-// Note: This returns the user_messages collection for backward compatibility.
 func (c *Client) MessagesRaw() docdb.Collection {
-	return c.database.Collection(UserMessagesCollection)
+	return c.database.Collection(MessagesCollectionName)
 }
 
 // Traces returns the traces collection.

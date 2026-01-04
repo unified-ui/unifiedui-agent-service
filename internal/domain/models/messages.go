@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// MessageType represents the type of message.
+// MessageType represents the type of message (user or assistant).
 type MessageType string
 
 const (
@@ -15,7 +15,7 @@ const (
 	MessageTypeAssistant MessageType = "assistant"
 )
 
-// MessageStatus represents the status of an assistant message.
+// MessageStatus represents the status of a message (mainly for assistant messages).
 type MessageStatus string
 
 const (
@@ -26,12 +26,6 @@ const (
 	// MessageStatusFailed indicates the message processing failed.
 	MessageStatusFailed MessageStatus = "failed"
 )
-
-// MessageContent represents the content of a message.
-type MessageContent struct {
-	Type    MessageType `json:"type" bson:"type"`
-	Content string      `json:"content" bson:"content"`
-}
 
 // MessageRequest represents the original request that triggered a message.
 type MessageRequest struct {
@@ -72,34 +66,30 @@ type StatusTrace struct {
 	Data      map[string]interface{} `json:"data,omitempty" bson:"data,omitempty"`
 }
 
-// UserMessage represents a message sent by a user.
-type UserMessage struct {
-	ID             string          `json:"id" bson:"_id"`
-	ConversationID string          `json:"conversationId" bson:"conversationId"`
-	ApplicationID  string          `json:"applicationId" bson:"applicationId"`
-	TenantID       string          `json:"tenantId" bson:"tenantId"`
-	UserID         string          `json:"userId" bson:"userId"`
-	Message        MessageContent  `json:"message" bson:"message"`
-	Request        *MessageRequest `json:"request,omitempty" bson:"request,omitempty"`
-	Attachments    []string        `json:"attachments,omitempty" bson:"attachments,omitempty"`
-	CreatedAt      time.Time       `json:"createdAt" bson:"createdAt"`
-	UpdatedAt      time.Time       `json:"updatedAt" bson:"updatedAt"`
-}
+// Message represents a unified message in the chat (user or assistant).
+// All messages are stored in a SINGLE collection, differentiated by the Type field.
+type Message struct {
+	// Common fields for all message types
+	ID             string      `json:"id" bson:"_id"`
+	Type           MessageType `json:"type" bson:"type"`
+	ConversationID string      `json:"conversationId" bson:"conversationId"`
+	ApplicationID  string      `json:"applicationId" bson:"applicationId"`
+	TenantID       string      `json:"tenantId" bson:"tenantId"`
+	Content        string      `json:"content" bson:"content"`
+	CreatedAt      time.Time   `json:"createdAt" bson:"createdAt"`
+	UpdatedAt      time.Time   `json:"updatedAt" bson:"updatedAt"`
 
-// AssistantMessage represents a message from an AI assistant.
-type AssistantMessage struct {
-	ID             string             `json:"id" bson:"_id"`
-	ConversationID string             `json:"conversationId" bson:"conversationId"`
-	UserMessageID  string             `json:"userMessageId" bson:"userMessageId"`
-	ApplicationID  string             `json:"applicationId" bson:"applicationId"`
-	TenantID       string             `json:"tenantId" bson:"tenantId"`
-	Message        MessageContent     `json:"message" bson:"message"`
-	StatusTraces   []StatusTrace      `json:"statusTraces,omitempty" bson:"statusTraces,omitempty"`
-	Status         MessageStatus      `json:"status" bson:"status"`
-	ErrorMessage   string             `json:"errorMessage,omitempty" bson:"errorMessage,omitempty"`
-	Metadata       *AssistantMetadata `json:"metadata,omitempty" bson:"metadata,omitempty"`
-	CreatedAt      time.Time          `json:"createdAt" bson:"createdAt"`
-	UpdatedAt      time.Time          `json:"updatedAt" bson:"updatedAt"`
+	// User message specific fields (only set when Type == MessageTypeUser)
+	UserID      string          `json:"userId,omitempty" bson:"userId,omitempty"`
+	Request     *MessageRequest `json:"request,omitempty" bson:"request,omitempty"`
+	Attachments []string        `json:"attachments,omitempty" bson:"attachments,omitempty"`
+
+	// Assistant message specific fields (only set when Type == MessageTypeAssistant)
+	UserMessageID string             `json:"userMessageId,omitempty" bson:"userMessageId,omitempty"`
+	Status        MessageStatus      `json:"status,omitempty" bson:"status,omitempty"`
+	StatusTraces  []StatusTrace      `json:"statusTraces,omitempty" bson:"statusTraces,omitempty"`
+	ErrorMessage  string             `json:"errorMessage,omitempty" bson:"errorMessage,omitempty"`
+	Metadata      *AssistantMetadata `json:"metadata,omitempty" bson:"metadata,omitempty"`
 }
 
 // ChatHistoryEntry represents a single entry in chat history.
@@ -109,7 +99,7 @@ type ChatHistoryEntry struct {
 	Timestamp time.Time   `json:"timestamp" bson:"timestamp"`
 }
 
-// NewUserMessage creates a new UserMessage with the given parameters.
+// NewUserMessage creates a new user Message.
 func NewUserMessage(
 	tenantID string,
 	conversationID string,
@@ -118,25 +108,23 @@ func NewUserMessage(
 	content string,
 	attachments []string,
 	request *MessageRequest,
-) *UserMessage {
+) *Message {
 	now := time.Now().UTC()
-	return &UserMessage{
+	return &Message{
+		Type:           MessageTypeUser,
 		ConversationID: conversationID,
 		ApplicationID:  applicationID,
 		TenantID:       tenantID,
 		UserID:         userID,
-		Message: MessageContent{
-			Type:    MessageTypeUser,
-			Content: content,
-		},
-		Request:     request,
-		Attachments: attachments,
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		Content:        content,
+		Request:        request,
+		Attachments:    attachments,
+		CreatedAt:      now,
+		UpdatedAt:      now,
 	}
 }
 
-// NewAssistantMessage creates a new AssistantMessage with the given parameters.
+// NewAssistantMessage creates a new assistant Message.
 func NewAssistantMessage(
 	tenantID string,
 	conversationID string,
@@ -144,40 +132,48 @@ func NewAssistantMessage(
 	applicationID string,
 	content string,
 	status MessageStatus,
-) *AssistantMessage {
+) *Message {
 	now := time.Now().UTC()
-	return &AssistantMessage{
+	return &Message{
+		Type:           MessageTypeAssistant,
 		ConversationID: conversationID,
 		UserMessageID:  userMessageID,
 		ApplicationID:  applicationID,
 		TenantID:       tenantID,
-		Message: MessageContent{
-			Type:    MessageTypeAssistant,
-			Content: content,
-		},
-		Status:       status,
-		StatusTraces: []StatusTrace{},
-		CreatedAt:    now,
-		UpdatedAt:    now,
+		Content:        content,
+		Status:         status,
+		StatusTraces:   []StatusTrace{},
+		CreatedAt:      now,
+		UpdatedAt:      now,
 	}
 }
 
+// IsUserMessage returns true if this is a user message.
+func (m *Message) IsUserMessage() bool {
+	return m.Type == MessageTypeUser
+}
+
+// IsAssistantMessage returns true if this is an assistant message.
+func (m *Message) IsAssistantMessage() bool {
+	return m.Type == MessageTypeAssistant
+}
+
 // SetError sets the error message and updates the status to failed.
-func (m *AssistantMessage) SetError(errorMessage string) {
+func (m *Message) SetError(errorMessage string) {
 	m.Status = MessageStatusFailed
 	m.ErrorMessage = errorMessage
 	m.UpdatedAt = time.Now().UTC()
 }
 
 // SetSuccess sets the content and updates the status to success.
-func (m *AssistantMessage) SetSuccess(content string) {
-	m.Message.Content = content
+func (m *Message) SetSuccess(content string) {
+	m.Content = content
 	m.Status = MessageStatusSuccess
 	m.UpdatedAt = time.Now().UTC()
 }
 
 // AddStatusTrace adds a status trace entry.
-func (m *AssistantMessage) AddStatusTrace(traceType, name, content string, data map[string]interface{}) {
+func (m *Message) AddStatusTrace(traceType, name, content string, data map[string]interface{}) {
 	m.StatusTraces = append(m.StatusTraces, StatusTrace{
 		Type:      traceType,
 		Name:      name,
@@ -189,35 +185,16 @@ func (m *AssistantMessage) AddStatusTrace(traceType, name, content string, data 
 }
 
 // SetMetadata sets the assistant metadata.
-func (m *AssistantMessage) SetMetadata(metadata *AssistantMetadata) {
+func (m *Message) SetMetadata(metadata *AssistantMetadata) {
 	m.Metadata = metadata
 	m.UpdatedAt = time.Now().UTC()
 }
 
-// ToChatHistoryEntry converts a UserMessage to a ChatHistoryEntry.
-func (m *UserMessage) ToChatHistoryEntry() ChatHistoryEntry {
+// ToChatHistoryEntry converts a Message to a ChatHistoryEntry.
+func (m *Message) ToChatHistoryEntry() ChatHistoryEntry {
 	return ChatHistoryEntry{
-		Role:      MessageTypeUser,
-		Content:   m.Message.Content,
+		Role:      m.Type,
+		Content:   m.Content,
 		Timestamp: m.CreatedAt,
 	}
-}
-
-// ToChatHistoryEntry converts an AssistantMessage to a ChatHistoryEntry.
-func (m *AssistantMessage) ToChatHistoryEntry() ChatHistoryEntry {
-	return ChatHistoryEntry{
-		Role:      MessageTypeAssistant,
-		Content:   m.Message.Content,
-		Timestamp: m.CreatedAt,
-	}
-}
-
-// IsUserMessage checks if a document is a UserMessage based on message type.
-func IsUserMessage(messageType MessageType) bool {
-	return messageType == MessageTypeUser
-}
-
-// IsAssistantMessage checks if a document is an AssistantMessage based on message type.
-func IsAssistantMessage(messageType MessageType) bool {
-	return messageType == MessageTypeAssistant
 }

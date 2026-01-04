@@ -12,37 +12,42 @@ const (
 	TestTenantID       = "tenant-test-123"
 	TestConversationID = "conv-test-456"
 	TestMessageID      = "msg-test-789"
-	TestAgentID        = "agent-test-abc"
+	TestApplicationID  = "app-test-abc"
 	TestUserID         = "user-test-def"
 	TestTraceID        = "trace-test-xyz"
 )
 
-// NewTestMessage creates a test message with default values.
-func NewTestMessage() *models.Message {
+// NewTestUserMessage creates a test user message with default values.
+func NewTestUserMessage() *models.Message {
+	now := time.Now().UTC()
 	return &models.Message{
 		ID:             TestMessageID,
+		Type:           models.MessageTypeUser,
 		TenantID:       TestTenantID,
 		ConversationID: TestConversationID,
-		Role:           models.RoleUser,
-		Content:        "Test message content",
-		AgentID:        TestAgentID,
+		ApplicationID:  TestApplicationID,
 		UserID:         TestUserID,
-		CreatedAt:      time.Now().UTC(),
-		UpdatedAt:      time.Now().UTC(),
+		Content:        "Test message content",
+		CreatedAt:      now,
+		UpdatedAt:      now,
 	}
 }
 
 // NewTestAssistantMessage creates a test assistant message.
 func NewTestAssistantMessage() *models.Message {
+	now := time.Now().UTC()
 	return &models.Message{
 		ID:             TestMessageID + "-assistant",
+		Type:           models.MessageTypeAssistant,
 		TenantID:       TestTenantID,
 		ConversationID: TestConversationID,
-		Role:           models.RoleAssistant,
+		ApplicationID:  TestApplicationID,
+		UserMessageID:  TestMessageID,
 		Content:        "Test assistant response",
-		AgentID:        TestAgentID,
-		CreatedAt:      time.Now().UTC(),
-		UpdatedAt:      time.Now().UTC(),
+		Status:         models.MessageStatusSuccess,
+		StatusTraces:   []models.StatusTrace{},
+		CreatedAt:      now,
+		UpdatedAt:      now,
 	}
 }
 
@@ -53,7 +58,7 @@ func NewTestTrace() *models.Trace {
 		TenantID:       TestTenantID,
 		ConversationID: TestConversationID,
 		MessageID:      TestMessageID,
-		AgentID:        TestAgentID,
+		AgentID:        TestApplicationID,
 		Type:           models.TraceTypeLLM,
 		Name:           "test-llm-call",
 		Status:         models.TraceStatusCompleted,
@@ -72,7 +77,7 @@ func NewTestToolTrace() *models.Trace {
 		TenantID:       TestTenantID,
 		ConversationID: TestConversationID,
 		MessageID:      TestMessageID,
-		AgentID:        TestAgentID,
+		AgentID:        TestApplicationID,
 		ParentTraceID:  TestTraceID,
 		Type:           models.TraceTypeTool,
 		Name:           "search-tool",
@@ -95,7 +100,7 @@ func NewTestSession() *models.Session {
 		TenantID: TestTenantID,
 		UserID:   TestUserID,
 		Config: &models.SessionConfig{
-			AgentID:   TestAgentID,
+			AgentID:   TestApplicationID,
 			AgentType: "n8n",
 			AgentName: "Test Agent",
 			Endpoint:  "http://localhost:5678/webhook/test",
@@ -114,16 +119,20 @@ func NewTestSession() *models.Session {
 	}
 }
 
-// NewTestMessages creates a slice of test messages.
+// NewTestMessages creates a slice of test messages (alternating user/assistant).
 func NewTestMessages(count int) []*models.Message {
 	messages := make([]*models.Message, count)
 	for i := 0; i < count; i++ {
-		msg := NewTestMessage()
-		msg.ID = TestMessageID + "-" + string(rune('0'+i))
-		if i%2 == 1 {
-			msg.Role = models.RoleAssistant
+		if i%2 == 0 {
+			msg := NewTestUserMessage()
+			msg.ID = TestMessageID + "-" + string(rune('0'+i))
+			messages[i] = msg
+		} else {
+			msg := NewTestAssistantMessage()
+			msg.ID = TestMessageID + "-" + string(rune('0'+i))
+			msg.UserMessageID = TestMessageID + "-" + string(rune('0'+i-1))
+			messages[i] = msg
 		}
-		messages[i] = msg
 	}
 	return messages
 }

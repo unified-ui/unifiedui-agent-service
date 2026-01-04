@@ -26,8 +26,8 @@ func TestNewUserMessage(t *testing.T) {
 	assert.Equal(t, userID, msg.UserID)
 	assert.Equal(t, conversationID, msg.ConversationID)
 	assert.Equal(t, applicationID, msg.ApplicationID)
-	assert.Equal(t, content, msg.Message.Content)
-	assert.Equal(t, models.MessageTypeUser, msg.Message.Type)
+	assert.Equal(t, content, msg.Content)
+	assert.Equal(t, models.MessageTypeUser, msg.Type)
 	assert.Equal(t, attachments, msg.Attachments)
 	assert.NotZero(t, msg.CreatedAt)
 	assert.Equal(t, msg.CreatedAt, msg.UpdatedAt)
@@ -51,11 +51,31 @@ func TestNewAssistantMessage(t *testing.T) {
 	assert.Equal(t, userMessageID, msg.UserMessageID)
 	assert.Equal(t, applicationID, msg.ApplicationID)
 	assert.Equal(t, models.MessageStatusPending, msg.Status)
-	assert.Equal(t, "", msg.Message.Content)
+	assert.Equal(t, "", msg.Content)
 	assert.NotZero(t, msg.CreatedAt)
 }
 
-func TestAssistantMessage_SetSuccess(t *testing.T) {
+func TestMessage_IsUserMessage(t *testing.T) {
+	// Arrange
+	userMsg := models.NewUserMessage("tenant", "conv", "app", "user", "Hello", nil, nil)
+	assistantMsg := models.NewAssistantMessage("tenant", "conv", "user-msg", "app", "Hi", models.MessageStatusSuccess)
+
+	// Assert
+	assert.True(t, userMsg.IsUserMessage())
+	assert.False(t, assistantMsg.IsUserMessage())
+}
+
+func TestMessage_IsAssistantMessage(t *testing.T) {
+	// Arrange
+	userMsg := models.NewUserMessage("tenant", "conv", "app", "user", "Hello", nil, nil)
+	assistantMsg := models.NewAssistantMessage("tenant", "conv", "user-msg", "app", "Hi", models.MessageStatusSuccess)
+
+	// Assert
+	assert.False(t, userMsg.IsAssistantMessage())
+	assert.True(t, assistantMsg.IsAssistantMessage())
+}
+
+func TestMessage_SetSuccess(t *testing.T) {
 	// Arrange
 	msg := models.NewAssistantMessage("tenant", "conv", "user-msg", "app", "", models.MessageStatusPending)
 	content := "Final response"
@@ -65,11 +85,11 @@ func TestAssistantMessage_SetSuccess(t *testing.T) {
 
 	// Assert
 	assert.Equal(t, models.MessageStatusSuccess, msg.Status)
-	assert.Equal(t, content, msg.Message.Content)
+	assert.Equal(t, content, msg.Content)
 	assert.NotZero(t, msg.UpdatedAt)
 }
 
-func TestAssistantMessage_SetError(t *testing.T) {
+func TestMessage_SetError(t *testing.T) {
 	// Arrange
 	msg := models.NewAssistantMessage("tenant", "conv", "user-msg", "app", "", models.MessageStatusPending)
 	errorMessage := "Something went wrong"
@@ -83,7 +103,7 @@ func TestAssistantMessage_SetError(t *testing.T) {
 	assert.NotZero(t, msg.UpdatedAt)
 }
 
-func TestAssistantMessage_AddStatusTrace(t *testing.T) {
+func TestMessage_AddStatusTrace(t *testing.T) {
 	// Arrange
 	msg := models.NewAssistantMessage("tenant", "conv", "user-msg", "app", "", models.MessageStatusPending)
 
@@ -96,6 +116,24 @@ func TestAssistantMessage_AddStatusTrace(t *testing.T) {
 	assert.Equal(t, "Planning", msg.StatusTraces[0].Name)
 	assert.Equal(t, "Analyzing request...", msg.StatusTraces[0].Content)
 	assert.Equal(t, 1, msg.StatusTraces[0].Data["step"])
+}
+
+func TestMessage_SetMetadata(t *testing.T) {
+	// Arrange
+	msg := models.NewAssistantMessage("tenant", "conv", "user-msg", "app", "Response", models.MessageStatusSuccess)
+	metadata := &models.AssistantMetadata{
+		Model:        "gpt-4",
+		TokensInput:  100,
+		TokensOutput: 50,
+		LatencyMs:    500,
+	}
+
+	// Act
+	msg.SetMetadata(metadata)
+
+	// Assert
+	assert.Equal(t, metadata, msg.Metadata)
+	assert.NotZero(t, msg.UpdatedAt)
 }
 
 func TestUserMessage_ToChatHistoryEntry(t *testing.T) {
@@ -124,14 +162,4 @@ func TestAssistantMessage_ToChatHistoryEntry(t *testing.T) {
 	assert.Equal(t, models.MessageTypeAssistant, entry.Role)
 	assert.Equal(t, "AI is artificial intelligence.", entry.Content)
 	assert.Equal(t, msg.CreatedAt, entry.Timestamp)
-}
-
-func TestIsUserMessage(t *testing.T) {
-	assert.True(t, models.IsUserMessage(models.MessageTypeUser))
-	assert.False(t, models.IsUserMessage(models.MessageTypeAssistant))
-}
-
-func TestIsAssistantMessage(t *testing.T) {
-	assert.True(t, models.IsAssistantMessage(models.MessageTypeAssistant))
-	assert.False(t, models.IsAssistantMessage(models.MessageTypeUser))
 }

@@ -90,6 +90,7 @@ func NewService(cfg *Config) (Service, error) {
 }
 
 // GetSession retrieves a session from cache.
+// Returns nil (not an error) if decryption fails (e.g., key changed) - cache will be skipped.
 func (s *service) GetSession(ctx context.Context, tenantID, userID, conversationID string) (*SessionData, error) {
 	key := s.BuildCacheKey(tenantID, userID, conversationID)
 
@@ -102,16 +103,19 @@ func (s *service) GetSession(ctx context.Context, tenantID, userID, conversation
 		return nil, nil // Not found
 	}
 
-	// Decrypt
+	// Decrypt - if decryption fails (e.g., key changed), skip cache gracefully
 	decrypted, err := s.encryptor.Decrypt(string(encrypted))
 	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt session: %w", err)
+		// Key might have changed - delete stale cache entry and return nil to fetch fresh data
+		_, _ = s.cacheClient.Delete(ctx, key)
+		return nil, nil
 	}
 
-	// Unmarshal
+	// Unmarshal - if unmarshal fails, data is corrupted, skip cache
 	var session SessionData
 	if err := json.Unmarshal(decrypted, &session); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal session: %w", err)
+		_, _ = s.cacheClient.Delete(ctx, key)
+		return nil, nil
 	}
 
 	return &session, nil

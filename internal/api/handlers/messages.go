@@ -64,16 +64,19 @@ type GetMessagesResponse struct {
 
 // MessageResponse represents a message in the API response.
 type MessageResponse struct {
-	ID             string                  `json:"id"`
-	ConversationID string                  `json:"conversationId"`
-	ApplicationID  string                  `json:"applicationId"`
-	Message        models.MessageContent   `json:"message"`
-	Status         models.MessageStatus    `json:"status,omitempty"`
-	ErrorMessage   string                  `json:"errorMessage,omitempty"`
-	StatusTraces   []models.StatusTrace    `json:"statusTraces,omitempty"`
+	ID             string                    `json:"id"`
+	Type           models.MessageType        `json:"type"`
+	ConversationID string                    `json:"conversationId"`
+	ApplicationID  string                    `json:"applicationId"`
+	Content        string                    `json:"content"`
+	UserID         string                    `json:"userId,omitempty"`
+	UserMessageID  string                    `json:"userMessageId,omitempty"`
+	Status         models.MessageStatus      `json:"status,omitempty"`
+	ErrorMessage   string                    `json:"errorMessage,omitempty"`
+	StatusTraces   []models.StatusTrace      `json:"statusTraces,omitempty"`
 	Metadata       *models.AssistantMetadata `json:"metadata,omitempty"`
-	CreatedAt      time.Time               `json:"createdAt"`
-	UpdatedAt      time.Time               `json:"updatedAt"`
+	CreatedAt      time.Time                 `json:"createdAt"`
+	UpdatedAt      time.Time                 `json:"updatedAt"`
 }
 
 // GetMessages handles GET /tenants/{tenantId}/conversation/messages
@@ -117,78 +120,40 @@ func (h *MessagesHandler) GetMessages(c *gin.Context) {
 		OrderBy:        docdb.SortOrderDesc,
 	}
 
-	// Get user messages
-	userMessages, err := h.docDBClient.Messages().ListUserMessages(ctx, listOpts)
+	// Get messages from unified collection
+	messages, err := h.docDBClient.Messages().List(ctx, listOpts)
 	if err != nil {
-		middleware.HandleError(c, errors.NewInternalError("failed to list user messages", err))
+		middleware.HandleError(c, errors.NewInternalError("failed to list messages", err))
 		return
 	}
 
-	// Get assistant messages
-	assistantMessages, err := h.docDBClient.Messages().ListAssistantMessages(ctx, listOpts)
-	if err != nil {
-		middleware.HandleError(c, errors.NewInternalError("failed to list assistant messages", err))
-		return
+	// Convert to response
+	response := make([]MessageResponse, 0, len(messages))
+	for _, msg := range messages {
+		response = append(response, h.toMessageResponse(msg))
 	}
-
-	// Merge and convert to response
-	messages := h.mergeMessages(userMessages, assistantMessages)
 
 	c.JSON(http.StatusOK, GetMessagesResponse{
-		Messages: messages,
+		Messages: response,
 	})
 }
 
-// mergeMessages merges user and assistant messages, sorted by createdAt descending.
-func (h *MessagesHandler) mergeMessages(
-	userMsgs []*models.UserMessage,
-	assistantMsgs []*models.AssistantMessage,
-) []MessageResponse {
-	result := make([]MessageResponse, 0, len(userMsgs)+len(assistantMsgs))
-
-	// Convert user messages
-	for _, msg := range userMsgs {
-		result = append(result, MessageResponse{
-			ID:             msg.ID,
-			ConversationID: msg.ConversationID,
-			ApplicationID:  msg.ApplicationID,
-			Message:        msg.Message,
-			CreatedAt:      msg.CreatedAt,
-			UpdatedAt:      msg.UpdatedAt,
-		})
-	}
-
-	// Convert assistant messages
-	for _, msg := range assistantMsgs {
-		result = append(result, MessageResponse{
-			ID:             msg.ID,
-			ConversationID: msg.ConversationID,
-			ApplicationID:  msg.ApplicationID,
-			Message:        msg.Message,
-			Status:         msg.Status,
-			ErrorMessage:   msg.ErrorMessage,
-			StatusTraces:   msg.StatusTraces,
-			Metadata:       msg.Metadata,
-			CreatedAt:      msg.CreatedAt,
-			UpdatedAt:      msg.UpdatedAt,
-		})
-	}
-
-	// Sort by createdAt descending
-	sortMessagesByCreatedAt(result)
-
-	return result
-}
-
-// sortMessagesByCreatedAt sorts messages by createdAt in descending order.
-func sortMessagesByCreatedAt(messages []MessageResponse) {
-	n := len(messages)
-	for i := 0; i < n-1; i++ {
-		for j := 0; j < n-i-1; j++ {
-			if messages[j].CreatedAt.Before(messages[j+1].CreatedAt) {
-				messages[j], messages[j+1] = messages[j+1], messages[j]
-			}
-		}
+// toMessageResponse converts a Message to MessageResponse.
+func (h *MessagesHandler) toMessageResponse(msg *models.Message) MessageResponse {
+	return MessageResponse{
+		ID:             msg.ID,
+		Type:           msg.Type,
+		ConversationID: msg.ConversationID,
+		ApplicationID:  msg.ApplicationID,
+		Content:        msg.Content,
+		UserID:         msg.UserID,
+		UserMessageID:  msg.UserMessageID,
+		Status:         msg.Status,
+		ErrorMessage:   msg.ErrorMessage,
+		StatusTraces:   msg.StatusTraces,
+		Metadata:       msg.Metadata,
+		CreatedAt:      msg.CreatedAt,
+		UpdatedAt:      msg.UpdatedAt,
 	}
 }
 
@@ -320,7 +285,7 @@ func (h *MessagesHandler) SendMessage(c *gin.Context) {
 	userMessage.ID = userMessageID
 
 	// Store user message
-	if err := h.docDBClient.Messages().AddUserMessage(ctx, userMessage); err != nil {
+	if err := h.docDBClient.Messages().Add(ctx, userMessage); err != nil {
 		middleware.HandleError(c, errors.NewInternalError("failed to store user message", err))
 		return
 	}
@@ -354,8 +319,8 @@ func (h *MessagesHandler) handleStreamingResponse(
 	tenantCtx *middleware.TenantContext,
 	agentClients *agents.AgentClients,
 	agentConfig *platform.AgentConfig,
-	userMessage *models.UserMessage,
-	assistantMessage *models.AssistantMessage,
+	userMessage *models.Message,
+	assistantMessage *models.Message,
 	chatHistory []models.ChatHistoryEntry,
 ) {
 	ctx := c.Request.Context()
@@ -370,7 +335,7 @@ func (h *MessagesHandler) handleStreamingResponse(
 	// Build invoke request with chat history
 	invokeReq := &agents.InvokeRequest{
 		ConversationID: userMessage.ConversationID,
-		Message:        userMessage.Message.Content,
+		Message:        userMessage.Content,
 		SessionID:      userMessage.ConversationID,
 		ChatHistory:    chatHistory,
 	}
@@ -436,7 +401,7 @@ func (h *MessagesHandler) handleStreamingResponse(
 	assistantMessage.Metadata.AgentType = string(agentConfig.Type)
 
 	// Store assistant message
-	if err := h.docDBClient.Messages().AddAssistantMessage(ctx, assistantMessage); err != nil {
+	if err := h.docDBClient.Messages().Add(ctx, assistantMessage); err != nil {
 		// Log error but don't fail - message was already sent to client
 	}
 
@@ -445,9 +410,9 @@ func (h *MessagesHandler) handleStreamingResponse(
 }
 
 // saveFailedAssistantMessage saves an assistant message with failed status.
-func (h *MessagesHandler) saveFailedAssistantMessage(ctx context.Context, assistantMessage *models.AssistantMessage, errorMsg string) {
+func (h *MessagesHandler) saveFailedAssistantMessage(ctx context.Context, assistantMessage *models.Message, errorMsg string) {
 	assistantMessage.SetError(errorMsg)
-	_ = h.docDBClient.Messages().AddAssistantMessage(ctx, assistantMessage)
+	_ = h.docDBClient.Messages().Add(ctx, assistantMessage)
 }
 
 // updateSessionCache updates the session cache with new messages.
@@ -455,8 +420,8 @@ func (h *MessagesHandler) updateSessionCache(
 	ctx context.Context,
 	tenantCtx *middleware.TenantContext,
 	agentConfig *platform.AgentConfig,
-	userMessage *models.UserMessage,
-	assistantMessage *models.AssistantMessage,
+	userMessage *models.Message,
+	assistantMessage *models.Message,
 ) {
 	// Only update cache if unified chat history is enabled
 	if !agentConfig.Settings.UseUnifiedChatHistory {

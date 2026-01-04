@@ -21,6 +21,7 @@ const (
 type ListMessagesOptions struct {
 	ConversationID string
 	TenantID       string
+	Type           models.MessageType // Optional: filter by message type
 	Limit          int64
 	Skip           int64
 	OrderBy        SortOrder // Order by createdAt
@@ -34,37 +35,27 @@ type DeleteMessagesOptions struct {
 }
 
 // MessagesCollection defines the interface for message collection operations.
+// All messages (user and assistant) are stored in a SINGLE collection.
 type MessagesCollection interface {
-	// Add inserts a new message (UserMessage or AssistantMessage).
-	AddUserMessage(ctx context.Context, message *models.UserMessage) error
+	// Add inserts a new message (user or assistant).
+	Add(ctx context.Context, message *models.Message) error
 
-	// AddAssistantMessage inserts a new assistant message.
-	AddAssistantMessage(ctx context.Context, message *models.AssistantMessage) error
+	// Get retrieves a message by ID.
+	Get(ctx context.Context, id string) (*models.Message, error)
 
-	// GetUserMessage retrieves a user message by ID.
-	GetUserMessage(ctx context.Context, id string) (*models.UserMessage, error)
+	// GetByUserMessageID retrieves assistant message by user message ID.
+	GetByUserMessageID(ctx context.Context, userMessageID string) (*models.Message, error)
 
-	// GetAssistantMessage retrieves an assistant message by ID.
-	GetAssistantMessage(ctx context.Context, id string) (*models.AssistantMessage, error)
+	// List retrieves messages with pagination and sorting.
+	// Can filter by message type (user/assistant) via opts.Type.
+	List(ctx context.Context, opts *ListMessagesOptions) ([]*models.Message, error)
 
-	// GetAssistantMessageByUserMessageID retrieves assistant message by user message ID.
-	GetAssistantMessageByUserMessageID(ctx context.Context, userMessageID string) (*models.AssistantMessage, error)
-
-	// ListUserMessages lists user messages with pagination and sorting.
-	ListUserMessages(ctx context.Context, opts *ListMessagesOptions) ([]*models.UserMessage, error)
-
-	// ListAssistantMessages lists assistant messages with pagination and sorting.
-	ListAssistantMessages(ctx context.Context, opts *ListMessagesOptions) ([]*models.AssistantMessage, error)
-
-	// ListChatHistory retrieves interleaved chat history for a conversation.
+	// ListChatHistory retrieves chat history as entries for a conversation.
 	// Returns messages ordered by createdAt (configurable order).
 	ListChatHistory(ctx context.Context, opts *ListMessagesOptions) ([]models.ChatHistoryEntry, error)
 
-	// UpdateUserMessage updates an existing user message.
-	UpdateUserMessage(ctx context.Context, message *models.UserMessage) error
-
-	// UpdateAssistantMessage updates an existing assistant message.
-	UpdateAssistantMessage(ctx context.Context, message *models.AssistantMessage) error
+	// Update updates an existing message.
+	Update(ctx context.Context, message *models.Message) error
 
 	// Delete removes a message or all messages in a conversation.
 	Delete(ctx context.Context, opts *DeleteMessagesOptions) (int64, error)

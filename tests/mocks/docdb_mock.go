@@ -179,61 +179,37 @@ type MockMessagesCollection struct {
 	mock.Mock
 }
 
-// AddUserMessage adds a user message.
-func (m *MockMessagesCollection) AddUserMessage(ctx context.Context, message *models.UserMessage) error {
+// Add adds a message.
+func (m *MockMessagesCollection) Add(ctx context.Context, message *models.Message) error {
 	args := m.Called(ctx, message)
 	return args.Error(0)
 }
 
-// AddAssistantMessage adds an assistant message.
-func (m *MockMessagesCollection) AddAssistantMessage(ctx context.Context, message *models.AssistantMessage) error {
-	args := m.Called(ctx, message)
-	return args.Error(0)
-}
-
-// GetUserMessage gets a user message by ID.
-func (m *MockMessagesCollection) GetUserMessage(ctx context.Context, id string) (*models.UserMessage, error) {
+// Get gets a message by ID.
+func (m *MockMessagesCollection) Get(ctx context.Context, id string) (*models.Message, error) {
 	args := m.Called(ctx, id)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*models.UserMessage), args.Error(1)
+	return args.Get(0).(*models.Message), args.Error(1)
 }
 
-// GetAssistantMessage gets an assistant message by ID.
-func (m *MockMessagesCollection) GetAssistantMessage(ctx context.Context, id string) (*models.AssistantMessage, error) {
-	args := m.Called(ctx, id)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*models.AssistantMessage), args.Error(1)
-}
-
-// GetAssistantMessageByUserMessageID gets assistant message by user message ID.
-func (m *MockMessagesCollection) GetAssistantMessageByUserMessageID(ctx context.Context, userMessageID string) (*models.AssistantMessage, error) {
+// GetByUserMessageID gets assistant message by user message ID.
+func (m *MockMessagesCollection) GetByUserMessageID(ctx context.Context, userMessageID string) (*models.Message, error) {
 	args := m.Called(ctx, userMessageID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*models.AssistantMessage), args.Error(1)
+	return args.Get(0).(*models.Message), args.Error(1)
 }
 
-// ListUserMessages lists user messages.
-func (m *MockMessagesCollection) ListUserMessages(ctx context.Context, opts *docdb.ListMessagesOptions) ([]*models.UserMessage, error) {
+// List lists messages.
+func (m *MockMessagesCollection) List(ctx context.Context, opts *docdb.ListMessagesOptions) ([]*models.Message, error) {
 	args := m.Called(ctx, opts)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*models.UserMessage), args.Error(1)
-}
-
-// ListAssistantMessages lists assistant messages.
-func (m *MockMessagesCollection) ListAssistantMessages(ctx context.Context, opts *docdb.ListMessagesOptions) ([]*models.AssistantMessage, error) {
-	args := m.Called(ctx, opts)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*models.AssistantMessage), args.Error(1)
+	return args.Get(0).([]*models.Message), args.Error(1)
 }
 
 // ListChatHistory lists chat history.
@@ -245,14 +221,8 @@ func (m *MockMessagesCollection) ListChatHistory(ctx context.Context, opts *docd
 	return args.Get(0).([]models.ChatHistoryEntry), args.Error(1)
 }
 
-// UpdateUserMessage updates a user message.
-func (m *MockMessagesCollection) UpdateUserMessage(ctx context.Context, message *models.UserMessage) error {
-	args := m.Called(ctx, message)
-	return args.Error(0)
-}
-
-// UpdateAssistantMessage updates an assistant message.
-func (m *MockMessagesCollection) UpdateAssistantMessage(ctx context.Context, message *models.AssistantMessage) error {
+// Update updates a message.
+func (m *MockMessagesCollection) Update(ctx context.Context, message *models.Message) error {
 	args := m.Called(ctx, message)
 	return args.Error(0)
 }
