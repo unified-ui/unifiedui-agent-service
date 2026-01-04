@@ -4,6 +4,7 @@ package n8n
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/unifiedui/agent-service/internal/domain/models"
 )
@@ -83,54 +84,58 @@ type ExecutionsListResponse struct {
 // BuildChatHistoryMarkdown converts chat history entries to a markdown-formatted string.
 // This is specifically for N8N workflows that expect chat history in markdown format.
 // Format:
-// ### Chat History
+// ## Chat History
+// [2026-01-04 13:18:09 | user]:
+// message content
 //
-// **User:** message content
-// **Assistant:** response content
+// [2026-01-04 13:18:13 | assistant]:
+// response content
 // ...
 //
-// ### Current Message
+// ## Current Message
+// [2026-01-04 13:20:00 | user]:
 // message content
-func BuildChatHistoryMarkdown(history []models.ChatHistoryEntry, currentMessage string) string {
+func BuildChatHistoryMarkdown(history []models.ChatHistoryEntry, currentMessage string, currentTimestamp time.Time) string {
 	var sb strings.Builder
 
 	if len(history) > 0 {
-		sb.WriteString("### Chat History\n\n")
+		sb.WriteString("## Chat History\n\n")
 
 		for _, entry := range history {
-			switch entry.Role {
-			case models.MessageTypeUser:
-				sb.WriteString(fmt.Sprintf("**User:** %s\n\n", entry.Content))
-			case models.MessageTypeAssistant:
-				sb.WriteString(fmt.Sprintf("**Assistant:** %s\n\n", entry.Content))
-			}
+			ts := entry.Timestamp.Format("2006-01-02 15:04:05")
+			sb.WriteString(fmt.Sprintf("[%s | %s]:\n%s\n\n", ts, entry.Role, entry.Content))
 		}
 	}
 
-	sb.WriteString("### Current Message\n\n")
-	sb.WriteString(currentMessage)
+	ts := currentTimestamp.Format("2006-01-02 15:04:05")
+	sb.WriteString(fmt.Sprintf("## Current Message\n\n[%s | user]:\n%s", ts, currentMessage))
 
 	return sb.String()
 }
 
-// BuildSimpleChatHistoryMarkdown creates a simpler markdown format for chat history.
+// BuildSimpleChatHistoryMarkdown creates a token-efficient format for chat history.
 // Format:
-// User: message
-// Assistant: response
-// User: current message
-func BuildSimpleChatHistoryMarkdown(history []models.ChatHistoryEntry, currentMessage string) string {
+// <history>
+// [2026-01-04 13:18:09|user]: message
+// [2026-01-04 13:18:13|assistant]: response
+// </history>
+// <current>
+// [2026-01-04 13:20:00|user]: message
+// </current>
+func BuildSimpleChatHistoryMarkdown(history []models.ChatHistoryEntry, currentMessage string, currentTimestamp time.Time) string {
 	var sb strings.Builder
 
-	for _, entry := range history {
-		switch entry.Role {
-		case models.MessageTypeUser:
-			sb.WriteString(fmt.Sprintf("User: %s\n", entry.Content))
-		case models.MessageTypeAssistant:
-			sb.WriteString(fmt.Sprintf("Assistant: %s\n", entry.Content))
+	if len(history) > 0 {
+		sb.WriteString("<history>\n")
+		for _, entry := range history {
+			ts := entry.Timestamp.Format("2006-01-02 15:04:05")
+			sb.WriteString(fmt.Sprintf("[%s|%s]: %s\n", ts, entry.Role, entry.Content))
 		}
+		sb.WriteString("</history>\n")
 	}
 
-	sb.WriteString(fmt.Sprintf("User: %s", currentMessage))
+	ts := currentTimestamp.Format("2006-01-02 15:04:05")
+	sb.WriteString(fmt.Sprintf("<current>\n[%s|user]: %s\n</current>", ts, currentMessage))
 
 	return sb.String()
 }

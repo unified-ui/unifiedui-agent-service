@@ -179,8 +179,10 @@ func (c *ChatWorkflowClient) InvokeStream(ctx context.Context, req *InvokeReques
 func (c *ChatWorkflowClient) InvokeStreamReader(ctx context.Context, req *InvokeRequest) (StreamReader, error) {
 	// Build the chat input - use markdown if chat history is provided
 	chatInput := req.Message
+	now := time.Now()
+
 	if c.useUnifiedChatHistory && len(req.ChatHistory) > 0 {
-		chatInput = BuildSimpleChatHistoryMarkdown(req.ChatHistory, req.Message)
+		chatInput = BuildSimpleChatHistoryMarkdown(req.ChatHistory, req.Message, now)
 	}
 
 	chatReq := &ChatRequest{
