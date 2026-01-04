@@ -1,10 +1,10 @@
-# UnifiedUI Chat Service
+# unified-ui Agent Service
 
 A high-performance Go/Gin microservice that serves as a unified abstraction layer between a single frontend and heterogeneous AI agent backends.
 
 ## Overview
 
-UnifiedUI Chat Service provides:
+UnifiedUI Agent Service provides:
 - **Unified Chat Interface** - One API for multiple AI agent systems (N8N, Microsoft Foundry, Copilot, LangChain)
 - **Message Streaming** - SSE (Server-Sent Events) for real-time response streaming
 - **Agent Tracing** - Capture and store traces from autonomous agents for debugging/monitoring

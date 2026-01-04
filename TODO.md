@@ -37,7 +37,9 @@ Plan:
         - messages und traces endpoints hinzufügen
     - application config für N8N bei CREATE und EDIT anpassen
     - conversations page bauen
-7. Langchain + Langgraph API
+7. Foundry anbinden
+    - hier direkt checken, wie man mit "Respond to Chat" arbeitet
+8. Langchain + Langgraph API
     - state kann als traces an API gesendet werden (nutzt API für traces und gibt messageId an)
 
 
@@ -107,3 +109,8 @@ siehe ./poc/n8n/config.json
         - same
         - wie arbeitet man mit dem Human-in-the-Loop?
             - /execution fetchen?
+
+## Zukunft
+
+- N8N
+    - wie tool-calls, reasoning, long runnfing -> status dem ui zeigen?
