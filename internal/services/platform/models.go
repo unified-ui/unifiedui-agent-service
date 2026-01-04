@@ -44,6 +44,7 @@ type AgentSettings struct {
 	APIVersion            string          `json:"api_version"`
 	WorkflowType          N8NWorkflowType `json:"workflow_type"`
 	UseUnifiedChatHistory bool            `json:"use_unified_chat_history"`
+	ChatHistoryCount      int             `json:"chat_history_count"`
 	ChatURL               string          `json:"chat_url"`
 	APICredentials        *Credentials    `json:"api_credentials,omitempty"`
 	ChatCredentials       *Credentials    `json:"chat_credentials,omitempty"`

@@ -2,11 +2,12 @@
 
 Plan:
 
-1. N8N Handler implementieren
+1. ✅ N8N Handler implementieren
     - Config, inkl. Credentials etc als .json entwickeln
     - Platform-Service Handler implementieren
         - erstmal JSON Config lesen
     - stream response from n8n -> AgentNode
+
 2. Messages Collection entwickeln
     - Fields entwickeln
     - Factory Colleczion und MongoDB Client implementieren

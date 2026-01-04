@@ -45,8 +45,10 @@ import (
 	rediscache "github.com/unifiedui/agent-service/internal/infrastructure/cache/redis"
 	"github.com/unifiedui/agent-service/internal/infrastructure/docdb/mongodb"
 	dotenvvault "github.com/unifiedui/agent-service/internal/infrastructure/vault/dotenv"
+	"github.com/unifiedui/agent-service/internal/pkg/encryption"
 	"github.com/unifiedui/agent-service/internal/services/agents"
 	"github.com/unifiedui/agent-service/internal/services/platform"
+	"github.com/unifiedui/agent-service/internal/services/session"
 )
 
 func main() {
@@ -79,11 +81,32 @@ func main() {
 	}
 	defer docDBClient.Close(ctx)
 
+	// Ensure database indexes
+	if err := docDBClient.EnsureIndexes(ctx); err != nil {
+		log.Printf("warning: failed to ensure indexes: %v", err)
+	}
+
+	// Initialize encryptor
+	encryptor, err := createEncryptor(cfg.Vault, vaultClient)
+	if err != nil {
+		log.Fatalf("failed to initialize encryptor: %v", err)
+	}
+
+	// Initialize session service
+	sessionService, err := session.NewService(&session.Config{
+		CacheClient: cacheClient,
+		Encryptor:   encryptor,
+		TTL:         cfg.Cache.TTL,
+	})
+	if err != nil {
+		log.Fatalf("failed to initialize session service: %v", err)
+	}
+
 	// Set Gin mode
 	gin.SetMode(cfg.Server.GinMode)
 
 	// Setup router
-	router := setupRouter(cfg, cacheClient, docDBClient, vaultClient)
+	router := setupRouter(cfg, cacheClient, docDBClient, vaultClient, sessionService)
 
 	// Create HTTP server
 	srv := &http.Server{
@@ -177,8 +200,29 @@ func createDocDBClient(ctx context.Context, cfg config.DocDBConfig) (docdb.Clien
 	}
 }
 
+// createEncryptor creates an encryptor based on the configuration.
+func createEncryptor(cfg config.VaultConfig, vaultClient vault.Client) (encryption.Encryptor, error) {
+	// Try to get encryption key from vault/env
+	encryptionKey := cfg.EncryptionKey
+	if encryptionKey == "" {
+		// Try to get from vault
+		key, err := vaultClient.GetSecret(context.Background(), "dotenv://SECRETS_ENCRYPTION_KEY", false)
+		if err == nil && key != "" {
+			encryptionKey = key
+		}
+	}
+
+	if encryptionKey == "" {
+		// Use NoOp encryptor in development
+		log.Println("warning: SECRETS_ENCRYPTION_KEY not set, using NoOp encryptor")
+		return encryption.NewNoOpEncryptor(), nil
+	}
+
+	return encryption.NewAESEncryptor(encryptionKey)
+}
+
 // setupRouter creates and configures the Gin router.
-func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb.Client, vaultClient vault.Client) *gin.Engine {
+func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb.Client, vaultClient vault.Client, sessionService session.Service) *gin.Engine {
 	router := gin.New()
 
 	// Create middleware
@@ -197,7 +241,7 @@ func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb
 
 	// Create handlers
 	healthHandler := handlers.NewHealthHandler(cacheClient, docDBClient)
-	messagesHandler := handlers.NewMessagesHandler(docDBClient, platformClient, agentFactory)
+	messagesHandler := handlers.NewMessagesHandler(docDBClient, platformClient, agentFactory, sessionService)
 	tracesHandler := handlers.NewTracesHandler(docDBClient)
 
 	// Setup routes

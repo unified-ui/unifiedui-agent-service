@@ -1,6 +1,13 @@
 // Package n8n provides N8N-specific agent client implementations.
 package n8n
 
+import (
+	"fmt"
+	"strings"
+
+	"github.com/unifiedui/agent-service/internal/domain/models"
+)
+
 // APIVersion represents the N8N API version.
 type APIVersion string
 
@@ -71,4 +78,59 @@ type ExecutionResponse struct {
 type ExecutionsListResponse struct {
 	Data       []*ExecutionResponse `json:"data"`
 	NextCursor string               `json:"nextCursor,omitempty"`
+}
+
+// BuildChatHistoryMarkdown converts chat history entries to a markdown-formatted string.
+// This is specifically for N8N workflows that expect chat history in markdown format.
+// Format:
+// ### Chat History
+//
+// **User:** message content
+// **Assistant:** response content
+// ...
+//
+// ### Current Message
+// message content
+func BuildChatHistoryMarkdown(history []models.ChatHistoryEntry, currentMessage string) string {
+	var sb strings.Builder
+
+	if len(history) > 0 {
+		sb.WriteString("### Chat History\n\n")
+
+		for _, entry := range history {
+			switch entry.Role {
+			case models.MessageTypeUser:
+				sb.WriteString(fmt.Sprintf("**User:** %s\n\n", entry.Content))
+			case models.MessageTypeAssistant:
+				sb.WriteString(fmt.Sprintf("**Assistant:** %s\n\n", entry.Content))
+			}
+		}
+	}
+
+	sb.WriteString("### Current Message\n\n")
+	sb.WriteString(currentMessage)
+
+	return sb.String()
+}
+
+// BuildSimpleChatHistoryMarkdown creates a simpler markdown format for chat history.
+// Format:
+// User: message
+// Assistant: response
+// User: current message
+func BuildSimpleChatHistoryMarkdown(history []models.ChatHistoryEntry, currentMessage string) string {
+	var sb strings.Builder
+
+	for _, entry := range history {
+		switch entry.Role {
+		case models.MessageTypeUser:
+			sb.WriteString(fmt.Sprintf("User: %s\n", entry.Content))
+		case models.MessageTypeAssistant:
+			sb.WriteString(fmt.Sprintf("Assistant: %s\n", entry.Content))
+		}
+	}
+
+	sb.WriteString(fmt.Sprintf("User: %s", currentMessage))
+
+	return sb.String()
 }

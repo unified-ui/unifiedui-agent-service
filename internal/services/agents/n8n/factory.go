@@ -66,9 +66,10 @@ func (f *Factory) createChatWorkflowClient(config *platform.AgentConfig) (*ChatW
 	}
 
 	clientConfig := &ChatWorkflowConfig{
-		ChatURL:  config.Settings.ChatURL,
-		Username: username,
-		Password: password,
+		ChatURL:               config.Settings.ChatURL,
+		Username:              username,
+		Password:              password,
+		UseUnifiedChatHistory: config.Settings.UseUnifiedChatHistory,
 	}
 
 	return NewChatWorkflowClient(clientConfig)

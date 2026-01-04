@@ -12,16 +12,15 @@ import (
 )
 
 const (
-	// MessagesCollection is the name of the messages collection.
-	MessagesCollection = "messages"
 	// TracesCollection is the name of the traces collection.
 	TracesCollection = "traces"
 )
 
 // Client implements the docdb.Client interface for MongoDB.
 type Client struct {
-	client   *mongo.Client
-	database *Database
+	client             *mongo.Client
+	database           *Database
+	messagesCollection *MessagesCollection
 }
 
 // ClientConfig holds MongoDB connection configuration.
@@ -53,11 +52,14 @@ func NewClient(ctx context.Context, config *ClientConfig) (*Client, error) {
 		return nil, fmt.Errorf("failed to ping mongodb: %w", err)
 	}
 
-	database := NewDatabase(client.Database(config.DatabaseName))
+	db := client.Database(config.DatabaseName)
+	database := NewDatabase(db)
+	messagesCollection := NewMessagesCollection(db)
 
 	return &Client{
-		client:   client,
-		database: database,
+		client:             client,
+		database:           database,
+		messagesCollection: messagesCollection,
 	}, nil
 }
 
@@ -66,9 +68,15 @@ func (c *Client) Database() docdb.Database {
 	return c.database
 }
 
-// Messages returns the messages collection.
-func (c *Client) Messages() docdb.Collection {
-	return c.database.Collection(MessagesCollection)
+// Messages returns the typed messages collection with domain methods.
+func (c *Client) Messages() docdb.MessagesCollection {
+	return c.messagesCollection
+}
+
+// MessagesRaw returns the raw messages collection for direct operations.
+// Note: This returns the user_messages collection for backward compatibility.
+func (c *Client) MessagesRaw() docdb.Collection {
+	return c.database.Collection(UserMessagesCollection)
 }
 
 // Traces returns the traces collection.
@@ -88,6 +96,14 @@ func (c *Client) Ping(ctx context.Context) error {
 func (c *Client) Close(ctx context.Context) error {
 	if err := c.client.Disconnect(ctx); err != nil {
 		return fmt.Errorf("failed to disconnect from mongodb: %w", err)
+	}
+	return nil
+}
+
+// EnsureIndexes creates all necessary indexes for all collections.
+func (c *Client) EnsureIndexes(ctx context.Context) error {
+	if err := c.messagesCollection.EnsureIndexes(ctx); err != nil {
+		return fmt.Errorf("failed to ensure messages indexes: %w", err)
 	}
 	return nil
 }
