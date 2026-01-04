@@ -1,47 +1,60 @@
 # TODOs
 
-Plan:
+**Plan:**
 
-1. ✅ N8N Handler implementieren
-    - Config, inkl. Credentials etc als .json entwickeln
-    - Platform-Service Handler implementieren
-        - erstmal JSON Config lesen
-    - stream response from n8n -> AgentNode
-
-2. Messages Collection entwickeln
-    - Fields entwickeln
-    - Factory Colleczion und MongoDB Client implementieren
-    - in endpoint -> Messages fetchen + Messages speichern + messages in chatInput geben
-3. Fetch Messages inkl. paginierung (infinitive scroll) und order->desc implementieren
 4. Platform-Service
-    - Application Config für N8N anpassen
-    - GET secret endpoint hinzufügen
+    - Application Config für N8N validieren
+        - config (json field -> gibts schon)
+            - api_version
+            - workflow_type
+            - use_unified_chat_history
+            - chat_history_count
+            - chat_url
+            - api_api_key_credential_id (required)
+                - type: N8N_API_KEY
+            - chat_auth_credential_id -> {"username": "", "password": ""}.str() | None
+                - type: N8N_BASIC_AUTH
     - GET config endpoint für agent-service hinzufügen
-    - routes zu -> /api/v1/platform-service/* umbenennen
+        - GET /api/v1/platform-service/applications/{id}/config
+            - auth:
+                1. request muss von selber origin kommen (localhost -> localhost etc? geht das? -> service-to-service auth...)
+                2. user aus bearer token muss zugriff auf application haben (GLOBAL_ADMIN, APPLICATIONS_ADMIN, READ, WRITE, ADMIN)
+    - credentials routes anpassen
+        - hier richtige typen festlegen
+            - API_KEY
+            - N8N_API_KEY
+            - N8N_BASIC_AUTH -> muss dict mit username und password sein -> wird in string umgewandelt beim speichern
+5. Frontend
+    - api-client
+        - platform-service jetzt auch -> /api/v1/platform-service/*
+        - messages endpoints hinzufügen
+    - application config für N8N bei CREATE und EDIT anpassen
+
+6. Agent-Service
+    - Platform-Service abfragen
+
+7. Frontend
+    - conversations page bauen
+
+8. Foundry anbinden
+    - hier direkt checken, wie man mit "Respond to Chat" arbeitet
+    - ...
+
+9. Langchain + Langgraph API
+    - state kann als traces an API gesendet werden (nutzt API für traces und gibt messageId an)
+
+10. Agent-Service
+    - GET secret endpoint hinzufügen
+        - GET /api/v1/platform-service/tenants/{id}/credentials/{id}/secret
     - autonomous agents
         - hier API Key generieren lassen, inkl. rotate
-            - werden in VAULT gespeichert und referenz uri in db auf autonomous-agent
+            - beim erstellen: werden in VAULT gespeichert und referenz uri in db auf autonomous-agent
             - PUT /api/v1/platform-service/tenants/{id}/autonomous-agents/{id}/keys/1|2/rotate
                 - werden 
-5. Agent-Service
-    - Platform-Service abfragen
-    - Config inkl encryption in redis speichern (3min)
     - traces implementieren
         - beim messages senden -> in jobQueue nach ende die traces fetchen und speichern (N8N -> traces collection)
             - traces mit message id ODER autonomous-agent-id speichern 
         - POST endpoint mit selben service implementieren
-            - hier 
-        - GET endpoint auf message implementieren
-6. Frontend
-    - api-client
-        - platform-service jetzt auch -> /api/v1/platform-service/*
-        - messages und traces endpoints hinzufügen
-    - application config für N8N bei CREATE und EDIT anpassen
-    - conversations page bauen
-7. Foundry anbinden
-    - hier direkt checken, wie man mit "Respond to Chat" arbeitet
-8. Langchain + Langgraph API
-    - state kann als traces an API gesendet werden (nutzt API für traces und gibt messageId an)
 
 
 Der Ziel Flow wäre:
