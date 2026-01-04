@@ -1,5 +1,7 @@
 # unified-ui Agent Service
 
+[![CI](https://github.com/unified-ui/unifiedui-agent-service/actions/workflows/ci.yml/badge.svg)](https://github.com/unified-ui/unifiedui-agent-service/actions/workflows/ci.yml)
+
 > **The bridge to your AI backends** — A high-performance Go/Gin microservice that unifies heterogeneous AI agent systems behind a single API.
 
 ## What is unified-ui?
