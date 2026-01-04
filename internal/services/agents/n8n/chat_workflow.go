@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/unifiedui/agent-service/internal/domain/models"
 )
 
 // ChunkType represents the type of stream chunk.
@@ -37,6 +39,7 @@ type InvokeRequest struct {
 	ConversationID string
 	Message        string
 	SessionID      string
+	ChatHistory    []models.ChatHistoryEntry
 }
 
 // InvokeResponse represents the response from an agent invocation.
@@ -55,18 +58,20 @@ type StreamReader interface {
 
 // ChatWorkflowConfig holds the configuration for the chat workflow client.
 type ChatWorkflowConfig struct {
-	ChatURL    string
-	Username   string
-	Password   string
-	HTTPClient *http.Client
+	ChatURL               string
+	Username              string
+	Password              string
+	HTTPClient            *http.Client
+	UseUnifiedChatHistory bool
 }
 
 // ChatWorkflowClient implements the workflow client for N8N chat workflows.
 type ChatWorkflowClient struct {
-	chatURL    string
-	username   string
-	password   string
-	httpClient *http.Client
+	chatURL               string
+	username              string
+	password              string
+	httpClient            *http.Client
+	useUnifiedChatHistory bool
 }
 
 // NewChatWorkflowClient creates a new N8N chat workflow client.
@@ -86,10 +91,11 @@ func NewChatWorkflowClient(config *ChatWorkflowConfig) (*ChatWorkflowClient, err
 	}
 
 	return &ChatWorkflowClient{
-		chatURL:    config.ChatURL,
-		username:   config.Username,
-		password:   config.Password,
-		httpClient: httpClient,
+		chatURL:               config.ChatURL,
+		username:              config.Username,
+		password:              config.Password,
+		httpClient:            httpClient,
+		useUnifiedChatHistory: config.UseUnifiedChatHistory,
 	}, nil
 }
 
@@ -171,8 +177,16 @@ func (c *ChatWorkflowClient) InvokeStream(ctx context.Context, req *InvokeReques
 
 // InvokeStreamReader sends a message and returns a reader for streaming response.
 func (c *ChatWorkflowClient) InvokeStreamReader(ctx context.Context, req *InvokeRequest) (StreamReader, error) {
+	// Build the chat input - use markdown if chat history is provided
+	chatInput := req.Message
+	now := time.Now()
+
+	if c.useUnifiedChatHistory && len(req.ChatHistory) > 0 {
+		chatInput = BuildSimpleChatHistoryMarkdown(req.ChatHistory, req.Message, now)
+	}
+
 	chatReq := &ChatRequest{
-		ChatInput: req.Message,
+		ChatInput: chatInput,
 		SessionID: req.SessionID,
 	}
 

@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/unifiedui/agent-service/internal/core/docdb"
+	"github.com/unifiedui/agent-service/internal/domain/models"
 )
 
 // MockCollection is a mock implementation of docdb.Collection.
@@ -109,17 +110,19 @@ func (m *MockDatabase) ListCollectionNames(ctx context.Context) ([]string, error
 // MockDocDBClient is a mock implementation of docdb.Client.
 type MockDocDBClient struct {
 	mock.Mock
-	messagesCollection *MockCollection
-	tracesCollection   *MockCollection
-	database           *MockDatabase
+	messagesCollection    *MockMessagesCollection
+	messagesRawCollection *MockCollection
+	tracesCollection      *MockCollection
+	database              *MockDatabase
 }
 
 // NewMockDocDBClient creates a new MockDocDBClient.
 func NewMockDocDBClient() *MockDocDBClient {
 	return &MockDocDBClient{
-		messagesCollection: &MockCollection{},
-		tracesCollection:   &MockCollection{},
-		database:           &MockDatabase{},
+		messagesCollection:    &MockMessagesCollection{},
+		messagesRawCollection: &MockCollection{},
+		tracesCollection:      &MockCollection{},
+		database:              &MockDatabase{},
 	}
 }
 
@@ -128,9 +131,14 @@ func (m *MockDocDBClient) Database() docdb.Database {
 	return m.database
 }
 
-// Messages returns the messages collection.
-func (m *MockDocDBClient) Messages() docdb.Collection {
+// Messages returns the typed messages collection.
+func (m *MockDocDBClient) Messages() docdb.MessagesCollection {
 	return m.messagesCollection
+}
+
+// MessagesRaw returns the raw messages collection.
+func (m *MockDocDBClient) MessagesRaw() docdb.Collection {
+	return m.messagesRawCollection
 }
 
 // Traces returns the traces collection.
@@ -150,14 +158,91 @@ func (m *MockDocDBClient) Close(ctx context.Context) error {
 	return args.Error(0)
 }
 
+// EnsureIndexes creates all necessary indexes.
+func (m *MockDocDBClient) EnsureIndexes(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
+}
+
 // GetMessagesCollection returns the mock messages collection for setup.
-func (m *MockDocDBClient) GetMessagesCollection() *MockCollection {
+func (m *MockDocDBClient) GetMessagesCollection() *MockMessagesCollection {
 	return m.messagesCollection
 }
 
 // GetTracesCollection returns the mock traces collection for setup.
 func (m *MockDocDBClient) GetTracesCollection() *MockCollection {
 	return m.tracesCollection
+}
+
+// MockMessagesCollection is a mock implementation of docdb.MessagesCollection.
+type MockMessagesCollection struct {
+	mock.Mock
+}
+
+// Add adds a message.
+func (m *MockMessagesCollection) Add(ctx context.Context, message *models.Message) error {
+	args := m.Called(ctx, message)
+	return args.Error(0)
+}
+
+// Get gets a message by ID.
+func (m *MockMessagesCollection) Get(ctx context.Context, id string) (*models.Message, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.Message), args.Error(1)
+}
+
+// GetByUserMessageID gets assistant message by user message ID.
+func (m *MockMessagesCollection) GetByUserMessageID(ctx context.Context, userMessageID string) (*models.Message, error) {
+	args := m.Called(ctx, userMessageID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.Message), args.Error(1)
+}
+
+// List lists messages.
+func (m *MockMessagesCollection) List(ctx context.Context, opts *docdb.ListMessagesOptions) ([]*models.Message, error) {
+	args := m.Called(ctx, opts)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*models.Message), args.Error(1)
+}
+
+// ListChatHistory lists chat history.
+func (m *MockMessagesCollection) ListChatHistory(ctx context.Context, opts *docdb.ListMessagesOptions) ([]models.ChatHistoryEntry, error) {
+	args := m.Called(ctx, opts)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]models.ChatHistoryEntry), args.Error(1)
+}
+
+// Update updates a message.
+func (m *MockMessagesCollection) Update(ctx context.Context, message *models.Message) error {
+	args := m.Called(ctx, message)
+	return args.Error(0)
+}
+
+// Delete deletes messages.
+func (m *MockMessagesCollection) Delete(ctx context.Context, opts *docdb.DeleteMessagesOptions) (int64, error) {
+	args := m.Called(ctx, opts)
+	return args.Get(0).(int64), args.Error(1)
+}
+
+// CountByConversation counts messages by conversation.
+func (m *MockMessagesCollection) CountByConversation(ctx context.Context, tenantID, conversationID string) (int64, error) {
+	args := m.Called(ctx, tenantID, conversationID)
+	return args.Get(0).(int64), args.Error(1)
+}
+
+// EnsureIndexes creates indexes.
+func (m *MockMessagesCollection) EnsureIndexes(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
 }
 
 // MockSingleResult is a mock implementation of docdb.SingleResult.

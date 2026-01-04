@@ -4,6 +4,7 @@ package agents
 import (
 	"context"
 
+	"github.com/unifiedui/agent-service/internal/domain/models"
 	"github.com/unifiedui/agent-service/internal/services/platform"
 )
 
@@ -45,6 +46,10 @@ type InvokeRequest struct {
 
 	// SessionID is an optional session identifier for the agent
 	SessionID string
+
+	// ChatHistory contains the previous messages in the conversation
+	// This is used when UseUnifiedChatHistory is enabled
+	ChatHistory []models.ChatHistoryEntry
 }
 
 // InvokeResponse represents the response from an agent invocation.

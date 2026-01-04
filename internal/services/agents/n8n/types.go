@@ -1,6 +1,14 @@
 // Package n8n provides N8N-specific agent client implementations.
 package n8n
 
+import (
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/unifiedui/agent-service/internal/domain/models"
+)
+
 // APIVersion represents the N8N API version.
 type APIVersion string
 
@@ -71,4 +79,63 @@ type ExecutionResponse struct {
 type ExecutionsListResponse struct {
 	Data       []*ExecutionResponse `json:"data"`
 	NextCursor string               `json:"nextCursor,omitempty"`
+}
+
+// BuildChatHistoryMarkdown converts chat history entries to a markdown-formatted string.
+// This is specifically for N8N workflows that expect chat history in markdown format.
+// Format:
+// ## Chat History
+// [2026-01-04 13:18:09 | user]:
+// message content
+//
+// [2026-01-04 13:18:13 | assistant]:
+// response content
+// ...
+//
+// ## Current Message
+// [2026-01-04 13:20:00 | user]:
+// message content
+func BuildChatHistoryMarkdown(history []models.ChatHistoryEntry, currentMessage string, currentTimestamp time.Time) string {
+	var sb strings.Builder
+
+	if len(history) > 0 {
+		sb.WriteString("## Chat History\n\n")
+
+		for _, entry := range history {
+			ts := entry.Timestamp.Format("2006-01-02 15:04:05")
+			sb.WriteString(fmt.Sprintf("[%s | %s]:\n%s\n\n", ts, entry.Role, entry.Content))
+		}
+	}
+
+	ts := currentTimestamp.Format("2006-01-02 15:04:05")
+	sb.WriteString(fmt.Sprintf("## Current Message\n\n[%s | user]:\n%s", ts, currentMessage))
+
+	return sb.String()
+}
+
+// BuildSimpleChatHistoryMarkdown creates a token-efficient format for chat history.
+// Format:
+// <history>
+// [2026-01-04 13:18:09|user]: message
+// [2026-01-04 13:18:13|assistant]: response
+// </history>
+// <current>
+// [2026-01-04 13:20:00|user]: message
+// </current>
+func BuildSimpleChatHistoryMarkdown(history []models.ChatHistoryEntry, currentMessage string, currentTimestamp time.Time) string {
+	var sb strings.Builder
+
+	if len(history) > 0 {
+		sb.WriteString("<history>\n")
+		for _, entry := range history {
+			ts := entry.Timestamp.Format("2006-01-02 15:04:05")
+			sb.WriteString(fmt.Sprintf("[%s|%s]: %s\n", ts, entry.Role, entry.Content))
+		}
+		sb.WriteString("</history>\n")
+	}
+
+	ts := currentTimestamp.Format("2006-01-02 15:04:05")
+	sb.WriteString(fmt.Sprintf("<current>\n[%s|user]: %s\n</current>", ts, currentMessage))
+
+	return sb.String()
 }

@@ -72,6 +72,7 @@ func (a *n8nWorkflowAdapter) Invoke(ctx context.Context, req *InvokeRequest) (*I
 		ConversationID: req.ConversationID,
 		Message:        req.Message,
 		SessionID:      req.SessionID,
+		ChatHistory:    req.ChatHistory,
 	}
 
 	resp, err := a.client.Invoke(ctx, n8nReq)
@@ -92,6 +93,7 @@ func (a *n8nWorkflowAdapter) InvokeStream(ctx context.Context, req *InvokeReques
 		ConversationID: req.ConversationID,
 		Message:        req.Message,
 		SessionID:      req.SessionID,
+		ChatHistory:    req.ChatHistory,
 	}
 
 	n8nCh, err := a.client.InvokeStream(ctx, n8nReq)
@@ -115,6 +117,7 @@ func (a *n8nWorkflowAdapter) InvokeStreamReader(ctx context.Context, req *Invoke
 		ConversationID: req.ConversationID,
 		Message:        req.Message,
 		SessionID:      req.SessionID,
+		ChatHistory:    req.ChatHistory,
 	}
 
 	reader, err := a.client.InvokeStreamReader(ctx, n8nReq)
