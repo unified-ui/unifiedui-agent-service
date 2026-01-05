@@ -251,7 +251,8 @@ func (h *MessagesHandler) SendMessage(c *gin.Context) {
 		}
 
 		// Fetch chat history from database if use_unified_chat_history is enabled
-		if agentConfig.Settings.UseUnifiedChatHistory {
+		// Skip for Foundry agents - they manage their own conversation history
+		if agentConfig.Settings.UseUnifiedChatHistory && agentConfig.Type != platform.AgentTypeFoundry {
 			chatHistoryCount := agentConfig.Settings.ChatHistoryCount
 			if chatHistoryCount == 0 {
 				chatHistoryCount = DefaultChatHistoryCount
@@ -386,12 +387,13 @@ func (h *MessagesHandler) handleStreamingResponse(
 	// Use Foundry-specific streaming handler if applicable
 	if agentConfig.Type == platform.AgentTypeFoundry {
 		h.handleFoundryStreaming(ctx, writer, streamReader, tenantCtx, agentConfig, userMessage, assistantMessage, startTime)
+		// Cache config for Foundry but with empty chat history (Foundry manages its own conversation history)
+		h.updateSessionCacheConfigOnly(ctx, tenantCtx, agentConfig, userMessage.ConversationID)
 	} else {
 		h.handleDefaultStreaming(ctx, writer, streamReader, agentConfig, userMessage, assistantMessage, startTime)
+		// Update session cache with new chat history (only for non-Foundry agents)
+		h.updateSessionCache(ctx, tenantCtx, agentConfig, userMessage, assistantMessage)
 	}
-
-	// Update session cache with new chat history
-	h.updateSessionCache(ctx, tenantCtx, agentConfig, userMessage, assistantMessage)
 }
 
 // handleDefaultStreaming handles the default streaming response (for N8N etc.)
@@ -471,8 +473,37 @@ func (h *MessagesHandler) handleFoundryStreaming(
 	startTime time.Time,
 ) {
 	var currentContent string
-	messageCount := 0
 	allMessages := []*models.Message{currentMessage}
+
+	// Helper function to save and start new message
+	saveCurrentAndStartNew := func() {
+		// Save current message if it has content
+		if currentContent != "" {
+			currentMessage.SetSuccess(currentContent)
+			h.saveAssistantMessageWithMetadata(ctx, currentMessage, agentConfig, startTime)
+		}
+
+		// Signal new message to client
+		writer.WriteJSON(sse.EventMessage, &sse.StreamMessage{
+			Type: "STREAM_NEW_MESSAGE",
+		})
+
+		// Create new assistant message
+		currentMessage = models.NewAssistantMessage(
+			tenantCtx.TenantID,
+			userMessage.ConversationID,
+			userMessage.ID,
+			userMessage.ApplicationID,
+			"",
+			models.MessageStatusPending,
+		)
+		currentMessage.ID = generateMessageID()
+		allMessages = append(allMessages, currentMessage)
+		currentContent = ""
+
+		// Send new STREAM_START
+		writer.WriteStreamStart(currentMessage.ID, userMessage.ConversationID)
+	}
 
 	// Send STREAM_START with messageId and conversationId
 	writer.WriteStreamStart(currentMessage.ID, userMessage.ConversationID)
@@ -495,38 +526,13 @@ func (h *MessagesHandler) handleFoundryStreaming(
 			writer.WriteTextStream(chunk.Content)
 
 		case agents.ChunkTypeNewMessage:
-			// Save current message before starting new one
-			if messageCount > 0 && currentContent != "" {
-				currentMessage.SetSuccess(currentContent)
-				h.saveAssistantMessageWithMetadata(ctx, currentMessage, agentConfig, startTime)
-			}
-
-			// Signal new message to client
-			writer.WriteJSON(sse.EventMessage, &sse.StreamMessage{
-				Type: "STREAM_NEW_MESSAGE",
-			})
-
-			// Create new assistant message
-			messageCount++
-			currentMessage = models.NewAssistantMessage(
-				tenantCtx.TenantID,
-				userMessage.ConversationID,
-				userMessage.ID,
-				userMessage.ApplicationID,
-				"",
-				models.MessageStatusPending,
-			)
-			currentMessage.ID = generateMessageID()
-			allMessages = append(allMessages, currentMessage)
-			currentContent = ""
+			// New message starting - save previous and create new
+			saveCurrentAndStartNew()
 
 			// Apply metadata from chunk if available
 			if chunk.Metadata != nil {
 				currentMessage.Metadata = h.extractFoundryMetadata(chunk.Metadata)
 			}
-
-			// Send new STREAM_START
-			writer.WriteStreamStart(currentMessage.ID, userMessage.ConversationID)
 
 		case agents.ChunkTypeMetadata:
 			// Update current message metadata
@@ -561,11 +567,9 @@ func (h *MessagesHandler) handleFoundryStreaming(
 	// Send STREAM_END
 	writer.WriteStreamEnd()
 
-	// Save the final message
-	if currentContent != "" || messageCount == 0 {
-		currentMessage.SetSuccess(currentContent)
-		h.saveAssistantMessageWithMetadata(ctx, currentMessage, agentConfig, startTime)
-	}
+	// Save the final message (always save the last one)
+	currentMessage.SetSuccess(currentContent)
+	h.saveAssistantMessageWithMetadata(ctx, currentMessage, agentConfig, startTime)
 }
 
 // saveAssistantMessageWithMetadata saves an assistant message with timing metadata.
@@ -700,6 +704,31 @@ func (h *MessagesHandler) updateSessionCache(
 		assistantMessage.ToChatHistoryEntry(),
 	}
 	_ = h.sessionService.UpdateChatHistory(ctx, tenantCtx.TenantID, tenantCtx.UserID, userMessage.ConversationID, newEntries)
+}
+
+// updateSessionCacheConfigOnly caches only the agent config without chat history.
+// Used for Foundry agents which manage their own conversation history.
+func (h *MessagesHandler) updateSessionCacheConfigOnly(
+	ctx context.Context,
+	tenantCtx *middleware.TenantContext,
+	agentConfig *platform.AgentConfig,
+	conversationID string,
+) {
+	// Check if session already exists - if so, no need to update (config doesn't change)
+	existingSession, _ := h.sessionService.GetSession(ctx, tenantCtx.TenantID, tenantCtx.UserID, conversationID)
+	if existingSession != nil {
+		return
+	}
+
+	// Create new session with config but empty chat history
+	sessionData := session.NewSessionData(
+		agentConfig,
+		[]models.ChatHistoryEntry{}, // Empty chat history for Foundry
+		tenantCtx.TenantID,
+		tenantCtx.UserID,
+		conversationID,
+	)
+	_ = h.sessionService.SetSession(ctx, sessionData)
 }
 
 // generateMessageID generates a unique message ID.
