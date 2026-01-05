@@ -1,0 +1,81 @@
+{
+    "metadata": {},
+    "temperature": null,
+    "top_p": null,
+    "user": null,
+    "service_tier": "auto",
+    "model": "",
+    "background": false,
+    "tools": [],
+    "tool_choice": "auto",
+    "truncation": "auto",
+    "id": "wfresp_f0eee68b42421a9600a9EXWHCQFd0ZqDsiMr49mYtAuMtfibc4",
+    "object": "response",
+    "status": "completed",
+    "created_at": 1767639773,
+    "error": null,
+    "incomplete_details": null,
+    "output": [
+        {
+            "type": "workflow_action",
+            "id": "wfa_f0eee68b42421a9600KDht3E9LmassA3UL0EdBfasAcVV8nnVI",
+            "created_by": {
+                "agent": {
+                    "type": "agent_id",
+                    "name": "BasicWorkflow",
+                    "version": "1"
+                },
+                "response_id": "wfresp_f0eee68b42421a9600a9EXWHCQFd0ZqDsiMr49mYtAuMtfibc4"
+            },
+            "kind": "Question",
+            "action_id": "action-1767634216505",
+            "parent_action_id": "trigger_wf",
+            "previous_action_id": "trigger_wf",
+            "status": "in_progress"
+        },
+        {
+            "type": "message",
+            "id": "msg_f0eee68b42421a9600J3mkToqcRqZOponqbkCBA6sAg0QtNJmx",
+            "created_by": {
+                "agent": {
+                    "type": "agent_id",
+                    "name": "BasicWorkflow",
+                    "version": "1"
+                },
+                "response_id": "wfresp_f0eee68b42421a9600a9EXWHCQFd0ZqDsiMr49mYtAuMtfibc4"
+            },
+            "status": "completed",
+            "role": "assistant",
+            "content": [
+                {
+                    "type": "output_text",
+                    "text": "What is your name?",
+                    "annotations": []
+                }
+            ]
+        }
+    ],
+    "instructions": "",
+    "output_text": "",
+    "usage": {
+        "input_tokens": 0,
+        "input_tokens_details": {
+            "cached_tokens": 0
+        },
+        "output_tokens": 0,
+        "output_tokens_details": {
+            "reasoning_tokens": 0
+        },
+        "total_tokens": 0
+    },
+    "parallel_tool_calls": true,
+    "conversation": {
+        "id": "conv_f0eee68b42421a9600f9DnWea5y4PwGt3E9yDAEWz1nCtkNtNf"
+    },
+    "agent": {
+        "type": "agent_id",
+        "name": "BasicWorkflow",
+        "version": "1"
+    },
+    "structured_inputs": {}
+}
