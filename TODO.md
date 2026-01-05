@@ -25,8 +25,6 @@
             - N8N_API_KEY
             - N8N_BASIC_AUTH -> muss dict mit username und password sein -> wird in string umgewandelt beim speichern
 
-**Plan:**
-
 5. Frontend
     - api-client
         - messages endpoints hinzufügen
@@ -42,8 +40,15 @@
             - chat_auth_credential_id -> {"username": "", "password": ""}.str() | None
                 - type: N8N_BASIC_AUTH
 
+**Plan:**
+
 6. Agent-Service
     - Platform-Service abfragen
+        - bei POST /messages -> wenn conversationId = Null
+            - dann conversation anlegen! -> einfach den anfang der UserMessage als Title nehmen!
+        - appID: cfcf3ddd-2432-4c5c-9b8c-19ade761b134
+        - {{host}}/api/v1/platform-service/tenants/{{tenant_id}}/applications/{{application_id}}/config
+        - in START_STREAM: messageId UND conversationId mitgeben!
 
 7. Frontend
     - conversations page bauen
