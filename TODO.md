@@ -1,6 +1,6 @@
 # TODOs
 
-**Plan:**
+**DONE**
 
 4. Platform-Service
     - Application Config für N8N validieren
@@ -24,11 +24,23 @@
             - API_KEY
             - N8N_API_KEY
             - N8N_BASIC_AUTH -> muss dict mit username und password sein -> wird in string umgewandelt beim speichern
+
+**Plan:**
+
 5. Frontend
     - api-client
-        - platform-service jetzt auch -> /api/v1/platform-service/*
         - messages endpoints hinzufügen
     - application config für N8N bei CREATE und EDIT anpassen
+        - config (json field -> gibts schon)
+            - api_version
+            - workflow_type
+            - use_unified_chat_history
+            - chat_history_count
+            - chat_url
+            - api_api_key_credential_id (required)
+                - type: N8N_API_KEY
+            - chat_auth_credential_id -> {"username": "", "password": ""}.str() | None
+                - type: N8N_BASIC_AUTH
 
 6. Agent-Service
     - Platform-Service abfragen
@@ -56,6 +68,8 @@
             - traces mit message id ODER autonomous-agent-id speichern 
         - POST endpoint mit selben service implementieren
 
+11. Security BUG:
+    - auf `/appilications/{id}/config` darf NUR der agent-service per `X-Service-Key` zugreifen, da hier Secrets zurückgegeben werden!
 
 Der Ziel Flow wäre:
 1. Request arrives
