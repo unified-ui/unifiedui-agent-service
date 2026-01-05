@@ -185,14 +185,13 @@ func (c *WorkflowClient) Close() error {
 
 // foundryStreamReader implements StreamReader for Foundry SSE responses.
 type foundryStreamReader struct {
-	response       *http.Response
-	scanner        *bufio.Scanner
-	closed         bool
-	messages       []*MessageInfo
-	currentContent strings.Builder
-	agentType      string
-	lastEvent      *FoundryEvent
-	lastMessageID  string
+	response      *http.Response
+	scanner       *bufio.Scanner
+	closed        bool
+	messages      []*MessageInfo
+	agentType     string
+	lastEvent     *FoundryEvent
+	lastMessageID string
 }
 
 // Read returns the next chunk from the stream.
