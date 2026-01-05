@@ -5,45 +5,147 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 // Client defines the interface for the platform service client.
 type Client interface {
+	// GetApplicationConfig retrieves the application configuration from the platform service.
+	// This calls the /config endpoint with service key AND bearer token authentication.
+	// The authToken is the user's bearer token forwarded from the incoming request.
+	GetApplicationConfig(ctx context.Context, tenantID, applicationID, authToken string) (*ApplicationConfigResponse, error)
+
 	// GetAgentConfig retrieves the agent configuration for a given application.
-	// In production, this will call the Platform Service API.
-	// Currently, it reads from a local config.json file.
-	GetAgentConfig(ctx context.Context, tenantID, applicationID string) (*AgentConfig, error)
+	// This converts ApplicationConfigResponse to AgentConfig with conversation ID.
+	GetAgentConfig(ctx context.Context, tenantID, applicationID, conversationID, authToken string) (*AgentConfig, error)
+
+	// GetAgentConfigFromFile reads agent configuration from a local file (for development).
+	GetAgentConfigFromFile(ctx context.Context, tenantID, applicationID string) (*AgentConfig, error)
 }
 
 // client implements the Client interface.
 type client struct {
 	configPath string
 	baseURL    string
+	serviceKey string
+	httpClient *http.Client
 }
 
 // ClientConfig holds the configuration for the platform client.
 type ClientConfig struct {
-	// BaseURL is the URL of the Platform Service (for future use)
+	// BaseURL is the URL of the Platform Service
 	BaseURL string
-	// ConfigPath is the path to the local config.json file (for development)
+	// ConfigPath is the path to the local config.json file (for development fallback)
 	ConfigPath string
+	// ServiceKey is the X_AGENT_SERVICE_KEY for service-to-service authentication
+	ServiceKey string
+	// Timeout for HTTP requests
+	Timeout time.Duration
 }
 
 // NewClient creates a new platform service client.
 func NewClient(cfg *ClientConfig) Client {
+	timeout := cfg.Timeout
+	if timeout == 0 {
+		timeout = 30 * time.Second
+	}
+
 	return &client{
 		configPath: cfg.ConfigPath,
 		baseURL:    cfg.BaseURL,
+		serviceKey: cfg.ServiceKey,
+		httpClient: &http.Client{
+			Timeout: timeout,
+		},
 	}
 }
 
-// GetAgentConfig retrieves the agent configuration.
-// Currently reads from local config.json file.
-// TODO: Implement actual Platform Service API call.
-func (c *client) GetAgentConfig(ctx context.Context, tenantID, applicationID string) (*AgentConfig, error) {
-	// For now, read from local config file
+// GetApplicationConfig retrieves the application configuration from the platform service.
+// It requires both X-Service-Key AND Bearer token for authentication.
+func (c *client) GetApplicationConfig(ctx context.Context, tenantID, applicationID, authToken string) (*ApplicationConfigResponse, error) {
+	if c.baseURL == "" {
+		return nil, fmt.Errorf("platform service URL not configured")
+	}
+
+	if c.serviceKey == "" {
+		return nil, fmt.Errorf("service key not configured")
+	}
+
+	if authToken == "" {
+		return nil, fmt.Errorf("auth token not provided")
+	}
+
+	// Build request URL - use /config endpoint
+	url := fmt.Sprintf("%s/api/v1/platform-service/tenants/%s/applications/%s/config", c.baseURL, tenantID, applicationID)
+
+	// Create request
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set headers - both X-Service-Key AND Bearer token required
+	req.Header.Set("X-Service-Key", c.serviceKey)
+	req.Header.Set("Authorization", "Bearer "+authToken)
+	req.Header.Set("Accept", "application/json")
+
+	// Execute request
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to call platform service: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Check status code
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("platform service returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Parse response
+	var config ApplicationConfigResponse
+	if err := json.Unmarshal(body, &config); err != nil {
+		return nil, fmt.Errorf("failed to parse application config response: %w", err)
+	}
+
+	return &config, nil
+}
+
+// GetAgentConfig retrieves the agent configuration by calling the platform service
+// and enriching it with conversation ID. User info is now included in the response.
+func (c *client) GetAgentConfig(ctx context.Context, tenantID, applicationID, conversationID, authToken string) (*AgentConfig, error) {
+	// Get application config from platform service (includes user info)
+	appConfig, err := c.GetApplicationConfig(ctx, tenantID, applicationID, authToken)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get application config: %w", err)
+	}
+
+	// Convert to AgentConfig
+	agentConfig := &AgentConfig{
+		DocVersion:     appConfig.DocVersion,
+		Type:           appConfig.Type,
+		TenantID:       appConfig.TenantID,
+		ConversationID: conversationID,
+		ApplicationID:  appConfig.ApplicationID,
+		Settings:       appConfig.Settings,
+		User:           appConfig.User, // User info from platform service response
+	}
+
+	return agentConfig, nil
+}
+
+// GetAgentConfigFromFile reads agent configuration from a local file.
+// This is for development/fallback purposes when platform service is not available.
+func (c *client) GetAgentConfigFromFile(ctx context.Context, tenantID, applicationID string) (*AgentConfig, error) {
 	if c.configPath == "" {
 		return nil, fmt.Errorf("config path not configured")
 	}

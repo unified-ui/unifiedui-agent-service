@@ -234,6 +234,8 @@ func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb
 	platformClient := platform.NewClient(&platform.ClientConfig{
 		BaseURL:    cfg.Platform.URL,
 		ConfigPath: cfg.Platform.ConfigPath,
+		ServiceKey: cfg.Platform.ServiceKey,
+		Timeout:    cfg.Platform.Timeout,
 	})
 
 	// Create agent factory

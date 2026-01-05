@@ -233,8 +233,16 @@ func (h *MessagesHandler) SendMessage(c *gin.Context) {
 		agentConfig = sessionData.Config
 		chatHistory = sessionData.ChatHistory
 	} else {
+		// Get auth token from context for Platform Service call
+		authToken := middleware.GetToken(c)
+		if authToken == "" {
+			middleware.HandleError(c, errors.NewUnauthorizedError("auth token not found in context"))
+			return
+		}
+
 		// Get agent configuration from Platform Service
-		agentConfig, err = h.platformClient.GetAgentConfig(ctx, tenantCtx.TenantID, req.ApplicationID)
+		// The /config endpoint requires both X-Service-Key AND Bearer token
+		agentConfig, err = h.platformClient.GetAgentConfig(ctx, tenantCtx.TenantID, req.ApplicationID, conversationID, authToken)
 		if err != nil {
 			middleware.HandleError(c, errors.NewInternalError("failed to get agent configuration", err))
 			return
@@ -353,8 +361,8 @@ func (h *MessagesHandler) handleStreamingResponse(
 	var fullContent string
 	startTime := time.Now()
 
-	// Send STREAM_START
-	writer.WriteStreamStart(assistantMessage.ID)
+	// Send STREAM_START with messageId and conversationId
+	writer.WriteStreamStart(assistantMessage.ID, userMessage.ConversationID)
 
 	// Read and forward stream chunks
 	for {

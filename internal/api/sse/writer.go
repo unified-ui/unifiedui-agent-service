@@ -101,12 +101,13 @@ func (w *Writer) WriteMessage(content string) error {
 	return w.WriteEvent(EventMessage, content)
 }
 
-// WriteStreamStart writes the STREAM_START message.
-func (w *Writer) WriteStreamStart(messageID string) error {
+// WriteStreamStart writes the STREAM_START message with messageId and conversationId.
+func (w *Writer) WriteStreamStart(messageID, conversationID string) error {
 	return w.WriteJSON(EventMessage, &StreamMessage{
 		Type: StreamTypeStart,
 		Config: map[string]interface{}{
-			"messageId": messageID,
+			"messageId":      messageID,
+			"conversationId": conversationID,
 		},
 	})
 }

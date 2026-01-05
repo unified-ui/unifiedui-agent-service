@@ -82,9 +82,14 @@ func NewForbiddenError(message string) *DomainError {
 
 // NewInternalError creates a new internal error.
 func NewInternalError(message string, err error) *DomainError {
+	details := ""
+	if err != nil {
+		details = err.Error()
+	}
 	return &DomainError{
 		Code:       ErrCodeInternal,
 		Message:    message,
+		Details:    details,
 		HTTPStatus: http.StatusInternalServerError,
 		Err:        err,
 	}

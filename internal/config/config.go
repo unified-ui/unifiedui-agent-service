@@ -63,6 +63,7 @@ type PlatformConfig struct {
 	URL        string
 	ConfigPath string
 	Timeout    time.Duration
+	ServiceKey string // X_AGENT_SERVICE_KEY for service-to-service authentication
 }
 
 // LogConfig holds logging configuration.
@@ -106,6 +107,7 @@ func Load() (*Config, error) {
 			URL:        getEnv("PLATFORM_SERVICE_URL", "http://localhost:8081"),
 			ConfigPath: getEnv("PLATFORM_CONFIG_PATH", "poc/n8n/config.json"),
 			Timeout:    time.Duration(getEnvAsInt("PLATFORM_SERVICE_TIMEOUT_SECONDS", 30)) * time.Second,
+			ServiceKey: getEnv("X_AGENT_SERVICE_KEY", ""),
 		},
 		Log: LogConfig{
 			Level:  getEnv("LOG_LEVEL", "info"),

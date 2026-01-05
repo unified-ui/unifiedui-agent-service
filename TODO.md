@@ -44,14 +44,34 @@
 
 6. Agent-Service
     - Platform-Service abfragen
-        - bei POST /messages -> wenn conversationId = Null
-            - dann conversation anlegen! -> einfach den anfang der UserMessage als Title nehmen!
         - appID: cfcf3ddd-2432-4c5c-9b8c-19ade761b134
         - {{host}}/api/v1/platform-service/tenants/{{tenant_id}}/applications/{{application_id}}/config
         - in START_STREAM: messageId UND conversationId mitgeben!
 
 7. Frontend
     - conversations page bauen
+        - ConversationsPage designen
+            - Layout:
+                - Header
+                    - links: Applications als DropDown
+                        - wenn converstaionId is Null -> dropdown kann bearbeitet werden; also application kann ausgewählt werden
+                        - wenn conversationId not Null -> dropdown ist disabled, aber man kann Applicatioin Name und darunter description lesen
+                    - Rechts: Share Conversation
+                        - hier kann man Conversation mit jemanden sharen -> also Manage Access Table
+                - Sidebar (die soll es ähnlich wie die anderen sidebardatalists) über hover geben -> aber auch anpinbar sein
+                    - ActionHeader
+                        - New Chat
+                        - Search chats
+
+                    - historischen conversations
+                        - mit zwei setting-icon-buttons:
+                            - Group by applications (und order by last used)
+                            - Conversations -> order by last used
+        - Logik
+            - mit query parameter ?chat-agent={id} wird die application ausgewählt
+            - wenn leer, soll lokal die letzte verwendete application gespeichert und ausgewählt und als query param auf der seite hinzugefügt werden
+            - erstmal leerer Chat -> beim submit erster nachicht -> POST /conversations erstellen von conversation
+                - dann conversation anlegen! -> einfach den anfang der UserMessage als Title nehmen!
 
 8. Foundry anbinden
     - hier direkt checken, wie man mit "Respond to Chat" arbeitet
@@ -75,6 +95,9 @@
 
 11. Security BUG:
     - auf `/appilications/{id}/config` darf NUR der agent-service per `X-Service-Key` zugreifen, da hier Secrets zurückgegeben werden!
+
+12. Frontend fix:
+    - beim fetchen der Credentials im Create- und EditApplicationDialog wird noch credentials?limit=999 gefetcht -> hier eher paginierung, aber man kann ruhig 100 fetchen (nur name und id -> + orderBy=name order_direction=asc)
 
 Der Ziel Flow wäre:
 1. Request arrives

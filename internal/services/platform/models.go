@@ -28,7 +28,31 @@ const (
 	N8NWorkflowTypeHumanInLoop N8NWorkflowType = "N8N_HUMAN_IN_THE_LOOP"
 )
 
+// ServiceConfigResponse represents the config response from platform service (without user data).
+// DEPRECATED: Use ApplicationConfigResponse instead.
+// This is kept for backwards compatibility.
+type ServiceConfigResponse struct {
+	DocVersion    string        `json:"docversion"`
+	Type          AgentType     `json:"type"`
+	TenantID      string        `json:"tenant_id"`
+	ApplicationID string        `json:"application_id"`
+	Settings      AgentSettings `json:"settings"`
+}
+
+// ApplicationConfigResponse represents the config response from platform service.
+// This is the response from GET /tenants/{tenant_id}/applications/{application_id}/config
+// and includes user information.
+type ApplicationConfigResponse struct {
+	DocVersion    string        `json:"docversion"`
+	Type          AgentType     `json:"type"`
+	TenantID      string        `json:"tenant_id"`
+	ApplicationID string        `json:"application_id"`
+	Settings      AgentSettings `json:"settings"`
+	User          *UserInfo     `json:"user,omitempty"`
+}
+
 // AgentConfig represents the complete configuration for an agent application.
+// This includes user data and is used internally when user context is available.
 type AgentConfig struct {
 	DocVersion     string        `json:"docversion"`
 	Type           AgentType     `json:"type"`
@@ -36,7 +60,7 @@ type AgentConfig struct {
 	ConversationID string        `json:"conversation_id"`
 	ApplicationID  string        `json:"application_id"`
 	Settings       AgentSettings `json:"settings"`
-	User           UserInfo      `json:"user"`
+	User           *UserInfo     `json:"user,omitempty"`
 }
 
 // AgentSettings contains the agent-specific settings.
