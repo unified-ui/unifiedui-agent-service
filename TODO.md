@@ -2,76 +2,38 @@
 
 **DONE**
 
-4. Platform-Service
-    - Application Config für N8N validieren
-        - config (json field -> gibts schon)
-            - api_version
-            - workflow_type
-            - use_unified_chat_history
-            - chat_history_count
-            - chat_url
-            - api_api_key_credential_id (required)
-                - type: N8N_API_KEY
-            - chat_auth_credential_id -> {"username": "", "password": ""}.str() | None
-                - type: N8N_BASIC_AUTH
-    - GET config endpoint für agent-service hinzufügen
-        - GET /api/v1/platform-service/applications/{id}/config
-            - auth:
-                1. request muss von selber origin kommen (localhost -> localhost etc? geht das? -> service-to-service auth...)
-                2. user aus bearer token muss zugriff auf application haben (GLOBAL_ADMIN, APPLICATIONS_ADMIN, READ, WRITE, ADMIN)
-    - credentials routes anpassen
-        - hier richtige typen festlegen
-            - API_KEY
-            - N8N_API_KEY
-            - N8N_BASIC_AUTH -> muss dict mit username und password sein -> wird in string umgewandelt beim speichern
-
-5. Frontend
-    - api-client
-        - messages endpoints hinzufügen
-    - application config für N8N bei CREATE und EDIT anpassen
-        - config (json field -> gibts schon)
-            - api_version
-            - workflow_type
-            - use_unified_chat_history
-            - chat_history_count
-            - chat_url
-            - api_api_key_credential_id (required)
-                - type: N8N_API_KEY
-            - chat_auth_credential_id -> {"username": "", "password": ""}.str() | None
-                - type: N8N_BASIC_AUTH
-
 **Plan:**
 
-6. Agent-Service
-    - Platform-Service abfragen
-        - appID: cfcf3ddd-2432-4c5c-9b8c-19ade761b134
-        - {{host}}/api/v1/platform-service/tenants/{{tenant_id}}/applications/{{application_id}}/config
-        - in START_STREAM: messageId UND conversationId mitgeben!
-
 7. Frontend
-    - conversations page bauen
-        - ConversationsPage designen
-            - Layout:
-                - Header
-                    - links: Applications als DropDown
-                        - wenn converstaionId is Null -> dropdown kann bearbeitet werden; also application kann ausgewählt werden
-                        - wenn conversationId not Null -> dropdown ist disabled, aber man kann Applicatioin Name und darunter description lesen
-                    - Rechts: Share Conversation
-                        - hier kann man Conversation mit jemanden sharen -> also Manage Access Table
-                - Sidebar (die soll es ähnlich wie die anderen sidebardatalists) über hover geben -> aber auch anpinbar sein
-                    - ActionHeader
-                        - New Chat
-                        - Search chats
-
-                    - historischen conversations
-                        - mit zwei setting-icon-buttons:
-                            - Group by applications (und order by last used)
-                            - Conversations -> order by last used
+    - Hover Chat Agents -> OnClick -> gehe zu conversations`chat-agent={id}
+    - ConversationPage
+        - Design
+            - Header
+                - ohne border
+            - Content:
+                - Nachrihcten korrekt sortieren
+                    - kommen aus Backend bereits richtig sortiert
+                - wenn conversationId = null
+                    - dann ChatInput in mitte der Page, damit Schick
+                - bei file-hover -> drop icon in der mitte deutlicher bzw den hintergrund blur
+            - ChatInput
+                - Backegroundcolor soll wie die der page sein (--app-bg?)
+                - dafür soll border und shadow gegeben sein, damit der ChatInput etwas hochsticht
+            - Sidebar
+                - Expand + collaps button für sidebar -> andere icons
+                - + New Chat Button mehr padding -> zu geringes padding
+                - Search conversations bar raus -> dafür gibts den Button "Search chats"
+                - Chat History
+                    - Label "Today / Agent-Name"
+                        - mit mehr abstand nach links (ist direkt am rand) und dick (font-weight)
+                    - conversation item > 3-dots icon
+                        - rename über Pin hinzufügen -> und direkt links in der sidebar den namen/title anpassen können
         - Logik
-            - mit query parameter ?chat-agent={id} wird die application ausgewählt
-            - wenn leer, soll lokal die letzte verwendete application gespeichert und ausgewählt und als query param auf der seite hinzugefügt werden
-            - erstmal leerer Chat -> beim submit erster nachicht -> POST /conversations erstellen von conversation
-                - dann conversation anlegen! -> einfach den anfang der UserMessage als Title nehmen!
+            - Header
+                - Share Dialog erstellen
+                    - manage access tabelle für conversation
+                        - es dürfen nur principals ausgewählt werden, die zugriff auf die Application haben
+                        - 
 
 8. Foundry anbinden
     - hier direkt checken, wie man mit "Respond to Chat" arbeitet
@@ -93,11 +55,23 @@
             - traces mit message id ODER autonomous-agent-id speichern 
         - POST endpoint mit selben service implementieren
 
-11. Security BUG:
-    - auf `/appilications/{id}/config` darf NUR der agent-service per `X-Service-Key` zugreifen, da hier Secrets zurückgegeben werden!
+11. ZWEI Vaults fixen:
+    - app_vault + secrets_vault
+        - App Vault für application keys wie zB `X-Service-Key`
+        - Secrets Vault -> ist vault für credentials aus der app etc...
+    - *aktuell in auth.py > _validate_service_key soll app_vault nutzen
+        - app_vault kann auch dotenv sein...
 
 12. Frontend fix:
     - beim fetchen der Credentials im Create- und EditApplicationDialog wird noch credentials?limit=999 gefetcht -> hier eher paginierung, aber man kann ruhig 100 fetchen (nur name und id -> + orderBy=name order_direction=asc)
+
+13. models.py refactoren
+    - überall wo uuid von uns -> char(36) nutzen
+        - zb bei Conversation.application_id string(100) -> char(36)
+
+14. Bei delete conversation -> auch messages und traces löschen
+
+
 
 Der Ziel Flow wäre:
 1. Request arrives

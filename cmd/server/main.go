@@ -225,6 +225,18 @@ func createEncryptor(cfg config.VaultConfig, vaultClient vault.Client) (encrypti
 func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb.Client, vaultClient vault.Client, sessionService session.Service) *gin.Engine {
 	router := gin.New()
 
+	// Create CORS config
+	corsConfig := middleware.DefaultCORSConfig()
+
+	// Create CORS middleware with default config
+	corsMw := middleware.NewCORSMiddleware(corsConfig)
+
+	// Apply CORS middleware globally (must be first)
+	router.Use(corsMw)
+
+	// Add explicit OPTIONS handler for all routes (needed for CORS preflight)
+	middleware.SetupCORSRoutes(router, corsConfig)
+
 	// Create middleware
 	loggingMw := middleware.NewLoggingMiddleware()
 	errorMw := middleware.NewErrorMiddleware()
