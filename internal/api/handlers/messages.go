@@ -172,7 +172,7 @@ type InvokeConfig struct {
 type SendMessageRequest struct {
 	ConversationID    string         `json:"conversationId,omitempty"`
 	ApplicationID     string         `json:"applicationId" binding:"required"`
-	ExtConversationID string         `json:"ext_conversation_id,omitempty"`
+	ExtConversationID string         `json:"extConversationId,omitempty"`
 	Message           MessageContent `json:"message" binding:"required"`
 	InvokeConfig      InvokeConfig   `json:"invokeConfig,omitempty"`
 }
