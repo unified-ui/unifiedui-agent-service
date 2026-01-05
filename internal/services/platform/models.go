@@ -6,7 +6,7 @@ type AgentType string
 
 const (
 	AgentTypeN8N     AgentType = "N8N"
-	AgentTypeFoundry AgentType = "FOUNDRY"
+	AgentTypeFoundry AgentType = "MICROSOFT_FOUNDRY"
 	AgentTypeCopilot AgentType = "COPILOT"
 	AgentTypeCustom  AgentType = "CUSTOM"
 )
@@ -65,13 +65,21 @@ type AgentConfig struct {
 
 // AgentSettings contains the agent-specific settings.
 type AgentSettings struct {
-	APIVersion            string          `json:"api_version"`
-	WorkflowType          N8NWorkflowType `json:"workflow_type"`
-	UseUnifiedChatHistory bool            `json:"use_unified_chat_history"`
-	ChatHistoryCount      int             `json:"chat_history_count"`
-	ChatURL               string          `json:"chat_url"`
-	APICredentials        *Credentials    `json:"api_credentials,omitempty"`
-	ChatCredentials       *Credentials    `json:"chat_credentials,omitempty"`
+	// Common settings
+	APIVersion            string `json:"api_version"`
+	UseUnifiedChatHistory bool   `json:"use_unified_chat_history"`
+	ChatHistoryCount      int    `json:"chat_history_count"`
+
+	// N8N specific settings
+	WorkflowType    N8NWorkflowType `json:"workflow_type,omitempty"`
+	ChatURL         string          `json:"chat_url,omitempty"`
+	APICredentials  *Credentials    `json:"api_credentials,omitempty"`
+	ChatCredentials *Credentials    `json:"chat_credentials,omitempty"`
+
+	// Microsoft Foundry specific settings
+	AgentType       string `json:"agent_type,omitempty"`       // "AGENT" or "MULTI_AGENT"
+	ProjectEndpoint string `json:"project_endpoint,omitempty"` // Full endpoint URL
+	AgentName       string `json:"agent_name,omitempty"`       // Agent name to invoke
 }
 
 // Credentials represents authentication credentials.

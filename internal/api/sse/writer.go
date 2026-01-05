@@ -33,6 +33,8 @@ const (
 	StreamTypeEnd StreamMessageType = "STREAM_END"
 	// StreamTypeError indicates an error in the stream.
 	StreamTypeError StreamMessageType = "ERROR"
+	// StreamTypeNewMessage indicates a new message starts in the stream (for Foundry multi-message responses).
+	StreamTypeNewMessage StreamMessageType = "STREAM_NEW_MESSAGE"
 )
 
 // StreamMessage represents a unified stream message format.

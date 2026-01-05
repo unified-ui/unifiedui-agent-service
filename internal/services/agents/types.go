@@ -12,10 +12,11 @@ import (
 type ChunkType string
 
 const (
-	ChunkTypeContent  ChunkType = "content"
-	ChunkTypeMetadata ChunkType = "metadata"
-	ChunkTypeError    ChunkType = "error"
-	ChunkTypeDone     ChunkType = "done"
+	ChunkTypeContent    ChunkType = "content"
+	ChunkTypeMetadata   ChunkType = "metadata"
+	ChunkTypeError      ChunkType = "error"
+	ChunkTypeDone       ChunkType = "done"
+	ChunkTypeNewMessage ChunkType = "new_message"
 )
 
 // StreamChunk represents a chunk of streamed content.

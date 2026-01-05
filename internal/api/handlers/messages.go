@@ -170,10 +170,11 @@ type InvokeConfig struct {
 
 // SendMessageRequest represents the request body for sending a message.
 type SendMessageRequest struct {
-	ConversationID string         `json:"conversationId,omitempty"`
-	ApplicationID  string         `json:"applicationId" binding:"required"`
-	Message        MessageContent `json:"message" binding:"required"`
-	InvokeConfig   InvokeConfig   `json:"invokeConfig,omitempty"`
+	ConversationID    string         `json:"conversationId,omitempty"`
+	ApplicationID     string         `json:"applicationId" binding:"required"`
+	ExtConversationID string         `json:"ext_conversation_id,omitempty"`
+	Message           MessageContent `json:"message" binding:"required"`
+	InvokeConfig      InvokeConfig   `json:"invokeConfig,omitempty"`
 }
 
 // SendMessageResponse represents the response for sending a message.
@@ -190,6 +191,7 @@ type SendMessageResponse struct {
 // @Accept json
 // @Produce text/event-stream
 // @Param tenantId path string true "Tenant ID"
+// @Param X-Microsoft-Foundry-API-Key header string false "Microsoft Foundry API Key (required for Foundry agents)"
 // @Param request body SendMessageRequest true "Message content with applicationId"
 // @Success 200 {object} SendMessageResponse
 // @Failure 400 {object} dto.ErrorResponse
@@ -299,9 +301,23 @@ func (h *MessagesHandler) SendMessage(c *gin.Context) {
 	}
 
 	// Create agent clients using factory
-	agentClients, err := h.agentFactory.CreateClients(agentConfig)
-	if err != nil {
-		middleware.HandleError(c, errors.NewInternalError("failed to create agent clients", err))
+	var agentClients *agents.AgentClients
+	var createErr error
+
+	if agentConfig.Type == platform.AgentTypeFoundry {
+		// For Foundry, we need the API key from header
+		foundryAPIKey := c.GetHeader("X-Microsoft-Foundry-API-Key")
+		if foundryAPIKey == "" {
+			middleware.HandleError(c, errors.NewValidationError("X-Microsoft-Foundry-API-Key header is required for Foundry agents", ""))
+			return
+		}
+		agentClients, createErr = h.agentFactory.CreateFoundryClients(agentConfig, foundryAPIKey)
+	} else {
+		agentClients, createErr = h.agentFactory.CreateClients(agentConfig)
+	}
+
+	if createErr != nil {
+		middleware.HandleError(c, errors.NewInternalError("failed to create agent clients", createErr))
 		return
 	}
 	defer agentClients.Close()
@@ -318,7 +334,7 @@ func (h *MessagesHandler) SendMessage(c *gin.Context) {
 	assistantMessage.ID = assistantMessageID
 
 	// Handle streaming response
-	h.handleStreamingResponse(c, tenantCtx, agentClients, agentConfig, userMessage, assistantMessage, chatHistory)
+	h.handleStreamingResponse(c, tenantCtx, agentClients, agentConfig, userMessage, assistantMessage, chatHistory, req.ExtConversationID)
 }
 
 // handleStreamingResponse handles SSE streaming for message responses.
@@ -330,6 +346,7 @@ func (h *MessagesHandler) handleStreamingResponse(
 	userMessage *models.Message,
 	assistantMessage *models.Message,
 	chatHistory []models.ChatHistoryEntry,
+	extConversationID string,
 ) {
 	ctx := c.Request.Context()
 
@@ -341,8 +358,14 @@ func (h *MessagesHandler) handleStreamingResponse(
 	}
 
 	// Build invoke request with chat history
+	// For Foundry, use ext_conversation_id as the conversation ID
+	conversationIDForInvoke := userMessage.ConversationID
+	if agentConfig.Type == platform.AgentTypeFoundry && extConversationID != "" {
+		conversationIDForInvoke = extConversationID
+	}
+
 	invokeReq := &agents.InvokeRequest{
-		ConversationID: userMessage.ConversationID,
+		ConversationID: conversationIDForInvoke,
 		Message:        userMessage.Content,
 		SessionID:      userMessage.ConversationID,
 		ChatHistory:    chatHistory,
@@ -358,8 +381,30 @@ func (h *MessagesHandler) handleStreamingResponse(
 	}
 	defer streamReader.Close()
 
-	var fullContent string
 	startTime := time.Now()
+
+	// Use Foundry-specific streaming handler if applicable
+	if agentConfig.Type == platform.AgentTypeFoundry {
+		h.handleFoundryStreaming(ctx, writer, streamReader, tenantCtx, agentConfig, userMessage, assistantMessage, startTime)
+	} else {
+		h.handleDefaultStreaming(ctx, writer, streamReader, agentConfig, userMessage, assistantMessage, startTime)
+	}
+
+	// Update session cache with new chat history
+	h.updateSessionCache(ctx, tenantCtx, agentConfig, userMessage, assistantMessage)
+}
+
+// handleDefaultStreaming handles the default streaming response (for N8N etc.)
+func (h *MessagesHandler) handleDefaultStreaming(
+	ctx context.Context,
+	writer *sse.Writer,
+	streamReader agents.StreamReader,
+	agentConfig *platform.AgentConfig,
+	userMessage *models.Message,
+	assistantMessage *models.Message,
+	startTime time.Time,
+) {
+	var fullContent string
 
 	// Send STREAM_START with messageId and conversationId
 	writer.WriteStreamStart(assistantMessage.ID, userMessage.ConversationID)
@@ -412,9 +457,203 @@ func (h *MessagesHandler) handleStreamingResponse(
 	if err := h.docDBClient.Messages().Add(ctx, assistantMessage); err != nil {
 		// Log error but don't fail - message was already sent to client
 	}
+}
 
-	// Update session cache with new chat history
-	h.updateSessionCache(ctx, tenantCtx, agentConfig, userMessage, assistantMessage)
+// handleFoundryStreaming handles Microsoft Foundry streaming responses with multiple messages support.
+func (h *MessagesHandler) handleFoundryStreaming(
+	ctx context.Context,
+	writer *sse.Writer,
+	streamReader agents.StreamReader,
+	tenantCtx *middleware.TenantContext,
+	agentConfig *platform.AgentConfig,
+	userMessage *models.Message,
+	currentMessage *models.Message,
+	startTime time.Time,
+) {
+	var currentContent string
+	messageCount := 0
+	allMessages := []*models.Message{currentMessage}
+
+	// Send STREAM_START with messageId and conversationId
+	writer.WriteStreamStart(currentMessage.ID, userMessage.ConversationID)
+
+	// Read and forward stream chunks
+	for {
+		chunk, err := streamReader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			writer.WriteStreamError("STREAM_ERROR", "Error reading stream", err.Error())
+			h.saveFailedAssistantMessage(ctx, currentMessage, "Stream error: "+err.Error())
+			break
+		}
+
+		switch chunk.Type {
+		case agents.ChunkTypeContent:
+			currentContent += chunk.Content
+			writer.WriteTextStream(chunk.Content)
+
+		case agents.ChunkTypeNewMessage:
+			// Save current message before starting new one
+			if messageCount > 0 && currentContent != "" {
+				currentMessage.SetSuccess(currentContent)
+				h.saveAssistantMessageWithMetadata(ctx, currentMessage, agentConfig, startTime)
+			}
+
+			// Signal new message to client
+			writer.WriteJSON(sse.EventMessage, &sse.StreamMessage{
+				Type: "STREAM_NEW_MESSAGE",
+			})
+
+			// Create new assistant message
+			messageCount++
+			currentMessage = models.NewAssistantMessage(
+				tenantCtx.TenantID,
+				userMessage.ConversationID,
+				userMessage.ID,
+				userMessage.ApplicationID,
+				"",
+				models.MessageStatusPending,
+			)
+			currentMessage.ID = generateMessageID()
+			allMessages = append(allMessages, currentMessage)
+			currentContent = ""
+
+			// Apply metadata from chunk if available
+			if chunk.Metadata != nil {
+				currentMessage.Metadata = h.extractFoundryMetadata(chunk.Metadata)
+			}
+
+			// Send new STREAM_START
+			writer.WriteStreamStart(currentMessage.ID, userMessage.ConversationID)
+
+		case agents.ChunkTypeMetadata:
+			// Update current message metadata
+			if currentMessage.Metadata == nil {
+				currentMessage.Metadata = &models.AssistantMetadata{}
+			}
+			if chunk.ExecutionID != "" {
+				currentMessage.Metadata.ExecutionID = chunk.ExecutionID
+			}
+
+			// Extract and store Foundry-specific metadata
+			if chunk.Metadata != nil {
+				h.mergeFoundryMetadata(currentMessage, chunk.Metadata)
+			}
+
+		case agents.ChunkTypeDone:
+			// Response completed - extract final metadata
+			if chunk.Metadata != nil {
+				h.mergeFoundryMetadata(currentMessage, chunk.Metadata)
+			}
+			if chunk.ExecutionID != "" && currentMessage.Metadata != nil {
+				currentMessage.Metadata.ExecutionID = chunk.ExecutionID
+			}
+
+		case agents.ChunkTypeError:
+			if chunk.Error != nil {
+				writer.WriteStreamError("CHUNK_ERROR", "Error in chunk", chunk.Error.Error())
+			}
+		}
+	}
+
+	// Send STREAM_END
+	writer.WriteStreamEnd()
+
+	// Save the final message
+	if currentContent != "" || messageCount == 0 {
+		currentMessage.SetSuccess(currentContent)
+		h.saveAssistantMessageWithMetadata(ctx, currentMessage, agentConfig, startTime)
+	}
+}
+
+// saveAssistantMessageWithMetadata saves an assistant message with timing metadata.
+func (h *MessagesHandler) saveAssistantMessageWithMetadata(
+	ctx context.Context,
+	msg *models.Message,
+	agentConfig *platform.AgentConfig,
+	startTime time.Time,
+) {
+	latencyMs := time.Since(startTime).Milliseconds()
+
+	if msg.Metadata == nil {
+		msg.Metadata = &models.AssistantMetadata{}
+	}
+	msg.Metadata.LatencyMs = latencyMs
+	msg.Metadata.AgentType = string(agentConfig.Type)
+
+	if err := h.docDBClient.Messages().Add(ctx, msg); err != nil {
+		// Log error but don't fail - message was already sent to client
+	}
+}
+
+// extractFoundryMetadata extracts Foundry-specific metadata into AssistantMetadata.
+func (h *MessagesHandler) extractFoundryMetadata(metadata map[string]interface{}) *models.AssistantMetadata {
+	result := &models.AssistantMetadata{}
+
+	if messageID, ok := metadata["message_id"].(string); ok {
+		result.ExecutionID = messageID
+	}
+
+	return result
+}
+
+// mergeFoundryMetadata merges Foundry metadata into the message's metadata.
+func (h *MessagesHandler) mergeFoundryMetadata(msg *models.Message, metadata map[string]interface{}) {
+	if msg.Metadata == nil {
+		msg.Metadata = &models.AssistantMetadata{}
+	}
+
+	// Extract execution ID
+	if responseID, ok := metadata["response_id"].(string); ok && msg.Metadata.ExecutionID == "" {
+		msg.Metadata.ExecutionID = responseID
+	}
+
+	// Extract model if available
+	if model, ok := metadata["model"].(string); ok {
+		msg.Metadata.Model = model
+	}
+
+	// Extract agent name
+	if agentName, ok := metadata["agent_name"].(string); ok {
+		msg.Metadata.AgentType = agentName
+	}
+
+	// Extract token usage
+	if usage, ok := metadata["usage"].(map[string]interface{}); ok {
+		if inputTokens, ok := usage["input_tokens"].(int); ok {
+			msg.Metadata.TokensInput = inputTokens
+		}
+		if outputTokens, ok := usage["output_tokens"].(int); ok {
+			msg.Metadata.TokensOutput = outputTokens
+		}
+	}
+
+	// Store additional workflow-specific data in status traces
+	if workflowType, ok := metadata["type"].(string); ok {
+		if workflowType == "workflow_action" {
+			msg.AddStatusTrace(
+				"workflow_action",
+				getStringFromMap(metadata, "kind"),
+				"",
+				map[string]interface{}{
+					"action_id":          getStringFromMap(metadata, "action_id"),
+					"parent_action_id":   getStringFromMap(metadata, "parent_action_id"),
+					"previous_action_id": getStringFromMap(metadata, "previous_action_id"),
+					"status":             getStringFromMap(metadata, "status"),
+				},
+			)
+		}
+	}
+}
+
+// getStringFromMap safely extracts a string from a map.
+func getStringFromMap(m map[string]interface{}, key string) string {
+	if val, ok := m[key].(string); ok {
+		return val
+	}
+	return ""
 }
 
 // saveFailedAssistantMessage saves an assistant message with failed status.
