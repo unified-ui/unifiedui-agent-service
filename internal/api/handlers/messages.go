@@ -359,10 +359,12 @@ func (h *MessagesHandler) handleStreamingResponse(
 	}
 
 	// Build invoke request with chat history
-	// For Foundry, use ext_conversation_id as the conversation ID
+	// For Foundry, use ext_conversation_id as the conversation ID, or empty string for new conversations
 	conversationIDForInvoke := userMessage.ConversationID
-	if agentConfig.Type == platform.AgentTypeFoundry && extConversationID != "" {
-		conversationIDForInvoke = extConversationID
+	if agentConfig.Type == platform.AgentTypeFoundry {
+		// Foundry manages its own conversation/thread IDs
+		// Use ext_conversation_id if provided, otherwise empty string to create a new thread
+		conversationIDForInvoke = extConversationID // Will be empty string for new conversations
 	}
 
 	invokeReq := &agents.InvokeRequest{

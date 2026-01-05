@@ -45,6 +45,8 @@ func DefaultCORSConfig() CORSConfig {
 			"X-Request-ID",
 			"X-Correlation-ID",
 			"Cache-Control",
+
+			"X-Microsoft-Foundry-API-Key",
 		},
 		ExposeHeaders: []string{
 			"Content-Length",

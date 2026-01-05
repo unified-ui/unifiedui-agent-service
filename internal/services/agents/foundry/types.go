@@ -152,7 +152,7 @@ type FoundryError struct {
 // FoundryRequestPayload represents the request payload to Foundry.
 type FoundryRequestPayload struct {
 	Agent        FoundryAgentPayload `json:"agent"`
-	Conversation string              `json:"conversation"`
+	Conversation string              `json:"conversation,omitempty"` // Omit when empty to create new conversation
 	Input        string              `json:"input"`
 	Stream       bool                `json:"stream"`
 }
