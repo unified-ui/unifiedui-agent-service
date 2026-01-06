@@ -9,6 +9,8 @@ from langchain.agents import create_agent
 from langchain.tools import tool
 from langchain_core.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from langchain_core.tools import StructuredTool
+
 
 try:
     from mcp import ClientSession
@@ -18,7 +20,7 @@ except ImportError:
     MCP_AVAILABLE = False
     print("Warning: MCP not installed. Install with: pip install mcp")
 
-from agent_config import AgentConfig, MCPServerConfig
+from agent_config import AgentConfig, MCPServerConfig, ToolConfig
 
 
 class UnifiedUIMessage(BaseModel):
@@ -117,19 +119,23 @@ class ReACTAgent(BaseUnifiedUIAgent):
         
         return tools
 
-    async def _load_mcp_tools(self, tool_config) -> list:
+    async def _load_mcp_tools(self, tool_config: ToolConfig) -> list[StructuredTool]:
         """Load tools from an MCP server."""
-        from langchain_core.tools import StructuredTool
-        
         mcp_config = tool_config.mcp_config
         if isinstance(mcp_config, dict):
             mcp_config = MCPServerConfig(**mcp_config)
         
         tools = []
+        allowed_tools = tool_config.allowed_tools  # Optional filter list
         
         try:
             # Start MCP server and get available tools
             mcp_tools_info = await self._get_mcp_tools_async(mcp_config, tool_config.name)
+            
+            # Filter tools if allowed_tools is specified
+            if allowed_tools:
+                mcp_tools_info = [t for t in mcp_tools_info if t['name'] in allowed_tools]
+                print(f"Filtered to {len(mcp_tools_info)} allowed tools: {allowed_tools}")
             
             # Create LangChain tools from MCP tool definitions
             for tool_info in mcp_tools_info:

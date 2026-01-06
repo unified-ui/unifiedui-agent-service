@@ -18,13 +18,14 @@
             {
                 "type": "mcp_server",
                 "name": "calculator",
-                "trigger_description": "Use this to perform mathematical calculations: addition, subtraction, multiplication, and division.",
+                "trigger_description": "Use this to perform mathematical calculations: addition and subtraction only.",
                 "mcp_config": {
                     "url": "http://localhost:8000/sse",
                     "headers": {
                         "Authorization": "Bearer MyToken"
                     }
-                }
+                },
+                "allowed_tools": ["add", "subtract"]
             }
         ]
     },

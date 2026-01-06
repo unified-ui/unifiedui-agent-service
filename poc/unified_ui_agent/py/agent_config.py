@@ -21,6 +21,7 @@ class ToolConfig(BaseModel):
     name: str
     trigger_description: str
     mcp_config: MCPServerConfig | dict
+    allowed_tools: list[str] | None = None  # Optional: Filter to only use specific tools from MCP server
 
 
 class Settings(BaseModel):
