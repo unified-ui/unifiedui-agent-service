@@ -41,5 +41,26 @@ func (m *MockPlatformClient) GetAgentConfigFromFile(ctx context.Context, tenantI
 	return args.Get(0).(*platform.AgentConfig), args.Error(1)
 }
 
+// GetMe mocks the GetMe method.
+func (m *MockPlatformClient) GetMe(ctx context.Context, tenantID, authToken string) (*platform.UserInfo, error) {
+	args := m.Called(ctx, tenantID, authToken)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*platform.UserInfo), args.Error(1)
+}
+
+// ValidateConversation mocks the ValidateConversation method.
+func (m *MockPlatformClient) ValidateConversation(ctx context.Context, tenantID, conversationID, authToken string) error {
+	args := m.Called(ctx, tenantID, conversationID, authToken)
+	return args.Error(0)
+}
+
+// ValidateAutonomousAgent mocks the ValidateAutonomousAgent method.
+func (m *MockPlatformClient) ValidateAutonomousAgent(ctx context.Context, tenantID, autonomousAgentID, authToken string) error {
+	args := m.Called(ctx, tenantID, autonomousAgentID, authToken)
+	return args.Error(0)
+}
+
 // Ensure MockPlatformClient implements platform.Client interface.
 var _ platform.Client = (*MockPlatformClient)(nil)

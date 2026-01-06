@@ -170,14 +170,137 @@ unified-ui-agent-service/
 
 ## API Endpoints
 
+### Health Endpoints
 ```
 GET  /api/v1/agent-service/health
 GET  /api/v1/agent-service/ready
 GET  /api/v1/agent-service/live
+```
+
+### Message Endpoints
+```
 GET  /api/v1/agent-service/tenants/{tenantId}/conversation/messages
 POST /api/v1/agent-service/tenants/{tenantId}/conversation/messages
 GET  /api/v1/agent-service/tenants/{tenantId}/conversation/messages/{messageId}/traces
+```
+
+### Traces Endpoints
+```
+# Core trace operations
+POST   /api/v1/agent-service/tenants/{tenantId}/traces
+GET    /api/v1/agent-service/tenants/{tenantId}/traces/{traceId}
+DELETE /api/v1/agent-service/tenants/{tenantId}/traces/{traceId}
+POST   /api/v1/agent-service/tenants/{tenantId}/traces/{traceId}/nodes
+POST   /api/v1/agent-service/tenants/{tenantId}/traces/{traceId}/logs
+
+# Conversation context traces
+GET /api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/traces
+PUT /api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/traces
+
+# Autonomous agent context traces
+GET  /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/traces
+GET  /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/traces
 PUT  /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/traces
+```
+
+---
+
+## Traces Architecture
+
+The traces system imports and manages execution traces from external workflow runs (e.g., N8N, LangGraph, custom agents).
+
+### Context Types
+Traces support TWO mutually exclusive context types:
+
+1. **Conversation Context**: Traces linked to a chat conversation
+   - Requires: `applicationId` + `conversationId`
+   - One trace per conversation (refresh replaces existing)
+   - Use case: Tracking agent execution for a specific chat interaction
+
+2. **Autonomous Agent Context**: Traces for scheduled/triggered agent runs
+   - Requires: `autonomousAgentId`
+   - Multiple traces per agent (list with pagination)
+   - Use case: Monitoring background agent executions
+
+### Trace Model
+```go
+type Trace struct {
+    ID                string       `bson:"_id"`
+    TenantID          string       `bson:"tenant_id"`
+    ContextType       TraceContext `bson:"context_type"` // "conversation" | "autonomous_agent"
+    
+    // Conversation context (mutually exclusive with AutonomousAgentID)
+    ApplicationID     string       `bson:"application_id,omitempty"`
+    ConversationID    string       `bson:"conversation_id,omitempty"`
+    
+    // Autonomous agent context
+    AutonomousAgentID string       `bson:"autonomous_agent_id,omitempty"`
+    
+    // Reference to external workflow
+    ReferenceID       string       `bson:"reference_id"`
+    ReferenceName     string       `bson:"reference_name"`
+    ReferenceMetadata interface{}  `bson:"reference_metadata,omitempty"`
+    
+    // Hierarchical execution tree
+    Nodes             []TraceNode  `bson:"nodes"`
+    Logs              []interface{}`bson:"logs"`
+    
+    // Audit fields
+    CreatedAt         time.Time    `bson:"created_at"`
+    UpdatedAt         time.Time    `bson:"updated_at"`
+    CreatedBy         string       `bson:"created_by"`
+    UpdatedBy         string       `bson:"updated_by"`
+}
+
+type TraceNode struct {
+    ID        string      `bson:"id"`
+    Name      string      `bson:"name"`
+    Type      NodeType    `bson:"type"`     // llm | tool | agent | chain | other
+    Status    NodeStatus  `bson:"status"`   // pending | running | completed | failed
+    Input     interface{} `bson:"input,omitempty"`
+    Output    interface{} `bson:"output,omitempty"`
+    Error     string      `bson:"error,omitempty"`
+    StartAt   *time.Time  `bson:"start_at,omitempty"`
+    EndAt     *time.Time  `bson:"end_at,omitempty"`
+    Duration  float64     `bson:"duration,omitempty"` // seconds
+    Metadata  interface{} `bson:"metadata,omitempty"`
+    SubNodes  []TraceNode `bson:"sub_nodes,omitempty"` // Nested execution
+    CreatedBy string      `bson:"created_by"`
+}
+```
+
+### TracesCollection Interface
+```go
+type TracesCollection interface {
+    Create(ctx context.Context, trace *models.Trace) error
+    Get(ctx context.Context, id string) (*models.Trace, error)
+    GetByConversation(ctx context.Context, tenantID, conversationID string) (*models.Trace, error)
+    GetByAutonomousAgent(ctx context.Context, tenantID, autonomousAgentID string) (*models.Trace, error)
+    List(ctx context.Context, opts *ListTracesOptions) ([]*models.Trace, error)
+    Update(ctx context.Context, trace *models.Trace) error
+    AddNodes(ctx context.Context, id string, nodes []models.TraceNode) error
+    AddLogs(ctx context.Context, id string, logs []interface{}) error
+    Delete(ctx context.Context, id string) error
+}
+```
+
+### Future: Trace Transformers
+The architecture supports pluggable transformers for converting external formats:
+
+```go
+// Planned interface for trace transformation
+type TraceTransformer interface {
+    Transform(externalData interface{}) (*models.Trace, error)
+    SourceType() string // "n8n", "langchain", "langgraph", etc.
+}
+```
+
+### MongoDB Indexes
+```go
+// Compound indexes for efficient queries
+{tenant_id: 1, conversation_id: 1}           // unique for conversation traces
+{tenant_id: 1, autonomous_agent_id: 1, created_at: -1}  // list agent traces
+{tenant_id: 1, context_type: 1, created_at: -1}         // filter by context type
 ```
 
 ---

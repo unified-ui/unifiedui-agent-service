@@ -256,7 +256,7 @@ func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb
 	// Create handlers
 	healthHandler := handlers.NewHealthHandler(cacheClient, docDBClient)
 	messagesHandler := handlers.NewMessagesHandler(docDBClient, platformClient, agentFactory, sessionService)
-	tracesHandler := handlers.NewTracesHandler(docDBClient)
+	tracesHandler := handlers.NewTracesHandler(docDBClient, platformClient)
 
 	// Setup routes
 	routesCfg := &routes.Config{

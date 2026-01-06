@@ -112,7 +112,8 @@ type MockDocDBClient struct {
 	mock.Mock
 	messagesCollection    *MockMessagesCollection
 	messagesRawCollection *MockCollection
-	tracesCollection      *MockCollection
+	tracesCollection      *MockTracesCollection
+	tracesRawCollection   *MockCollection
 	database              *MockDatabase
 }
 
@@ -121,7 +122,8 @@ func NewMockDocDBClient() *MockDocDBClient {
 	return &MockDocDBClient{
 		messagesCollection:    &MockMessagesCollection{},
 		messagesRawCollection: &MockCollection{},
-		tracesCollection:      &MockCollection{},
+		tracesCollection:      &MockTracesCollection{},
+		tracesRawCollection:   &MockCollection{},
 		database:              &MockDatabase{},
 	}
 }
@@ -141,9 +143,14 @@ func (m *MockDocDBClient) MessagesRaw() docdb.Collection {
 	return m.messagesRawCollection
 }
 
-// Traces returns the traces collection.
-func (m *MockDocDBClient) Traces() docdb.Collection {
+// Traces returns the typed traces collection.
+func (m *MockDocDBClient) Traces() docdb.TracesCollection {
 	return m.tracesCollection
+}
+
+// TracesRaw returns the raw traces collection.
+func (m *MockDocDBClient) TracesRaw() docdb.Collection {
+	return m.tracesRawCollection
 }
 
 // Ping checks the database connection.
@@ -170,8 +177,102 @@ func (m *MockDocDBClient) GetMessagesCollection() *MockMessagesCollection {
 }
 
 // GetTracesCollection returns the mock traces collection for setup.
-func (m *MockDocDBClient) GetTracesCollection() *MockCollection {
+func (m *MockDocDBClient) GetTracesCollection() *MockTracesCollection {
 	return m.tracesCollection
+}
+
+// GetTracesRawCollection returns the mock raw traces collection for setup.
+func (m *MockDocDBClient) GetTracesRawCollection() *MockCollection {
+	return m.tracesRawCollection
+}
+
+// MockTracesCollection is a mock implementation of docdb.TracesCollection.
+type MockTracesCollection struct {
+	mock.Mock
+}
+
+// Create creates a new trace.
+func (m *MockTracesCollection) Create(ctx context.Context, trace *models.Trace) error {
+	args := m.Called(ctx, trace)
+	return args.Error(0)
+}
+
+// Get gets a trace by ID.
+func (m *MockTracesCollection) Get(ctx context.Context, id string) (*models.Trace, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.Trace), args.Error(1)
+}
+
+// GetByConversation gets a trace by conversation ID.
+func (m *MockTracesCollection) GetByConversation(ctx context.Context, tenantID, conversationID string) (*models.Trace, error) {
+	args := m.Called(ctx, tenantID, conversationID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.Trace), args.Error(1)
+}
+
+// GetByAutonomousAgent gets a trace by autonomous agent ID.
+func (m *MockTracesCollection) GetByAutonomousAgent(ctx context.Context, tenantID, autonomousAgentID string) (*models.Trace, error) {
+	args := m.Called(ctx, tenantID, autonomousAgentID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.Trace), args.Error(1)
+}
+
+// List lists traces.
+func (m *MockTracesCollection) List(ctx context.Context, opts *docdb.ListTracesOptions) ([]*models.Trace, error) {
+	args := m.Called(ctx, opts)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*models.Trace), args.Error(1)
+}
+
+// Update updates a trace.
+func (m *MockTracesCollection) Update(ctx context.Context, trace *models.Trace) error {
+	args := m.Called(ctx, trace)
+	return args.Error(0)
+}
+
+// AddNodes adds nodes to a trace.
+func (m *MockTracesCollection) AddNodes(ctx context.Context, id string, nodes []models.TraceNode) error {
+	args := m.Called(ctx, id, nodes)
+	return args.Error(0)
+}
+
+// AddLogs adds logs to a trace.
+func (m *MockTracesCollection) AddLogs(ctx context.Context, id string, logs []interface{}) error {
+	args := m.Called(ctx, id, logs)
+	return args.Error(0)
+}
+
+// Delete deletes a trace.
+func (m *MockTracesCollection) Delete(ctx context.Context, id string) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+// DeleteByConversation deletes a trace by conversation.
+func (m *MockTracesCollection) DeleteByConversation(ctx context.Context, tenantID, conversationID string) error {
+	args := m.Called(ctx, tenantID, conversationID)
+	return args.Error(0)
+}
+
+// DeleteByAutonomousAgent deletes a trace by autonomous agent.
+func (m *MockTracesCollection) DeleteByAutonomousAgent(ctx context.Context, tenantID, autonomousAgentID string) error {
+	args := m.Called(ctx, tenantID, autonomousAgentID)
+	return args.Error(0)
+}
+
+// EnsureIndexes creates indexes.
+func (m *MockTracesCollection) EnsureIndexes(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
 }
 
 // MockMessagesCollection is a mock implementation of docdb.MessagesCollection.

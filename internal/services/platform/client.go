@@ -25,6 +25,15 @@ type Client interface {
 
 	// GetAgentConfigFromFile reads agent configuration from a local file (for development).
 	GetAgentConfigFromFile(ctx context.Context, tenantID, applicationID string) (*AgentConfig, error)
+
+	// GetMe retrieves the current user information from the platform service.
+	GetMe(ctx context.Context, tenantID, authToken string) (*UserInfo, error)
+
+	// ValidateConversation validates that a conversation exists and user has access.
+	ValidateConversation(ctx context.Context, tenantID, conversationID, authToken string) error
+
+	// ValidateAutonomousAgent validates that an autonomous agent exists and user has access.
+	ValidateAutonomousAgent(ctx context.Context, tenantID, autonomousAgentID, authToken string) error
 }
 
 // client implements the Client interface.
@@ -169,4 +178,149 @@ func (c *client) GetAgentConfigFromFile(ctx context.Context, tenantID, applicati
 	}
 
 	return &config, nil
+}
+
+// GetMe retrieves the current user information from the platform service.
+func (c *client) GetMe(ctx context.Context, tenantID, authToken string) (*UserInfo, error) {
+	if c.baseURL == "" {
+		return nil, fmt.Errorf("platform service URL not configured")
+	}
+
+	if authToken == "" {
+		return nil, fmt.Errorf("auth token not provided")
+	}
+
+	// Build request URL
+	url := fmt.Sprintf("%s/api/v1/platform-service/tenants/%s/me", c.baseURL, tenantID)
+
+	// Create request
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set headers
+	if c.serviceKey != "" {
+		req.Header.Set("X-Service-Key", c.serviceKey)
+	}
+	req.Header.Set("Authorization", "Bearer "+authToken)
+	req.Header.Set("Accept", "application/json")
+
+	// Execute request
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to call platform service: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Check status code
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("platform service returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Parse response
+	var userInfo UserInfo
+	if err := json.Unmarshal(body, &userInfo); err != nil {
+		return nil, fmt.Errorf("failed to parse user info response: %w", err)
+	}
+
+	return &userInfo, nil
+}
+
+// ValidateConversation validates that a conversation exists and user has access.
+func (c *client) ValidateConversation(ctx context.Context, tenantID, conversationID, authToken string) error {
+	if c.baseURL == "" {
+		// Skip validation if platform service is not configured
+		return nil
+	}
+
+	if authToken == "" {
+		return fmt.Errorf("auth token not provided")
+	}
+
+	// Build request URL
+	url := fmt.Sprintf("%s/api/v1/platform-service/tenants/%s/conversations/%s", c.baseURL, tenantID, conversationID)
+
+	// Create request
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set headers
+	if c.serviceKey != "" {
+		req.Header.Set("X-Service-Key", c.serviceKey)
+	}
+	req.Header.Set("Authorization", "Bearer "+authToken)
+	req.Header.Set("Accept", "application/json")
+
+	// Execute request
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to call platform service: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Check status code
+	if resp.StatusCode == http.StatusNotFound {
+		return fmt.Errorf("conversation not found")
+	}
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("platform service returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
+// ValidateAutonomousAgent validates that an autonomous agent exists and user has access.
+func (c *client) ValidateAutonomousAgent(ctx context.Context, tenantID, autonomousAgentID, authToken string) error {
+	if c.baseURL == "" {
+		// Skip validation if platform service is not configured
+		return nil
+	}
+
+	if authToken == "" {
+		return fmt.Errorf("auth token not provided")
+	}
+
+	// Build request URL
+	url := fmt.Sprintf("%s/api/v1/platform-service/tenants/%s/autonomous-agents/%s", c.baseURL, tenantID, autonomousAgentID)
+
+	// Create request
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set headers
+	if c.serviceKey != "" {
+		req.Header.Set("X-Service-Key", c.serviceKey)
+	}
+	req.Header.Set("Authorization", "Bearer "+authToken)
+	req.Header.Set("Accept", "application/json")
+
+	// Execute request
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to call platform service: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Check status code
+	if resp.StatusCode == http.StatusNotFound {
+		return fmt.Errorf("autonomous agent not found")
+	}
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("platform service returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	return nil
 }

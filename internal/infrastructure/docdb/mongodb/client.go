@@ -11,16 +11,12 @@ import (
 	"github.com/unifiedui/agent-service/internal/core/docdb"
 )
 
-const (
-	// TracesCollection is the name of the traces collection.
-	TracesCollection = "traces"
-)
-
 // Client implements the docdb.Client interface for MongoDB.
 type Client struct {
 	client             *mongo.Client
 	database           *Database
 	messagesCollection *MessagesCollection
+	tracesCollection   *TracesCollection
 }
 
 // ClientConfig holds MongoDB connection configuration.
@@ -55,11 +51,13 @@ func NewClient(ctx context.Context, config *ClientConfig) (*Client, error) {
 	db := client.Database(config.DatabaseName)
 	database := NewDatabase(db)
 	messagesCollection := NewMessagesCollection(db)
+	tracesCollection := NewTracesCollection(db)
 
 	return &Client{
 		client:             client,
 		database:           database,
 		messagesCollection: messagesCollection,
+		tracesCollection:   tracesCollection,
 	}, nil
 }
 
@@ -78,9 +76,14 @@ func (c *Client) MessagesRaw() docdb.Collection {
 	return c.database.Collection(MessagesCollectionName)
 }
 
-// Traces returns the traces collection.
-func (c *Client) Traces() docdb.Collection {
-	return c.database.Collection(TracesCollection)
+// Traces returns the typed traces collection with domain methods.
+func (c *Client) Traces() docdb.TracesCollection {
+	return c.tracesCollection
+}
+
+// TracesRaw returns the raw traces collection for direct operations.
+func (c *Client) TracesRaw() docdb.Collection {
+	return c.database.Collection(TracesCollectionName)
 }
 
 // Ping verifies the connection to MongoDB.
@@ -103,6 +106,9 @@ func (c *Client) Close(ctx context.Context) error {
 func (c *Client) EnsureIndexes(ctx context.Context) error {
 	if err := c.messagesCollection.EnsureIndexes(ctx); err != nil {
 		return fmt.Errorf("failed to ensure messages indexes: %w", err)
+	}
+	if err := c.tracesCollection.EnsureIndexes(ctx); err != nil {
+		return fmt.Errorf("failed to ensure traces indexes: %w", err)
 	}
 	return nil
 }

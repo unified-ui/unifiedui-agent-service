@@ -39,16 +39,43 @@ func Setup(r *gin.Engine, cfg *Config) {
 				// Messages
 				conversation.GET("/messages", cfg.MessagesHandler.GetMessages)
 				conversation.POST("/messages", cfg.MessagesHandler.SendMessage)
-
-				// Message traces
-				conversation.GET("/messages/:messageId/traces", cfg.TracesHandler.GetMessageTraces)
 			}
 
-			// Autonomous agent routes
+			// --- Traces CRUD Routes ---
+			traces := tenants.Group("/traces")
+			{
+				// Create a new trace
+				traces.POST("", cfg.TracesHandler.CreateTrace)
+
+				// Get, delete trace by ID
+				traces.GET("/:traceId", cfg.TracesHandler.GetTrace)
+				traces.DELETE("/:traceId", cfg.TracesHandler.DeleteTrace)
+
+				// Add nodes/logs to existing trace
+				traces.POST("/:traceId/nodes", cfg.TracesHandler.AddNodes)
+				traces.POST("/:traceId/logs", cfg.TracesHandler.AddLogs)
+			}
+
+			// --- Conversation Traces Routes ---
+			conversations := tenants.Group("/conversations/:conversationId")
+			{
+				// Get trace for conversation
+				conversations.GET("/traces", cfg.TracesHandler.GetConversationTrace)
+				// Refresh (replace) trace for conversation
+				conversations.PUT("/traces", cfg.TracesHandler.RefreshConversationTrace)
+			}
+
+			// --- Autonomous Agent Routes ---
+			// List all autonomous agent traces
+			tenants.GET("/autonomous-agents/traces", cfg.TracesHandler.ListAutonomousAgentTraces)
+
+			// Specific autonomous agent routes
 			agents := tenants.Group("/autonomous-agents/:agentId")
 			{
-				// Trace updates from agents
-				agents.PUT("/traces", cfg.TracesHandler.UpdateTraces)
+				// Get trace for agent
+				agents.GET("/traces", cfg.TracesHandler.GetAutonomousAgentTrace)
+				// Refresh (replace) trace for agent
+				agents.PUT("/traces", cfg.TracesHandler.RefreshAutonomousAgentTrace)
 			}
 		}
 	}

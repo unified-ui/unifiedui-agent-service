@@ -1,4 +1,4 @@
-package messages_test
+package models_test
 
 import (
 	"testing"
