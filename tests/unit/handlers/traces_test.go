@@ -47,7 +47,8 @@ func TestTracesHandler_CreateTrace_Conversation_Success(t *testing.T) {
 	mockPlatform.On("GetMe", mock.Anything, mock.Anything).Return(&platform.UserInfo{ID: testutils.TestUserID}, nil)
 	mockPlatform.On("ValidateConversation", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	// Mock traces collection
+	// Mock traces collection - no existing trace for this conversation
+	mockDocDB.GetTracesCollection().On("GetByConversation", mock.Anything, testutils.TestTenantID, testutils.TestConversationID).Return(nil, nil)
 	mockDocDB.GetTracesCollection().On("Create", mock.Anything, mock.Anything).Return(nil)
 
 	handler := handlers.NewTracesHandler(mockDocDB, mockPlatform)
@@ -156,6 +157,47 @@ func TestTracesHandler_CreateTrace_MissingContext_Error(t *testing.T) {
 
 	// Assert
 	testutils.AssertStatusCode(t, http.StatusBadRequest, w)
+}
+
+func TestTracesHandler_CreateTrace_ConversationAlreadyExists_Conflict(t *testing.T) {
+	// Setup
+	mockDocDB := mocks.NewMockDocDBClient()
+	mockPlatform := &mocks.MockPlatformClient{}
+
+	createReq := dto.CreateTraceRequest{
+		ApplicationID:  testutils.TestApplicationID,
+		ConversationID: testutils.TestConversationID,
+		ReferenceID:    "workflow-123",
+		ReferenceName:  "Test Workflow",
+	}
+
+	existingTrace := testutils.NewTestTrace()
+
+	// Mock platform client responses
+	mockPlatform.On("GetMe", mock.Anything, mock.Anything).Return(&platform.UserInfo{ID: testutils.TestUserID}, nil)
+	mockPlatform.On("ValidateConversation", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	// Mock traces collection - returns existing trace (conflict)
+	mockDocDB.GetTracesCollection().On("GetByConversation", mock.Anything, testutils.TestTenantID, testutils.TestConversationID).Return(existingTrace, nil)
+
+	handler := handlers.NewTracesHandler(mockDocDB, mockPlatform)
+
+	router := testutils.SetupTestRouter()
+	router.POST("/tenants/:tenantId/traces", handler.CreateTrace)
+
+	// Execute
+	headers := map[string]string{"Authorization": "Bearer test-token"}
+	w := testutils.PerformRequest(router, "POST", "/tenants/"+testutils.TestTenantID+"/traces", createReq, headers)
+
+	// Assert
+	testutils.AssertStatusCode(t, http.StatusConflict, w)
+
+	var errorResp dto.ErrorResponse
+	testutils.ParseJSONResponse(t, w, &errorResp)
+	assert.Contains(t, errorResp.Message, "trace already exists")
+
+	mockDocDB.GetTracesCollection().AssertExpectations(t)
+	mockPlatform.AssertExpectations(t)
 }
 
 func TestTracesHandler_AddNodes_Success(t *testing.T) {

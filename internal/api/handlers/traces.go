@@ -92,6 +92,20 @@ func (h *TracesHandler) CreateTrace(c *gin.Context) {
 			middleware.HandleError(c, err)
 			return
 		}
+
+		// Check if trace already exists for this conversation (only one trace per conversation allowed)
+		existingTrace, err := h.docDBClient.Traces().GetByConversation(ctx, tenantID, req.ConversationID)
+		if err != nil {
+			middleware.HandleError(c, errors.NewInternalError("failed to check existing trace", err))
+			return
+		}
+		if existingTrace != nil {
+			middleware.HandleError(c, errors.NewConflictError(
+				"trace already exists",
+				"a trace already exists for this conversation; use PUT to update it",
+			))
+			return
+		}
 	} else {
 		if err := h.validateAutonomousAgentContext(ctx, tenantID, req.AutonomousAgentID, authToken); err != nil {
 			middleware.HandleError(c, err)
