@@ -11,8 +11,8 @@ from langchain_core.callbacks.streaming_stdout import StreamingStdOutCallbackHan
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
 try:
-    from mcp import ClientSession, StdioServerParameters
-    from mcp.client.stdio import stdio_client
+    from mcp import ClientSession
+    from mcp.client.sse import sse_client
     MCP_AVAILABLE = True
 except ImportError:
     MCP_AVAILABLE = False
@@ -164,15 +164,10 @@ class ReACTAgent(BaseUnifiedUIAgent):
         return tools
     
     async def _get_mcp_tools_async(self, mcp_config: MCPServerConfig, server_name: str) -> list:
-        """Get available tools from MCP server."""
-        server_params = StdioServerParameters(
-            command=mcp_config.command,
-            args=mcp_config.args,
-            env=mcp_config.env
-        )
-        
+        """Get available tools from remote MCP server via SSE."""
         tools_info = []
-        async with stdio_client(server_params) as (read, write):
+        
+        async with sse_client(mcp_config.url, headers=mcp_config.headers or {}) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 
@@ -189,15 +184,10 @@ class ReACTAgent(BaseUnifiedUIAgent):
         return tools_info
     
     async def _call_mcp_tool_async(self, mcp_config: MCPServerConfig, server_name: str, tool_name: str, arguments: dict) -> str:
-        """Call an MCP tool with the given arguments."""
-        server_params = StdioServerParameters(
-            command=mcp_config.command,
-            args=mcp_config.args,
-            env=mcp_config.env
-        )
-        
+        """Call a remote MCP tool via SSE with the given arguments."""
         result = ""
-        async with stdio_client(server_params) as (read, write):
+        
+        async with sse_client(mcp_config.url, headers=mcp_config.headers or {}) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 

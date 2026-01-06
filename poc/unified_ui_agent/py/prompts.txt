@@ -19,3 +19,15 @@ python main.py  # (config_2_mcp.json in CONFIG_PATH setzen)
 - Create a file {random-string}.txt with "Hello MCP"
 - Generate a classic carbonara recipe and save this to the file '{random-string}.{recipe-name}.txt'
 -----------------------------------------------------------------------------
+
+---
+
+# Prompts
+What is 42 + 17?	add(42, 17) → 59
+Calculate 100 minus 37	subtract(100, 37) → 63
+Multiply 7 by 8	multiply(7, 8) → 56
+Divide 144 by 12	divide(144, 12) → 12
+What is 15 * 4 + 10?	multiply(15, 4) → 60, dann add(60, 10) → 70
+Calculate (50 - 20) / 6	subtract(50, 20) → 30, dann divide(30, 6) → 5
+What is 100 / 0?	divide(100, 0) → Error: "Cannot divide by zero!"
+---

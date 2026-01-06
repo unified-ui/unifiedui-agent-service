@@ -8,7 +8,7 @@ from agent import ReACTAgent, UnifiedUIMessage
 load_dotenv()
 
 
-CONFIG_PATH = "../config/config_2_mcp.json"
+CONFIG_PATH = "../config/config_3_remote_mcp.json"
 
 
 async def main():

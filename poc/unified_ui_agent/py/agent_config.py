@@ -12,9 +12,8 @@ class LLMCredentials(BaseModel):
 
 
 class MCPServerConfig(BaseModel):
-    command: str  # e.g., "npx" or "node"
-    args: list[str]  # e.g., ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
-    env: dict[str, str] | None = None  # Optional environment variables
+    url: str  # e.g., "http://localhost:8000/sse"
+    headers: dict[str, str] | None = None  # Optional headers (e.g., API keys)
 
 
 class ToolConfig(BaseModel):
