@@ -36,7 +36,7 @@ python main.py --config ../config/config_2_mcp.json
     {
       "type": "mcp_server",
       "name": "filesystem",
-      "trigger_description": "Use for file operations",
+      "description": "Use for file operations",
       "mcp_config": {
         "command": "npx",
         "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
@@ -54,7 +54,7 @@ python main.py --config ../config/config_2_mcp.json
 {
   "type": "mcp_server",
   "name": "everything",
-  "trigger_description": "Demo server with all MCP features",
+  "description": "Demo server with all MCP features",
   "mcp_config": {
     "command": "npx",
     "args": ["-y", "@modelcontextprotocol/server-everything"],
@@ -68,7 +68,7 @@ python main.py --config ../config/config_2_mcp.json
 {
   "type": "mcp_server",
   "name": "brave_search",
-  "trigger_description": "Web search via Brave API",
+  "description": "Web search via Brave API",
   "mcp_config": {
     "command": "npx",
     "args": ["-y", "@modelcontextprotocol/server-brave-search"],

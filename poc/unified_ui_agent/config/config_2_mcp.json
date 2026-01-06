@@ -18,7 +18,7 @@
             {
                 "type": "mcp_server",
                 "name": "filesystem",
-                "trigger_description": "Use this to read, write, or list files in the '/Users/enricogoerlitz/Developer/repos/unified-ui-agent-service/poc/unified_ui_agent/py/tmp' directory.",
+                "description": "Use this to read, write, or list files in the '/Users/enricogoerlitz/Developer/repos/unified-ui-agent-service/poc/unified_ui_agent/py/tmp' directory.",
                 "mcp_config": {
                     "command": "npx",
                     "args": ["-y", "@modelcontextprotocol/server-filesystem", "/Users/enricogoerlitz/Developer/repos/unified-ui-agent-service/poc/unified_ui_agent/py/tmp"],

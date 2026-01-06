@@ -19,7 +19,7 @@ class MCPServerConfig(BaseModel):
 class ToolConfig(BaseModel):
     type: str  # "mcp_server" | "web_search" | "custom"
     name: str
-    trigger_description: str
+    description: str
     mcp_config: MCPServerConfig | dict
     allowed_tools: list[str] | None = None  # Optional: Filter to only use specific tools from MCP server
 

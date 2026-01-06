@@ -18,7 +18,7 @@
             {
                 "type": "web_search",
                 "name": "BingSearch",
-                "trigger_description": "Useful for when you need to answer questions about current events or the state of the world.",
+                "description": "Useful for when you need to answer questions about current events or the state of the world.",
                 "mcp_config": {
                     
                 }
