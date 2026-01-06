@@ -80,7 +80,7 @@ func (h *TracesHandler) CreateTrace(c *gin.Context) {
 	}
 
 	// Get user info from platform service for created_by
-	userID, err := h.getUserID(ctx, tenantID, authToken)
+	userID, err := h.getUserID(ctx, authToken)
 	if err != nil {
 		middleware.HandleError(c, errors.NewInternalError("failed to get user info", err))
 		return
@@ -113,7 +113,7 @@ func (h *TracesHandler) CreateTrace(c *gin.Context) {
 		ReferenceID:       req.ReferenceID,
 		ReferenceName:     req.ReferenceName,
 		ReferenceMetadata: req.ReferenceMetadata,
-		Logs:              req.Logs,
+		Logs:              models.ConvertLogsToStrings(req.Logs),
 		CreatedAt:         now,
 		UpdatedAt:         now,
 		CreatedBy:         userID,
@@ -137,7 +137,7 @@ func (h *TracesHandler) CreateTrace(c *gin.Context) {
 	}
 
 	if trace.Logs == nil {
-		trace.Logs = []interface{}{}
+		trace.Logs = []string{}
 	}
 
 	// Insert trace
@@ -192,7 +192,7 @@ func (h *TracesHandler) AddNodes(c *gin.Context) {
 	}
 
 	// Get user info for updated_by
-	userID, err := h.getUserID(ctx, tenantID, authToken)
+	userID, err := h.getUserID(ctx, authToken)
 	if err != nil {
 		middleware.HandleError(c, errors.NewInternalError("failed to get user info", err))
 		return
@@ -250,7 +250,7 @@ func (h *TracesHandler) AddLogs(c *gin.Context) {
 	}
 
 	// Add logs to trace
-	if err := h.docDBClient.Traces().AddLogs(ctx, traceID, req.Logs); err != nil {
+	if err := h.docDBClient.Traces().AddLogs(ctx, traceID, models.ConvertLogsToStrings(req.Logs)); err != nil {
 		middleware.HandleError(c, errors.NewInternalError("failed to add logs", err))
 		return
 	}
@@ -331,7 +331,7 @@ func (h *TracesHandler) RefreshConversationTrace(c *gin.Context) {
 	}
 
 	// Get user info for updated_by
-	userID, err := h.getUserID(ctx, tenantID, authToken)
+	userID, err := h.getUserID(ctx, authToken)
 	if err != nil {
 		middleware.HandleError(c, errors.NewInternalError("failed to get user info", err))
 		return
@@ -341,13 +341,13 @@ func (h *TracesHandler) RefreshConversationTrace(c *gin.Context) {
 	trace.ReferenceID = req.ReferenceID
 	trace.ReferenceName = req.ReferenceName
 	trace.ReferenceMetadata = req.ReferenceMetadata
-	trace.Logs = req.Logs
+	trace.Logs = models.ConvertLogsToStrings(req.Logs)
 	trace.Nodes = dto.ConvertNodesToModel(req.Nodes, userID)
 	trace.UpdatedAt = time.Now().UTC()
 	trace.UpdatedBy = userID
 
 	if trace.Logs == nil {
-		trace.Logs = []interface{}{}
+		trace.Logs = []string{}
 	}
 
 	// Update trace
@@ -432,7 +432,7 @@ func (h *TracesHandler) RefreshAutonomousAgentTrace(c *gin.Context) {
 	}
 
 	// Get user info for updated_by
-	userID, err := h.getUserID(ctx, tenantID, authToken)
+	userID, err := h.getUserID(ctx, authToken)
 	if err != nil {
 		middleware.HandleError(c, errors.NewInternalError("failed to get user info", err))
 		return
@@ -442,13 +442,13 @@ func (h *TracesHandler) RefreshAutonomousAgentTrace(c *gin.Context) {
 	trace.ReferenceID = req.ReferenceID
 	trace.ReferenceName = req.ReferenceName
 	trace.ReferenceMetadata = req.ReferenceMetadata
-	trace.Logs = req.Logs
+	trace.Logs = models.ConvertLogsToStrings(req.Logs)
 	trace.Nodes = dto.ConvertNodesToModel(req.Nodes, userID)
 	trace.UpdatedAt = time.Now().UTC()
 	trace.UpdatedBy = userID
 
 	if trace.Logs == nil {
-		trace.Logs = []interface{}{}
+		trace.Logs = []string{}
 	}
 
 	// Update trace
@@ -599,14 +599,15 @@ func (h *TracesHandler) DeleteTrace(c *gin.Context) {
 // --- Helper Methods ---
 
 // getUserID retrieves the user ID from the platform service.
-func (h *TracesHandler) getUserID(ctx context.Context, tenantID, authToken string) (string, error) {
+// The identity/me endpoint doesn't require tenantId.
+func (h *TracesHandler) getUserID(ctx context.Context, authToken string) (string, error) {
 	if h.platformClient == nil {
 		// Fallback for when platform client is not configured
 		return "system", nil
 	}
 
 	// Use GetMe endpoint from platform service
-	userInfo, err := h.platformClient.GetMe(ctx, tenantID, authToken)
+	userInfo, err := h.platformClient.GetMe(ctx, authToken)
 	if err != nil {
 		// Fallback to "system" if we can't get user info
 		return "system", nil
@@ -624,7 +625,17 @@ func (h *TracesHandler) validateConversationContext(ctx context.Context, tenantI
 
 	// Validate by fetching the conversation (which also validates the application)
 	if err := h.platformClient.ValidateConversation(ctx, tenantID, conversationID, authToken); err != nil {
-		return errors.NewNotFoundError("conversation", conversationID)
+		errStr := err.Error()
+		if len(errStr) > 12 && errStr[:12] == "unauthorized" {
+			return errors.NewUnauthorizedError("invalid or expired token")
+		}
+		if len(errStr) > 9 && errStr[:9] == "forbidden" {
+			return errors.NewForbiddenError("access denied to conversation")
+		}
+		if len(errStr) > 9 && errStr[:9] == "not_found" {
+			return errors.NewNotFoundError("conversation", conversationID)
+		}
+		return errors.NewInternalError("failed to validate conversation", err)
 	}
 
 	return nil
@@ -638,7 +649,17 @@ func (h *TracesHandler) validateAutonomousAgentContext(ctx context.Context, tena
 	}
 
 	if err := h.platformClient.ValidateAutonomousAgent(ctx, tenantID, autonomousAgentID, authToken); err != nil {
-		return errors.NewNotFoundError("autonomous agent", autonomousAgentID)
+		errStr := err.Error()
+		if len(errStr) > 12 && errStr[:12] == "unauthorized" {
+			return errors.NewUnauthorizedError("invalid or expired token")
+		}
+		if len(errStr) > 9 && errStr[:9] == "forbidden" {
+			return errors.NewForbiddenError("access denied to autonomous agent")
+		}
+		if len(errStr) > 9 && errStr[:9] == "not_found" {
+			return errors.NewNotFoundError("autonomous agent", autonomousAgentID)
+		}
+		return errors.NewInternalError("failed to validate autonomous agent", err)
 	}
 
 	return nil

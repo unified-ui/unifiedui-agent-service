@@ -2,6 +2,7 @@
 package models
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 )
@@ -88,7 +89,7 @@ type TraceNode struct {
 	EndAt       *time.Time             `json:"endAt,omitempty" bson:"endAt,omitempty"`
 	Duration    float64                `json:"duration,omitempty" bson:"duration,omitempty"` // Duration in seconds
 	Status      NodeStatus             `json:"status" bson:"status"`
-	Logs        []interface{}          `json:"logs,omitempty" bson:"logs,omitempty"`
+	Logs        []string               `json:"logs,omitempty" bson:"logs,omitempty"`
 	Data        *NodeData              `json:"data,omitempty" bson:"data,omitempty"`
 	Nodes       []TraceNode            `json:"nodes,omitempty" bson:"nodes,omitempty"` // Sub-nodes (hierarchical)
 	Metadata    map[string]interface{} `json:"metadata,omitempty" bson:"metadata,omitempty"`
@@ -120,8 +121,8 @@ type Trace struct {
 	ReferenceName     string                 `json:"referenceName,omitempty" bson:"referenceName,omitempty"`
 	ReferenceMetadata map[string]interface{} `json:"referenceMetadata,omitempty" bson:"referenceMetadata,omitempty"`
 
-	// Logs at the trace level.
-	Logs []interface{} `json:"logs,omitempty" bson:"logs,omitempty"`
+	// Logs at the trace level. Each log entry is stored as a JSON string.
+	Logs []string `json:"logs,omitempty" bson:"logs,omitempty"`
 
 	// Nodes contains the hierarchical execution tree.
 	Nodes []TraceNode `json:"nodes,omitempty" bson:"nodes,omitempty"`
@@ -142,7 +143,7 @@ func NewConversationTrace(tenantID, applicationID, conversationID, createdBy str
 		ConversationID: conversationID,
 		ContextType:    TraceContextConversation,
 		Nodes:          []TraceNode{},
-		Logs:           []interface{}{},
+		Logs:           []string{},
 		CreatedAt:      now,
 		UpdatedAt:      now,
 		CreatedBy:      createdBy,
@@ -158,7 +159,7 @@ func NewAutonomousAgentTrace(tenantID, autonomousAgentID, createdBy string) *Tra
 		AutonomousAgentID: autonomousAgentID,
 		ContextType:       TraceContextAutonomousAgent,
 		Nodes:             []TraceNode{},
-		Logs:              []interface{}{},
+		Logs:              []string{},
 		CreatedAt:         now,
 		UpdatedAt:         now,
 		CreatedBy:         createdBy,
@@ -175,7 +176,7 @@ func NewTraceNode(id, name string, nodeType NodeType, createdBy string) TraceNod
 		Type:      nodeType,
 		Status:    NodeStatusPending,
 		Nodes:     []TraceNode{},
-		Logs:      []interface{}{},
+		Logs:      []string{},
 		CreatedAt: now,
 		UpdatedAt: now,
 		CreatedBy: createdBy,
@@ -196,13 +197,13 @@ func (t *Trace) AddNodes(nodes []TraceNode) {
 }
 
 // AddLog adds a log entry to the trace.
-func (t *Trace) AddLog(log interface{}) {
+func (t *Trace) AddLog(log string) {
 	t.Logs = append(t.Logs, log)
 	t.UpdatedAt = time.Now().UTC()
 }
 
 // AddLogs adds multiple log entries to the trace.
-func (t *Trace) AddLogs(logs []interface{}) {
+func (t *Trace) AddLogs(logs []string) {
 	t.Logs = append(t.Logs, logs...)
 	t.UpdatedAt = time.Now().UTC()
 }
@@ -319,4 +320,31 @@ func (n *TraceNode) Validate() error {
 	}
 
 	return nil
+}
+
+// ConvertLogsToStrings converts a slice of interface{} to a slice of strings.
+// Each element is converted to a JSON string. If the element is already a string,
+// it's kept as-is. Otherwise, it's marshaled to JSON.
+func ConvertLogsToStrings(logs []interface{}) []string {
+	if logs == nil {
+		return []string{}
+	}
+
+	result := make([]string, len(logs))
+	for i, log := range logs {
+		switch v := log.(type) {
+		case string:
+			result[i] = v
+		default:
+			// Marshal to JSON string
+			jsonBytes, err := json.Marshal(v)
+			if err != nil {
+				// Fallback to fmt.Sprintf if JSON marshaling fails
+				result[i] = fmt.Sprintf("%v", v)
+			} else {
+				result[i] = string(jsonBytes)
+			}
+		}
+	}
+	return result
 }

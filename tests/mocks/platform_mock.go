@@ -42,8 +42,9 @@ func (m *MockPlatformClient) GetAgentConfigFromFile(ctx context.Context, tenantI
 }
 
 // GetMe mocks the GetMe method.
-func (m *MockPlatformClient) GetMe(ctx context.Context, tenantID, authToken string) (*platform.UserInfo, error) {
-	args := m.Called(ctx, tenantID, authToken)
+// Note: The identity/me endpoint doesn't require tenantId.
+func (m *MockPlatformClient) GetMe(ctx context.Context, authToken string) (*platform.UserInfo, error) {
+	args := m.Called(ctx, authToken)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

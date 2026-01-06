@@ -246,7 +246,7 @@ func (m *MockTracesCollection) AddNodes(ctx context.Context, id string, nodes []
 }
 
 // AddLogs adds logs to a trace.
-func (m *MockTracesCollection) AddLogs(ctx context.Context, id string, logs []interface{}) error {
+func (m *MockTracesCollection) AddLogs(ctx context.Context, id string, logs []string) error {
 	args := m.Called(ctx, id, logs)
 	return args.Error(0)
 }

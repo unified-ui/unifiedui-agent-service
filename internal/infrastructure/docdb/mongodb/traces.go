@@ -160,7 +160,7 @@ func (c *TracesCollection) AddNodes(ctx context.Context, id string, nodes []mode
 }
 
 // AddLogs appends logs to an existing trace.
-func (c *TracesCollection) AddLogs(ctx context.Context, id string, logs []interface{}) error {
+func (c *TracesCollection) AddLogs(ctx context.Context, id string, logs []string) error {
 	update := bson.M{
 		"$push": bson.M{
 			"logs": bson.M{

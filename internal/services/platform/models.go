@@ -99,12 +99,19 @@ type BasicAuthSecret struct {
 	Password string `json:"password"`
 }
 
-// UserInfo represents user information from the platform.
+// UserInfo represents user information from the platform's identity/me endpoint.
+// This matches the IdentityUserResponse from the Python platform service.
 type UserInfo struct {
-	ID            string `json:"id"`
-	DisplayName   string `json:"display_name"`
-	PrincipalName string `json:"principal_name"`
-	Mail          string `json:"mail"`
+	ID               string                   `json:"id"`
+	IdentityProvider string                   `json:"identity_provider"`
+	IdentityTenantID string                   `json:"identity_tenant_id"`
+	DisplayName      string                   `json:"display_name"`
+	PrincipalName    string                   `json:"principal_name"`
+	Firstname        string                   `json:"firstname"`
+	Lastname         string                   `json:"lastname"`
+	Mail             string                   `json:"mail"`
+	Tenants          []map[string]interface{} `json:"tenants"`
+	Groups           []map[string]interface{} `json:"groups"`
 }
 
 // GetSecretAsString returns the secret as a string (for API keys).

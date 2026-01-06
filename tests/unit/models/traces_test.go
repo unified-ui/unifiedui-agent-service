@@ -159,16 +159,14 @@ func TestTrace_AddNode(t *testing.T) {
 func TestTrace_AddLog(t *testing.T) {
 	// Arrange
 	trace := models.NewConversationTrace("tenant", "app", "conv", "user")
-	log := map[string]interface{}{
-		"level":   "info",
-		"message": "test log",
-	}
+	log := "test log message"
 
 	// Act
 	trace.AddLog(log)
 
 	// Assert
 	assert.Len(t, trace.Logs, 1)
+	assert.Equal(t, "test log message", trace.Logs[0])
 }
 
 func TestTraceNode_Validate_Success(t *testing.T) {

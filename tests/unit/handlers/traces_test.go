@@ -44,7 +44,7 @@ func TestTracesHandler_CreateTrace_Conversation_Success(t *testing.T) {
 	}
 
 	// Mock platform client responses - use mock.Anything for all params
-	mockPlatform.On("GetMe", mock.Anything, mock.Anything, mock.Anything).Return(&platform.UserInfo{ID: testutils.TestUserID}, nil)
+	mockPlatform.On("GetMe", mock.Anything, mock.Anything).Return(&platform.UserInfo{ID: testutils.TestUserID}, nil)
 	mockPlatform.On("ValidateConversation", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	// Mock traces collection
@@ -83,7 +83,7 @@ func TestTracesHandler_CreateTrace_AutonomousAgent_Success(t *testing.T) {
 	}
 
 	// Mock platform client responses
-	mockPlatform.On("GetMe", mock.Anything, mock.Anything, mock.Anything).Return(&platform.UserInfo{ID: testutils.TestUserID}, nil)
+	mockPlatform.On("GetMe", mock.Anything, mock.Anything).Return(&platform.UserInfo{ID: testutils.TestUserID}, nil)
 	mockPlatform.On("ValidateAutonomousAgent", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	// Mock traces collection
@@ -177,7 +177,7 @@ func TestTracesHandler_AddNodes_Success(t *testing.T) {
 	}
 
 	// Mock platform client for getUserID
-	mockPlatform.On("GetMe", mock.Anything, mock.Anything, mock.Anything).Return(&platform.UserInfo{ID: testutils.TestUserID}, nil)
+	mockPlatform.On("GetMe", mock.Anything, mock.Anything).Return(&platform.UserInfo{ID: testutils.TestUserID}, nil)
 
 	// Mock get existing trace - use mock.Anything for all params
 	mockDocDB.GetTracesCollection().On("Get", mock.Anything, mock.Anything).Return(existingTrace, nil)
@@ -423,7 +423,7 @@ func TestTracesHandler_RefreshConversationTrace_Success(t *testing.T) {
 		},
 	}
 
-	mockPlatform.On("GetMe", mock.Anything, mock.Anything, mock.Anything).Return(&platform.UserInfo{ID: testutils.TestUserID}, nil)
+	mockPlatform.On("GetMe", mock.Anything, mock.Anything).Return(&platform.UserInfo{ID: testutils.TestUserID}, nil)
 	mockDocDB.GetTracesCollection().On("GetByConversation", mock.Anything, mock.Anything, mock.Anything).Return(existingTrace, nil)
 	mockDocDB.GetTracesCollection().On("Update", mock.Anything, mock.Anything).Return(nil)
 

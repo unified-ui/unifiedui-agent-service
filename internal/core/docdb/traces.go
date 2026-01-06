@@ -45,7 +45,7 @@ type TracesCollection interface {
 	AddNodes(ctx context.Context, id string, nodes []models.TraceNode) error
 
 	// AddLogs appends logs to an existing trace.
-	AddLogs(ctx context.Context, id string, logs []interface{}) error
+	AddLogs(ctx context.Context, id string, logs []string) error
 
 	// Delete removes a trace by ID.
 	Delete(ctx context.Context, id string) error

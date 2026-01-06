@@ -27,7 +27,8 @@ type Client interface {
 	GetAgentConfigFromFile(ctx context.Context, tenantID, applicationID string) (*AgentConfig, error)
 
 	// GetMe retrieves the current user information from the platform service.
-	GetMe(ctx context.Context, tenantID, authToken string) (*UserInfo, error)
+	// Note: The identity/me endpoint doesn't require tenantId.
+	GetMe(ctx context.Context, authToken string) (*UserInfo, error)
 
 	// ValidateConversation validates that a conversation exists and user has access.
 	ValidateConversation(ctx context.Context, tenantID, conversationID, authToken string) error
@@ -181,7 +182,8 @@ func (c *client) GetAgentConfigFromFile(ctx context.Context, tenantID, applicati
 }
 
 // GetMe retrieves the current user information from the platform service.
-func (c *client) GetMe(ctx context.Context, tenantID, authToken string) (*UserInfo, error) {
+// Note: The identity/me endpoint doesn't require tenantId in the path.
+func (c *client) GetMe(ctx context.Context, authToken string) (*UserInfo, error) {
 	if c.baseURL == "" {
 		return nil, fmt.Errorf("platform service URL not configured")
 	}
@@ -190,8 +192,8 @@ func (c *client) GetMe(ctx context.Context, tenantID, authToken string) (*UserIn
 		return nil, fmt.Errorf("auth token not provided")
 	}
 
-	// Build request URL
-	url := fmt.Sprintf("%s/api/v1/platform-service/tenants/%s/me", c.baseURL, tenantID)
+	// Build request URL - identity/me endpoint doesn't need tenantId
+	url := fmt.Sprintf("%s/api/v1/platform-service/identity/me", c.baseURL)
 
 	// Create request
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -267,9 +269,17 @@ func (c *client) ValidateConversation(ctx context.Context, tenantID, conversatio
 	}
 	defer resp.Body.Close()
 
-	// Check status code
+	// Check status code - forward specific error types
+	if resp.StatusCode == http.StatusUnauthorized {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("unauthorized: %s", string(body))
+	}
+	if resp.StatusCode == http.StatusForbidden {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("forbidden: %s", string(body))
+	}
 	if resp.StatusCode == http.StatusNotFound {
-		return fmt.Errorf("conversation not found")
+		return fmt.Errorf("not_found: conversation not found")
 	}
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -313,9 +323,17 @@ func (c *client) ValidateAutonomousAgent(ctx context.Context, tenantID, autonomo
 	}
 	defer resp.Body.Close()
 
-	// Check status code
+	// Check status code - forward specific error types
+	if resp.StatusCode == http.StatusUnauthorized {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("unauthorized: %s", string(body))
+	}
+	if resp.StatusCode == http.StatusForbidden {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("forbidden: %s", string(body))
+	}
 	if resp.StatusCode == http.StatusNotFound {
-		return fmt.Errorf("autonomous agent not found")
+		return fmt.Errorf("not_found: autonomous agent not found")
 	}
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)

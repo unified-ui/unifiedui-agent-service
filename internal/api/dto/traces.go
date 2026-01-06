@@ -109,7 +109,7 @@ type TraceNodeResponse struct {
 	EndAt       *time.Time             `json:"endAt,omitempty"`
 	Duration    float64                `json:"duration,omitempty"`
 	Status      string                 `json:"status"`
-	Logs        []interface{}          `json:"logs,omitempty"`
+	Logs        []string               `json:"logs,omitempty"`
 	Data        *NodeDataResponse      `json:"data,omitempty"`
 	Nodes       []TraceNodeResponse    `json:"nodes,omitempty"`
 	Metadata    map[string]interface{} `json:"metadata,omitempty"`
@@ -130,7 +130,7 @@ type TraceResponse struct {
 	ReferenceID       string                 `json:"referenceId,omitempty"`
 	ReferenceName     string                 `json:"referenceName,omitempty"`
 	ReferenceMetadata map[string]interface{} `json:"referenceMetadata,omitempty"`
-	Logs              []interface{}          `json:"logs,omitempty"`
+	Logs              []string               `json:"logs,omitempty"`
 	Nodes             []TraceNodeResponse    `json:"nodes,omitempty"`
 	CreatedAt         time.Time              `json:"createdAt"`
 	UpdatedAt         time.Time              `json:"updatedAt"`
@@ -162,7 +162,7 @@ func (r *TraceNodeRequest) ToTraceNode(createdBy string) models.TraceNode {
 		EndAt:       r.EndAt,
 		Duration:    r.Duration,
 		Status:      models.NodeStatus(r.Status),
-		Logs:        r.Logs,
+		Logs:        models.ConvertLogsToStrings(r.Logs),
 		Metadata:    r.Metadata,
 		CreatedAt:   now,
 		UpdatedAt:   now,
