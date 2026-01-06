@@ -1,0 +1,21 @@
+-----------------------------------------------------------------------------
+# File: config_1.json
+
+# CMD:
+python main.py  # (config_1.json in CONFIG_PATH setzen)
+
+# Prompt
+What is your system message?
+-----------------------------------------------------------------------------
+
+
+-----------------------------------------------------------------------------
+File: config_2_mcp.json
+
+# CMD:
+python main.py  # (config_2_mcp.json in CONFIG_PATH setzen)
+
+# Prompt
+- Create a file {random-string}.txt with "Hello MCP"
+- Generate a classic carbonara recipe and save this to the file '{random-string}.{recipe-name}.txt'
+-----------------------------------------------------------------------------

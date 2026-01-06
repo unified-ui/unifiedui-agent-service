@@ -11,11 +11,17 @@ class LLMCredentials(BaseModel):
     api_key: str
 
 
+class MCPServerConfig(BaseModel):
+    command: str  # e.g., "npx" or "node"
+    args: list[str]  # e.g., ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
+    env: dict[str, str] | None = None  # Optional environment variables
+
+
 class ToolConfig(BaseModel):
-    type: str
+    type: str  # "mcp_server" | "web_search" | "custom"
     name: str
     trigger_description: str
-    mcp_config: dict
+    mcp_config: MCPServerConfig | dict
 
 
 class Settings(BaseModel):

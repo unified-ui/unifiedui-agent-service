@@ -8,7 +8,7 @@ from agent import ReACTAgent, UnifiedUIMessage
 load_dotenv()
 
 
-CONFIG_PATH = "../config/config_1.json"
+CONFIG_PATH = "../config/config_2_mcp.json"
 
 
 async def main():
@@ -18,6 +18,7 @@ async def main():
     config = load_config(CONFIG_PATH)
     
     agent = ReACTAgent(config)
+    await agent.initialize()
 
     while True:
         user_input = input("\nUser: ")
@@ -31,6 +32,12 @@ async def main():
         async for response in agent.invoke_stream(messages):
             if response.get("type") == "TEXT_STREAM":
                 agent_response_content += response.get("content", "")
+            if response.get("type") == "TOOL_START":
+                tool_name = response.get("content", "")
+                print(f"\n[Tool Started: {tool_name}]", end=" ", flush=True)
+            if response.get("type") == "TOOL_END":
+                tool_output = response.get("content", "")
+                print(f"\n[Tool Output: {tool_output}]", end=" ", flush=True)
 
         print()  # Newline after streaming
         # Append agent's response to messages
