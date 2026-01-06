@@ -1,0 +1,34 @@
+{
+    "docversion": "v1",
+    "type": "UNIFIED_UI_AGENT",
+    "tenant_id": "b4e1f3d2-5c6a-4e2b-9f4d-8e2f3c4b5a6d",
+    "application_id": "f4f38f3f-dea9-430e-bc48-5e7236dfd773",
+    "settings": {
+        "agent_version": "v1",
+        "agent_type": "ReACT_AGENT",
+        "instructions": "You are an basic ReACT agent.",
+        "llm_credentials": {
+            "type": "AZURE_OPENAI",
+            "deployment_name": "gpt-4.1-mini",
+            "api_version": "2025-01-01-preview",
+            "endpoint": "https://enrico-goerlitz-aihub-dev-gwc-openai.openai.azure.com/",
+            "api_key": "AZURE_OPENAI_API_KEY"
+        },
+        "tools": [
+            {
+                "type": "web_search",
+                "name": "BingSearch",
+                "trigger_description": "Useful for when you need to answer questions about current events or the state of the world.",
+                "mcp_config": {
+                    
+                }
+            }
+        ]
+    },
+    "user": {
+        "id": "c161c44e-39b3-41d4-bb76-251af10b7606",
+        "display_name": "Enrico Goerlitz",
+        "principal_name": "enrico.goerlitz@example.com",
+        "mail": "enrico.goerlitz@example.com"
+    }
+}
