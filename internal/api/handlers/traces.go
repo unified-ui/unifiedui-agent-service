@@ -5,6 +5,7 @@ import (
 	"context"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -16,19 +17,22 @@ import (
 	"github.com/unifiedui/agent-service/internal/domain/errors"
 	"github.com/unifiedui/agent-service/internal/domain/models"
 	"github.com/unifiedui/agent-service/internal/services/platform"
+	"github.com/unifiedui/agent-service/internal/services/traceimport"
 )
 
 // TracesHandler handles trace-related endpoints.
 type TracesHandler struct {
 	docDBClient    docdb.Client
 	platformClient platform.Client
+	importService  *traceimport.ImportService
 }
 
 // NewTracesHandler creates a new TracesHandler.
-func NewTracesHandler(docDBClient docdb.Client, platformClient platform.Client) *TracesHandler {
+func NewTracesHandler(docDBClient docdb.Client, platformClient platform.Client, importService *traceimport.ImportService) *TracesHandler {
 	return &TracesHandler{
 		docDBClient:    docDBClient,
 		platformClient: platformClient,
+		importService:  importService,
 	}
 }
 
@@ -668,6 +672,137 @@ func (h *TracesHandler) validateAutonomousAgentContext(ctx context.Context, tena
 			return errors.NewNotFoundError("autonomous agent", autonomousAgentID)
 		}
 		return errors.NewInternalError("failed to validate autonomous agent", err)
+	}
+
+	return nil
+}
+
+// ImportConversationTrace handles PUT /tenants/{tenantId}/conversations/{conversationId}/traces/import/refresh
+// @Summary Import and refresh traces for a conversation
+// @Description Imports traces from an external system (Microsoft Foundry, N8N) for a conversation
+// @Tags Traces
+// @Accept json
+// @Produce json
+// @Param tenantId path string true "Tenant ID"
+// @Param conversationId path string true "Conversation ID"
+// @Param X-Microsoft-Foundry-API-Key header string false "Microsoft Foundry API Key (required for Foundry agents)"
+// @Success 200 {object} dto.ImportTraceResponse
+// @Failure 400 {object} dto.ErrorResponse "Bad request - missing required header or configuration"
+// @Failure 401 {object} dto.ErrorResponse "Unauthorized"
+// @Failure 404 {object} dto.ErrorResponse "Conversation not found"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/traces/import/refresh [put]
+func (h *TracesHandler) ImportConversationTrace(c *gin.Context) {
+	ctx := c.Request.Context()
+	tenantID := c.Param("tenantId")
+	conversationID := c.Param("conversationId")
+	authToken := middleware.GetToken(c)
+	foundryAPIKey := c.GetHeader("X-Microsoft-Foundry-API-Key")
+
+	// Get conversation details from platform service
+	conversation, err := h.platformClient.GetConversation(ctx, tenantID, conversationID, authToken)
+	if err != nil {
+		errStr := err.Error()
+		if strings.HasPrefix(errStr, "unauthorized") {
+			middleware.HandleError(c, errors.NewUnauthorizedError("invalid or expired token"))
+			return
+		}
+		if strings.HasPrefix(errStr, "forbidden") {
+			middleware.HandleError(c, errors.NewForbiddenError("access denied to conversation"))
+			return
+		}
+		if strings.HasPrefix(errStr, "not_found") {
+			middleware.HandleError(c, errors.NewNotFoundError("conversation", conversationID))
+			return
+		}
+		middleware.HandleError(c, errors.NewInternalError("failed to get conversation", err))
+		return
+	}
+
+	// Get application configuration to determine agent type
+	appConfig, err := h.platformClient.GetApplicationConfig(ctx, tenantID, conversation.ApplicationID, authToken)
+	if err != nil {
+		middleware.HandleError(c, errors.NewInternalError("failed to get application configuration", err))
+		return
+	}
+
+	// Get user info for created_by field
+	userInfo, err := h.platformClient.GetMe(ctx, authToken)
+	if err != nil {
+		middleware.HandleError(c, errors.NewInternalError("failed to get user info", err))
+		return
+	}
+
+	// Handle based on agent type
+	switch appConfig.Type {
+	case platform.AgentTypeFoundry:
+		if err := h.importFoundryTraces(ctx, c, tenantID, conversationID, conversation, appConfig, userInfo, foundryAPIKey); err != nil {
+			return // Error already handled
+		}
+	case platform.AgentTypeN8N:
+		// TODO: Implement N8N trace import
+		middleware.HandleError(c, errors.NewValidationError("N8N trace import not yet implemented", ""))
+		return
+	default:
+		middleware.HandleError(c, errors.NewValidationError("unsupported agent type for trace import", string(appConfig.Type)))
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.ImportTraceResponse{
+		Message: "Traces imported successfully",
+	})
+}
+
+// importFoundryTraces handles the Foundry-specific trace import.
+func (h *TracesHandler) importFoundryTraces(
+	ctx context.Context,
+	c *gin.Context,
+	tenantID, conversationID string,
+	conversation *platform.ConversationResponse,
+	appConfig *platform.ApplicationConfigResponse,
+	userInfo *platform.UserInfo,
+	foundryAPIKey string,
+) error {
+	// Validate required fields
+	if foundryAPIKey == "" {
+		middleware.HandleError(c, errors.NewValidationError("X-Microsoft-Foundry-API-Key header is required for Foundry agents", ""))
+		return errors.NewValidationError("missing foundry api key", "")
+	}
+
+	if conversation.ExtConversationID == "" {
+		middleware.HandleError(c, errors.NewValidationError("conversation has no external conversation ID", ""))
+		return errors.NewValidationError("missing ext conversation id", "")
+	}
+
+	if appConfig.Settings.ProjectEndpoint == "" {
+		middleware.HandleError(c, errors.NewValidationError("application configuration missing project endpoint", ""))
+		return errors.NewValidationError("missing project endpoint", "")
+	}
+
+	apiVersion := appConfig.Settings.APIVersion
+	if apiVersion == "" {
+		apiVersion = "2025-11-15-preview"
+	}
+
+	// Import traces synchronously
+	req := &traceimport.FoundryImportRequest{
+		ImportRequest: traceimport.ImportRequest{
+			TenantID:       tenantID,
+			ConversationID: conversationID,
+			ApplicationID:  conversation.ApplicationID,
+			Logs:           []string{},
+			UserID:         userInfo.ID,
+		},
+		FoundryConversationID: conversation.ExtConversationID,
+		ProjectEndpoint:       appConfig.Settings.ProjectEndpoint,
+		APIVersion:            apiVersion,
+		FoundryAPIToken:       foundryAPIKey,
+	}
+
+	if err := h.importService.ImportFoundryTraces(ctx, req); err != nil {
+		middleware.HandleError(c, errors.NewInternalError("failed to import Foundry traces", err))
+		return err
 	}
 
 	return nil

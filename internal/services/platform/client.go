@@ -30,6 +30,9 @@ type Client interface {
 	// Note: The identity/me endpoint doesn't require tenantId.
 	GetMe(ctx context.Context, authToken string) (*UserInfo, error)
 
+	// GetConversation retrieves conversation details from the platform service.
+	GetConversation(ctx context.Context, tenantID, conversationID, authToken string) (*ConversationResponse, error)
+
 	// ValidateConversation validates that a conversation exists and user has access.
 	ValidateConversation(ctx context.Context, tenantID, conversationID, authToken string) error
 
@@ -233,6 +236,68 @@ func (c *client) GetMe(ctx context.Context, authToken string) (*UserInfo, error)
 	}
 
 	return &userInfo, nil
+}
+
+// GetConversation retrieves conversation details from the platform service.
+func (c *client) GetConversation(ctx context.Context, tenantID, conversationID, authToken string) (*ConversationResponse, error) {
+	if c.baseURL == "" {
+		return nil, fmt.Errorf("platform service URL not configured")
+	}
+
+	if authToken == "" {
+		return nil, fmt.Errorf("auth token not provided")
+	}
+
+	// Build request URL
+	url := fmt.Sprintf("%s/api/v1/platform-service/tenants/%s/conversations/%s", c.baseURL, tenantID, conversationID)
+
+	// Create request
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set headers
+	if c.serviceKey != "" {
+		req.Header.Set("X-Service-Key", c.serviceKey)
+	}
+	req.Header.Set("Authorization", "Bearer "+authToken)
+	req.Header.Set("Accept", "application/json")
+
+	// Execute request
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to call platform service: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Check status code - forward specific error types
+	if resp.StatusCode == http.StatusUnauthorized {
+		return nil, fmt.Errorf("unauthorized: %s", string(body))
+	}
+	if resp.StatusCode == http.StatusForbidden {
+		return nil, fmt.Errorf("forbidden: %s", string(body))
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, fmt.Errorf("not_found: conversation not found")
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("platform service returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Parse response
+	var conversation ConversationResponse
+	if err := json.Unmarshal(body, &conversation); err != nil {
+		return nil, fmt.Errorf("failed to parse conversation response: %w", err)
+	}
+
+	return &conversation, nil
 }
 
 // ValidateConversation validates that a conversation exists and user has access.

@@ -114,6 +114,15 @@ type UserInfo struct {
 	Groups           []map[string]interface{} `json:"groups"`
 }
 
+// ConversationResponse represents a conversation from the platform service.
+type ConversationResponse struct {
+	ID                string `json:"id"`
+	Name              string `json:"name"`
+	TenantID          string `json:"tenant_id"`
+	ApplicationID     string `json:"application_id"`
+	ExtConversationID string `json:"ext_conversation_id,omitempty"`
+}
+
 // GetSecretAsString returns the secret as a string (for API keys).
 func (c *Credentials) GetSecretAsString() string {
 	if s, ok := c.Secret.(string); ok {

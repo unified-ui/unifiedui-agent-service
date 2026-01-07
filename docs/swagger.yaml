@@ -63,6 +63,13 @@ definitions:
       message:
         type: string
     type: object
+  dto.ImportTraceResponse:
+    properties:
+      message:
+        type: string
+      traceId:
+        type: string
+    type: object
   dto.ListTracesResponse:
     properties:
       traces:
@@ -764,6 +771,55 @@ paths:
       security:
       - BearerAuth: []
       summary: Refresh trace for a conversation
+      tags:
+      - Traces
+  /api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/traces/import/refresh:
+    put:
+      consumes:
+      - application/json
+      description: Imports traces from an external system (Microsoft Foundry, N8N)
+        for a conversation
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Conversation ID
+        in: path
+        name: conversationId
+        required: true
+        type: string
+      - description: Microsoft Foundry API Key (required for Foundry agents)
+        in: header
+        name: X-Microsoft-Foundry-API-Key
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ImportTraceResponse'
+        "400":
+          description: Bad request - missing required header or configuration
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Conversation not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Import and refresh traces for a conversation
       tags:
       - Traces
   /api/v1/agent-service/tenants/{tenantId}/traces:

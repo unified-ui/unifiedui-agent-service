@@ -63,6 +63,8 @@ func Setup(r *gin.Engine, cfg *Config) {
 				conversations.GET("/traces", cfg.TracesHandler.GetConversationTraces)
 				// Refresh (replace) trace for conversation
 				conversations.PUT("/traces", cfg.TracesHandler.RefreshConversationTrace)
+				// Import traces from external system (Foundry, N8N)
+				conversations.PUT("/traces/import/refresh", cfg.TracesHandler.ImportConversationTrace)
 			}
 
 			// --- Autonomous Agent Routes ---

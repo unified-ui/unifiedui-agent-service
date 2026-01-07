@@ -18,6 +18,7 @@ import (
 	"github.com/unifiedui/agent-service/internal/services/agents"
 	"github.com/unifiedui/agent-service/internal/services/platform"
 	"github.com/unifiedui/agent-service/internal/services/session"
+	"github.com/unifiedui/agent-service/internal/services/traceimport"
 )
 
 const (
@@ -33,6 +34,7 @@ type MessagesHandler struct {
 	platformClient platform.Client
 	agentFactory   *agents.Factory
 	sessionService session.Service
+	importService  *traceimport.ImportService
 }
 
 // NewMessagesHandler creates a new MessagesHandler.
@@ -41,12 +43,14 @@ func NewMessagesHandler(
 	platformClient platform.Client,
 	agentFactory *agents.Factory,
 	sessionService session.Service,
+	importService *traceimport.ImportService,
 ) *MessagesHandler {
 	return &MessagesHandler{
 		docDBClient:    docDBClient,
 		platformClient: platformClient,
 		agentFactory:   agentFactory,
 		sessionService: sessionService,
+		importService:  importService,
 	}
 }
 
@@ -335,7 +339,8 @@ func (h *MessagesHandler) SendMessage(c *gin.Context) {
 	assistantMessage.ID = assistantMessageID
 
 	// Handle streaming response
-	h.handleStreamingResponse(c, tenantCtx, agentClients, agentConfig, userMessage, assistantMessage, chatHistory, req.ExtConversationID)
+	foundryAPIKey := c.GetHeader("X-Microsoft-Foundry-API-Key")
+	h.handleStreamingResponse(c, tenantCtx, agentClients, agentConfig, userMessage, assistantMessage, chatHistory, req.ExtConversationID, foundryAPIKey)
 }
 
 // handleStreamingResponse handles SSE streaming for message responses.
@@ -348,6 +353,7 @@ func (h *MessagesHandler) handleStreamingResponse(
 	assistantMessage *models.Message,
 	chatHistory []models.ChatHistoryEntry,
 	extConversationID string,
+	foundryAPIKey string,
 ) {
 	ctx := c.Request.Context()
 
@@ -391,6 +397,11 @@ func (h *MessagesHandler) handleStreamingResponse(
 		h.handleFoundryStreaming(ctx, writer, streamReader, tenantCtx, agentConfig, userMessage, assistantMessage, startTime)
 		// Cache config for Foundry but with empty chat history (Foundry manages its own conversation history)
 		h.updateSessionCacheConfigOnly(ctx, tenantCtx, agentConfig, userMessage.ConversationID)
+
+		// Enqueue trace import job for Foundry after streaming completes
+		if h.importService != nil && extConversationID != "" && foundryAPIKey != "" {
+			h.enqueueFoundryTraceImport(tenantCtx, agentConfig, userMessage, extConversationID, foundryAPIKey)
+		}
 	} else {
 		h.handleDefaultStreaming(ctx, writer, streamReader, agentConfig, userMessage, assistantMessage, startTime)
 		// Update session cache with new chat history (only for non-Foundry agents)
@@ -731,6 +742,31 @@ func (h *MessagesHandler) updateSessionCacheConfigOnly(
 		conversationID,
 	)
 	_ = h.sessionService.SetSession(ctx, sessionData)
+}
+
+// enqueueFoundryTraceImport enqueues a trace import job for Foundry agents.
+func (h *MessagesHandler) enqueueFoundryTraceImport(
+	tenantCtx *middleware.TenantContext,
+	agentConfig *platform.AgentConfig,
+	userMessage *models.Message,
+	extConversationID string,
+	foundryAPIKey string,
+) {
+	req := &traceimport.FoundryImportRequest{
+		ImportRequest: traceimport.ImportRequest{
+			TenantID:       tenantCtx.TenantID,
+			ConversationID: userMessage.ConversationID,
+			ApplicationID:  userMessage.ApplicationID,
+			Logs:           []string{},
+			UserID:         tenantCtx.UserID,
+		},
+		FoundryConversationID: extConversationID,
+		ProjectEndpoint:       agentConfig.Settings.ProjectEndpoint,
+		APIVersion:            agentConfig.Settings.APIVersion,
+		FoundryAPIToken:       foundryAPIKey,
+	}
+
+	h.importService.EnqueueFoundryImport(req)
 }
 
 // generateMessageID generates a unique message ID.

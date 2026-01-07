@@ -13,9 +13,16 @@ import (
 	"github.com/unifiedui/agent-service/internal/api/handlers"
 	"github.com/unifiedui/agent-service/internal/domain/models"
 	"github.com/unifiedui/agent-service/internal/services/platform"
+	"github.com/unifiedui/agent-service/internal/services/traceimport"
 	"github.com/unifiedui/agent-service/tests/mocks"
 	"github.com/unifiedui/agent-service/tests/testutils"
 )
+
+// createTestTracesHandler creates a TracesHandler with mocks for testing.
+func createTestTracesHandler(mockDocDB *mocks.MockDocDBClient, mockPlatform *mocks.MockPlatformClient) *handlers.TracesHandler {
+	importService := traceimport.NewImportService(mockDocDB)
+	return handlers.NewTracesHandler(mockDocDB, mockPlatform, importService)
+}
 
 func TestTracesHandler_CreateTrace_Conversation_Success(t *testing.T) {
 	// Setup
@@ -51,7 +58,7 @@ func TestTracesHandler_CreateTrace_Conversation_Success(t *testing.T) {
 	mockDocDB.GetTracesCollection().On("GetByConversation", mock.Anything, testutils.TestTenantID, testutils.TestConversationID).Return(nil, nil)
 	mockDocDB.GetTracesCollection().On("Create", mock.Anything, mock.Anything).Return(nil)
 
-	handler := handlers.NewTracesHandler(mockDocDB, mockPlatform)
+	handler := createTestTracesHandler(mockDocDB, mockPlatform)
 
 	router := testutils.SetupTestRouter()
 	router.POST("/tenants/:tenantId/traces", handler.CreateTrace)
@@ -90,7 +97,7 @@ func TestTracesHandler_CreateTrace_AutonomousAgent_Success(t *testing.T) {
 	// Mock traces collection
 	mockDocDB.GetTracesCollection().On("Create", mock.Anything, mock.Anything).Return(nil)
 
-	handler := handlers.NewTracesHandler(mockDocDB, mockPlatform)
+	handler := createTestTracesHandler(mockDocDB, mockPlatform)
 
 	router := testutils.SetupTestRouter()
 	router.POST("/tenants/:tenantId/traces", handler.CreateTrace)
@@ -122,7 +129,7 @@ func TestTracesHandler_CreateTrace_MixedContext_Error(t *testing.T) {
 		AutonomousAgentID: "auto-agent-123", // Both contexts - invalid
 	}
 
-	handler := handlers.NewTracesHandler(mockDocDB, mockPlatform)
+	handler := createTestTracesHandler(mockDocDB, mockPlatform)
 
 	router := testutils.SetupTestRouter()
 	router.POST("/tenants/:tenantId/traces", handler.CreateTrace)
@@ -146,7 +153,7 @@ func TestTracesHandler_CreateTrace_MissingContext_Error(t *testing.T) {
 		// No context specified - invalid
 	}
 
-	handler := handlers.NewTracesHandler(mockDocDB, mockPlatform)
+	handler := createTestTracesHandler(mockDocDB, mockPlatform)
 
 	router := testutils.SetupTestRouter()
 	router.POST("/tenants/:tenantId/traces", handler.CreateTrace)
@@ -180,7 +187,7 @@ func TestTracesHandler_CreateTrace_ConversationAlreadyExists_Conflict(t *testing
 	// Mock traces collection - returns existing trace (conflict)
 	mockDocDB.GetTracesCollection().On("GetByConversation", mock.Anything, testutils.TestTenantID, testutils.TestConversationID).Return(existingTrace, nil)
 
-	handler := handlers.NewTracesHandler(mockDocDB, mockPlatform)
+	handler := createTestTracesHandler(mockDocDB, mockPlatform)
 
 	router := testutils.SetupTestRouter()
 	router.POST("/tenants/:tenantId/traces", handler.CreateTrace)
@@ -225,7 +232,7 @@ func TestTracesHandler_AddNodes_Success(t *testing.T) {
 	mockDocDB.GetTracesCollection().On("Get", mock.Anything, mock.Anything).Return(existingTrace, nil)
 	mockDocDB.GetTracesCollection().On("AddNodes", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	handler := handlers.NewTracesHandler(mockDocDB, mockPlatform)
+	handler := createTestTracesHandler(mockDocDB, mockPlatform)
 
 	router := testutils.SetupTestRouter()
 	router.POST("/tenants/:tenantId/traces/:traceId/nodes", handler.AddNodes)
@@ -259,7 +266,7 @@ func TestTracesHandler_AddNodes_TraceNotFound(t *testing.T) {
 	// Mock trace not found
 	mockDocDB.GetTracesCollection().On("Get", mock.Anything, mock.Anything).Return(nil, nil)
 
-	handler := handlers.NewTracesHandler(mockDocDB, mockPlatform)
+	handler := createTestTracesHandler(mockDocDB, mockPlatform)
 
 	router := testutils.SetupTestRouter()
 	router.POST("/tenants/:tenantId/traces/:traceId/nodes", handler.AddNodes)
@@ -289,7 +296,7 @@ func TestTracesHandler_AddLogs_Success(t *testing.T) {
 	mockDocDB.GetTracesCollection().On("Get", mock.Anything, mock.Anything).Return(existingTrace, nil)
 	mockDocDB.GetTracesCollection().On("AddLogs", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	handler := handlers.NewTracesHandler(mockDocDB, mockPlatform)
+	handler := createTestTracesHandler(mockDocDB, mockPlatform)
 
 	router := testutils.SetupTestRouter()
 	router.POST("/tenants/:tenantId/traces/:traceId/logs", handler.AddLogs)
@@ -313,7 +320,7 @@ func TestTracesHandler_GetTrace_Success(t *testing.T) {
 
 	mockDocDB.GetTracesCollection().On("Get", mock.Anything, mock.Anything).Return(existingTrace, nil)
 
-	handler := handlers.NewTracesHandler(mockDocDB, mockPlatform)
+	handler := createTestTracesHandler(mockDocDB, mockPlatform)
 
 	router := testutils.SetupTestRouter()
 	router.GET("/tenants/:tenantId/traces/:traceId", handler.GetTrace)
@@ -341,7 +348,7 @@ func TestTracesHandler_GetTrace_NotFound(t *testing.T) {
 
 	mockDocDB.GetTracesCollection().On("Get", mock.Anything, mock.Anything).Return(nil, nil)
 
-	handler := handlers.NewTracesHandler(mockDocDB, mockPlatform)
+	handler := createTestTracesHandler(mockDocDB, mockPlatform)
 
 	router := testutils.SetupTestRouter()
 	router.GET("/tenants/:tenantId/traces/:traceId", handler.GetTrace)
@@ -363,7 +370,7 @@ func TestTracesHandler_DeleteTrace_Success(t *testing.T) {
 	mockDocDB.GetTracesCollection().On("Get", mock.Anything, mock.Anything).Return(existingTrace, nil)
 	mockDocDB.GetTracesCollection().On("Delete", mock.Anything, mock.Anything).Return(nil)
 
-	handler := handlers.NewTracesHandler(mockDocDB, mockPlatform)
+	handler := createTestTracesHandler(mockDocDB, mockPlatform)
 
 	router := testutils.SetupTestRouter()
 	router.DELETE("/tenants/:tenantId/traces/:traceId", handler.DeleteTrace)
@@ -388,7 +395,7 @@ func TestTracesHandler_GetConversationTraces_Success(t *testing.T) {
 	// GetConversationTraces uses ListByConversation which returns a list
 	mockDocDB.GetTracesCollection().On("ListByConversation", mock.Anything, mock.Anything, mock.Anything).Return(traces, nil)
 
-	handler := handlers.NewTracesHandler(mockDocDB, mockPlatform)
+	handler := createTestTracesHandler(mockDocDB, mockPlatform)
 
 	router := testutils.SetupTestRouter()
 	router.GET("/tenants/:tenantId/conversations/:conversationId/traces", handler.GetConversationTraces)
@@ -426,7 +433,7 @@ func TestTracesHandler_ListAutonomousAgentTraces_Success(t *testing.T) {
 	// ListAutonomousAgentTraces does NOT call ValidateAutonomousAgent - it just lists traces
 	mockDocDB.GetTracesCollection().On("List", mock.Anything, mock.Anything).Return(traces, nil)
 
-	handler := handlers.NewTracesHandler(mockDocDB, mockPlatform)
+	handler := createTestTracesHandler(mockDocDB, mockPlatform)
 
 	router := testutils.SetupTestRouter()
 	router.GET("/tenants/:tenantId/autonomous-agents/traces", handler.ListAutonomousAgentTraces)
@@ -471,7 +478,7 @@ func TestTracesHandler_RefreshConversationTrace_Success(t *testing.T) {
 	mockDocDB.GetTracesCollection().On("GetByConversation", mock.Anything, mock.Anything, mock.Anything).Return(existingTrace, nil)
 	mockDocDB.GetTracesCollection().On("Update", mock.Anything, mock.Anything).Return(nil)
 
-	handler := handlers.NewTracesHandler(mockDocDB, mockPlatform)
+	handler := createTestTracesHandler(mockDocDB, mockPlatform)
 
 	router := testutils.SetupTestRouter()
 	router.PUT("/tenants/:tenantId/conversations/:conversationId/traces", handler.RefreshConversationTrace)
