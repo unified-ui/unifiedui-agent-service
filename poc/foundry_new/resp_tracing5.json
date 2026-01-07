@@ -1,0 +1,116 @@
+{
+  "data": [
+    {
+      "type": "message",
+      "id": "msg_5983c55ba6886b5500695c4332d0e081909e39c7be50d47a35",
+      "created_by": {
+        "agent": {
+          "type": "agent_id",
+          "name": "BasicAssistantAgent",
+          "version": "2"
+        },
+        "response_id": "resp_5983c55ba6886b5500695c43320f548190bf4c4ce87bfee83b"
+      },
+      "partition_key": "5983c55ba6886b5500",
+      "status": "completed",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "Nat\u00fcrlich! Hier ist ein einfaches Beispiel, wie du mit der Bibliothek requests in Python eine HTTP-Anfrage (GET) machen und das Ergebnis weiterverarbeiten kannst.\n\n## Voraussetzungen\n\nDu musst das requests-Modul installiert haben.  \nFalls nicht, kannst du es mit folgendem Befehl installieren:\n```sh\npip install requests\n```\n\n## Beispiel-Skript\n\n```python\nimport requests\n\n# Beispiel-URL\nurl = \"https://jsonplaceholder.typicode.com/posts/1\"\n\n# Sende GET-Anfrage\nresponse = requests.get(url)\n\n# Pr\u00fcfe, ob die Anfrage erfolgreich war\nif response.status_code == 200:\n    data = response.json()\n    print(\"Titel des Posts:\", data['title'])\n    print(\"Komplette Antwort:\")\n    print(data)\nelse:\n    print(\"Fehler! Status-Code:\", response.status_code)\n```\n\n**Was macht dieses Skript?**\n- Es l\u00e4dt das [Beispiel-JSON](https://jsonplaceholder.typicode.com/posts/1)\n- Gibt den Titel und den gesamten Inhalt des Posts aus\n\nWenn du weitere Beispiele (z.B. POST-Requests, Header, Authentifizierung usw.) m\u00f6chtest, sag einfach Bescheid!",
+          "annotations": [],
+          "logprobs": []
+        }
+      ]
+    },
+    {
+      "type": "message",
+      "id": "msg_5983c55ba6886b5500695c43322f348190bf532a1755205c4e",
+      "partition_key": "5983c55ba6886b5500",
+      "status": "completed",
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "nice!\n\nschreibe mir ein python skript, ein beispiel, wie man requests nutzt"
+        }
+      ]
+    },
+    {
+      "type": "message",
+      "id": "msg_5983c55ba6886b5500695c41fcbe7081909b1e4927dae4ae5d",
+      "created_by": {
+        "agent": {
+          "type": "agent_id",
+          "name": "BasicAssistantAgent",
+          "version": "2"
+        },
+        "response_id": "resp_5983c55ba6886b5500695c41fc4c808190824ba4350052c015"
+      },
+      "partition_key": "5983c55ba6886b5500",
+      "status": "completed",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "Nat\u00fcrlich! Hier ist ein klassisches Rezept f\u00fcr leckere Fleischb\u00e4llchen (Meatballs), wie sie oft z.B. in Tomatensauce serviert werden. Du kannst sie auch anpassen, wie du magst!\n\n**Klassisches Meatball-Rezept**\n\n**Zutaten:**\n- 500 g gemischtes Hackfleisch (Rind/Schwein)\n- 1 kleine Zwiebel fein gehackt\n- 2 Knoblauchzehen fein gehackt\n- 1 Ei\n- 2 EL Semmelbr\u00f6sel\n- 3 EL frisch geriebener Parmesan (optional)\n- 3 EL gehackte Petersilie\n- 1 TL Salz\n- Pfeffer\n- 1 TL getrockneter Oregano\n- 1 TL Senf (optional)\n- \u00d6l zum Braten\n\n**F\u00fcr die Tomatenso\u00dfe:**  \n- 1 Dose gehackte Tomaten (ca. 400 g)\n- 1 Zwiebel\n- 1 Knoblauchzehe\n- 1 TL Zucker\n- Salz, Pfeffer, Oregano, Basilikum nach Geschmack\n\n**Zubereitung Fleischb\u00e4llchen:**\n1. Zwiebel und Knoblauch in wenig \u00d6l glasig d\u00fcnsten, etwas abk\u00fchlen lassen.\n2. Hackfleisch, Ei, Semmelbr\u00f6sel, Parmesan, Petersilie, Zwiebel, Knoblauch, Senf und Gew\u00fcrze in einer gro\u00dfen Sch\u00fcssel gut vermengen.\n3. Aus der Masse kleine B\u00e4llchen formen (ca. walnussgro\u00df).\n4. \u00d6l in einer Pfanne erhitzen und die B\u00e4llchen rundherum anbraten, bis sie sch\u00f6n braun sind (sie m\u00fcssen nicht ganz durch sein, da sie sp\u00e4ter in der Sauce garen).\n\n**Zubereitung Sauce:**\n1. Zwiebel und Knoblauch w\u00fcrfeln und in etwas \u00d6l anschwitzen.\n2. Gehackte Tomaten hinzugeben, mit Zucker, Salz, Pfeffer und Kr\u00e4utern w\u00fcrzen.\n3. Kurz aufkochen und dann ca. 10 Minuten k\u00f6cheln lassen.\n4. Die angebratenen Fleischb\u00e4llchen in die Sauce geben und darin auf mittlerer Hitze ca. 20 Minuten sanft garen.\n\n**Servieren:**  \nMit Pasta, Reis oder einfach frischem Brot genie\u00dfen!\n\n**Guten Appetit!**\n\nM\u00f6chtest du das Rezept f\u00fcr eine bestimmte Fleischsorte oder eine vegetarische Alternative? Sag gern Bescheid!",
+          "annotations": [],
+          "logprobs": []
+        }
+      ]
+    },
+    {
+      "type": "message",
+      "id": "msg_5983c55ba6886b5500695c41fc6a0881909eb3101a3e3ca7d7",
+      "partition_key": "5983c55ba6886b5500",
+      "status": "completed",
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "meat ball rezept"
+        }
+      ]
+    },
+    {
+      "type": "message",
+      "id": "msg_5983c55ba6886b5500695c41f0a3548190bb6885c5917d289c",
+      "created_by": {
+        "agent": {
+          "type": "agent_id",
+          "name": "BasicAssistantAgent",
+          "version": "2"
+        },
+        "response_id": "resp_5983c55ba6886b5500695c41f03f348190a38256631e78367e"
+      },
+      "partition_key": "5983c55ba6886b5500",
+      "status": "completed",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "Hello! How can I help you today?",
+          "annotations": [],
+          "logprobs": []
+        }
+      ]
+    },
+    {
+      "type": "message",
+      "id": "msg_5983c55ba6886b5500695c41f05ce081909a45f5409932a6a9",
+      "partition_key": "5983c55ba6886b5500",
+      "status": "completed",
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "hi"
+        }
+      ]
+    }
+  ],
+  "first_id": "msg_5983c55ba6886b5500695c4332d0e081909e39c7be50d47a35",
+  "last_id": "msg_5983c55ba6886b5500695c41f05ce081909a45f5409932a6a9",
+  "has_more": false,
+  "object": "list"
+}
