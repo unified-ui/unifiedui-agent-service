@@ -698,7 +698,6 @@ func (h *TracesHandler) ImportConversationTrace(c *gin.Context) {
 	tenantID := c.Param("tenantId")
 	conversationID := c.Param("conversationId")
 	authToken := middleware.GetToken(c)
-	foundryAPIKey := c.GetHeader("X-Microsoft-Foundry-API-Key")
 
 	// Get conversation details from platform service
 	conversation, err := h.platformClient.GetConversation(ctx, tenantID, conversationID, authToken)
@@ -734,22 +733,35 @@ func (h *TracesHandler) ImportConversationTrace(c *gin.Context) {
 		return
 	}
 
-	// Handle based on agent type
-	var traceID string
-	var importErr error
-
-	switch appConfig.Type {
-	case platform.AgentTypeFoundry:
-		traceID, importErr = h.importFoundryTraces(ctx, c, tenantID, conversationID, conversation, appConfig, userInfo, foundryAPIKey)
-		if importErr != nil {
-			return // Error already handled
-		}
-	case platform.AgentTypeN8N:
-		// TODO: Implement N8N trace import
-		middleware.HandleError(c, errors.NewValidationError("N8N trace import not yet implemented", ""))
+	// Check if importer is registered for this agent type
+	if !h.importService.HasImporter(appConfig.Type) {
+		middleware.HandleError(c, errors.NewValidationError(
+			"unsupported agent type for trace import",
+			string(appConfig.Type),
+		))
 		return
-	default:
-		middleware.HandleError(c, errors.NewValidationError("unsupported agent type for trace import", string(appConfig.Type)))
+	}
+
+	// Build backend-specific configuration based on agent type
+	backendConfig, err := h.buildBackendConfig(c, appConfig, conversation)
+	if err != nil {
+		middleware.HandleError(c, err)
+		return
+	}
+
+	// Create import request
+	req := traceimport.NewImportRequest(
+		tenantID,
+		conversationID,
+		conversation.ApplicationID,
+		userInfo.ID,
+	)
+	req.BackendConfig = backendConfig
+
+	// Import traces using factory pattern - no switch statement needed
+	traceID, err := h.importService.Import(ctx, appConfig.Type, req)
+	if err != nil {
+		middleware.HandleError(c, errors.NewInternalError("failed to import traces", err))
 		return
 	}
 
@@ -758,31 +770,51 @@ func (h *TracesHandler) ImportConversationTrace(c *gin.Context) {
 	})
 }
 
-// importFoundryTraces handles the Foundry-specific trace import.
-// Returns the trace ID on success.
-func (h *TracesHandler) importFoundryTraces(
-	ctx context.Context,
+// buildBackendConfig builds the backend-specific configuration based on agent type.
+// This is the ONLY place where agent-type specific logic exists in the handler.
+func (h *TracesHandler) buildBackendConfig(
 	c *gin.Context,
-	tenantID, conversationID string,
-	conversation *platform.ConversationResponse,
 	appConfig *platform.ApplicationConfigResponse,
-	userInfo *platform.UserInfo,
-	foundryAPIKey string,
-) (string, error) {
-	// Validate required fields
+	conversation *platform.ConversationResponse,
+) (map[string]interface{}, error) {
+	switch appConfig.Type {
+	case platform.AgentTypeFoundry:
+		return h.buildFoundryConfig(c, appConfig, conversation)
+	case platform.AgentTypeN8N:
+		return h.buildN8NConfig(c, appConfig, conversation)
+	default:
+		// Return empty config for unknown types - importer will handle validation
+		return make(map[string]interface{}), nil
+	}
+}
+
+// buildFoundryConfig builds the Foundry-specific backend configuration.
+func (h *TracesHandler) buildFoundryConfig(
+	c *gin.Context,
+	appConfig *platform.ApplicationConfigResponse,
+	conversation *platform.ConversationResponse,
+) (map[string]interface{}, error) {
+	foundryAPIKey := c.GetHeader("X-Microsoft-Foundry-API-Key")
+
 	if foundryAPIKey == "" {
-		middleware.HandleError(c, errors.NewValidationError("X-Microsoft-Foundry-API-Key header is required for Foundry agents", ""))
-		return "", errors.NewValidationError("missing foundry api key", "")
+		return nil, errors.NewValidationError(
+			"X-Microsoft-Foundry-API-Key header is required for Foundry agents",
+			"",
+		)
 	}
 
 	if conversation.ExtConversationID == "" {
-		middleware.HandleError(c, errors.NewValidationError("conversation has no external conversation ID", ""))
-		return "", errors.NewValidationError("missing ext conversation id", "")
+		return nil, errors.NewValidationError(
+			"conversation has no external conversation ID",
+			"",
+		)
 	}
 
 	if appConfig.Settings.ProjectEndpoint == "" {
-		middleware.HandleError(c, errors.NewValidationError("application configuration missing project endpoint", ""))
-		return "", errors.NewValidationError("missing project endpoint", "")
+		return nil, errors.NewValidationError(
+			"application configuration missing project endpoint",
+			"",
+		)
 	}
 
 	apiVersion := appConfig.Settings.APIVersion
@@ -790,26 +822,24 @@ func (h *TracesHandler) importFoundryTraces(
 		apiVersion = "2025-11-15-preview"
 	}
 
-	// Import traces synchronously
-	req := &traceimport.FoundryImportRequest{
-		ImportRequest: traceimport.ImportRequest{
-			TenantID:       tenantID,
-			ConversationID: conversationID,
-			ApplicationID:  conversation.ApplicationID,
-			Logs:           []string{},
-			UserID:         userInfo.ID,
-		},
-		FoundryConversationID: conversation.ExtConversationID,
-		ProjectEndpoint:       appConfig.Settings.ProjectEndpoint,
-		APIVersion:            apiVersion,
-		FoundryAPIToken:       foundryAPIKey,
-	}
+	return map[string]interface{}{
+		"ext_conversation_id": conversation.ExtConversationID,
+		"project_endpoint":    appConfig.Settings.ProjectEndpoint,
+		"api_version":         apiVersion,
+		"api_token":           foundryAPIKey,
+	}, nil
+}
 
-	traceID, err := h.importService.ImportFoundryTraces(ctx, req)
-	if err != nil {
-		middleware.HandleError(c, errors.NewInternalError("failed to import Foundry traces", err))
-		return "", err
-	}
-
-	return traceID, nil
+// buildN8NConfig builds the N8N-specific backend configuration.
+func (h *TracesHandler) buildN8NConfig(
+	c *gin.Context,
+	appConfig *platform.ApplicationConfigResponse,
+	conversation *platform.ConversationResponse,
+) (map[string]interface{}, error) {
+	// TODO: Implement N8N config extraction when N8N importer is added
+	// Expected keys: execution_id, workflow_id, instance_url, api_key
+	return nil, errors.NewValidationError(
+		"N8N trace import not yet implemented",
+		"",
+	)
 }

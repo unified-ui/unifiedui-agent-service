@@ -752,21 +752,20 @@ func (h *MessagesHandler) enqueueFoundryTraceImport(
 	extConversationID string,
 	foundryAPIKey string,
 ) {
-	req := &traceimport.FoundryImportRequest{
-		ImportRequest: traceimport.ImportRequest{
-			TenantID:       tenantCtx.TenantID,
-			ConversationID: userMessage.ConversationID,
-			ApplicationID:  userMessage.ApplicationID,
-			Logs:           []string{},
-			UserID:         tenantCtx.UserID,
-		},
-		FoundryConversationID: extConversationID,
-		ProjectEndpoint:       agentConfig.Settings.ProjectEndpoint,
-		APIVersion:            agentConfig.Settings.APIVersion,
-		FoundryAPIToken:       foundryAPIKey,
-	}
+	req := traceimport.NewImportRequest(
+		tenantCtx.TenantID,
+		userMessage.ConversationID,
+		userMessage.ApplicationID,
+		tenantCtx.UserID,
+	)
 
-	h.importService.EnqueueFoundryImport(req)
+	// Add Foundry-specific configuration
+	req.WithBackendConfig("ext_conversation_id", extConversationID)
+	req.WithBackendConfig("project_endpoint", agentConfig.Settings.ProjectEndpoint)
+	req.WithBackendConfig("api_version", agentConfig.Settings.APIVersion)
+	req.WithBackendConfig("api_token", foundryAPIKey)
+
+	_ = h.importService.EnqueueImport(platform.AgentTypeFoundry, req)
 }
 
 // generateMessageID generates a unique message ID.

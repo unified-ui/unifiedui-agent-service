@@ -50,6 +50,7 @@ import (
 	"github.com/unifiedui/agent-service/internal/services/platform"
 	"github.com/unifiedui/agent-service/internal/services/session"
 	"github.com/unifiedui/agent-service/internal/services/traceimport"
+	"github.com/unifiedui/agent-service/internal/services/traceimport/foundry"
 )
 
 func main() {
@@ -105,6 +106,11 @@ func main() {
 
 	// Create import service with job queue (3 workers by default)
 	importService := traceimport.NewImportService(docDBClient)
+
+	// Register trace importers (breaks import cycle by registering here instead of in factory)
+	importService.RegisterImporter(foundry.NewTraceImporter(docDBClient))
+	// Future: importService.RegisterImporter(n8n.NewTraceImporter(docDBClient))
+
 	importService.Start(3)
 	defer importService.Stop()
 

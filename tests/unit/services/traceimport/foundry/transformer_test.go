@@ -1,5 +1,5 @@
-// Package traceimport contains unit tests for the traceimport service.
-package traceimport
+// Package foundry contains unit tests for the foundry trace import service.
+package foundry
 
 import (
 	"testing"
@@ -8,21 +8,21 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/unifiedui/agent-service/internal/domain/models"
-	"github.com/unifiedui/agent-service/internal/services/traceimport"
+	"github.com/unifiedui/agent-service/internal/services/traceimport/foundry"
 )
 
 func TestFoundryTransformer_Transform_EmptyItems(t *testing.T) {
-	transformer := traceimport.NewFoundryTransformer()
+	transformer := foundry.NewTransformer()
 
-	nodes := transformer.Transform([]traceimport.FoundryConversationItem{}, "test-user")
+	nodes := transformer.Transform([]foundry.ConversationItem{}, "test-user")
 
 	assert.Empty(t, nodes)
 }
 
 func TestFoundryTransformer_Transform_SingleUserMessage(t *testing.T) {
-	transformer := traceimport.NewFoundryTransformer()
+	transformer := foundry.NewTransformer()
 
-	items := []traceimport.FoundryConversationItem{
+	items := []foundry.ConversationItem{
 		{
 			ID:           "msg_001",
 			Type:         "message",
@@ -51,9 +51,9 @@ func TestFoundryTransformer_Transform_SingleUserMessage(t *testing.T) {
 }
 
 func TestFoundryTransformer_Transform_SingleAssistantMessage(t *testing.T) {
-	transformer := traceimport.NewFoundryTransformer()
+	transformer := foundry.NewTransformer()
 
-	items := []traceimport.FoundryConversationItem{
+	items := []foundry.ConversationItem{
 		{
 			ID:           "msg_002",
 			Type:         "message",
@@ -91,9 +91,9 @@ func TestFoundryTransformer_Transform_SingleAssistantMessage(t *testing.T) {
 }
 
 func TestFoundryTransformer_Transform_WorkflowAction(t *testing.T) {
-	transformer := traceimport.NewFoundryTransformer()
+	transformer := foundry.NewTransformer()
 
-	items := []traceimport.FoundryConversationItem{
+	items := []foundry.ConversationItem{
 		{
 			ID:               "wfa_001",
 			Type:             "workflow_action",
@@ -127,10 +127,10 @@ func TestFoundryTransformer_Transform_WorkflowAction(t *testing.T) {
 }
 
 func TestFoundryTransformer_Transform_MCPCallWithApproval(t *testing.T) {
-	transformer := traceimport.NewFoundryTransformer()
+	transformer := foundry.NewTransformer()
 	approved := true
 
-	items := []traceimport.FoundryConversationItem{
+	items := []foundry.ConversationItem{
 		{
 			ID:           "mcpr_001",
 			Type:         "mcp_approval_request",
@@ -181,10 +181,10 @@ func TestFoundryTransformer_Transform_MCPCallWithApproval(t *testing.T) {
 }
 
 func TestFoundryTransformer_Transform_MCPCallDenied(t *testing.T) {
-	transformer := traceimport.NewFoundryTransformer()
+	transformer := foundry.NewTransformer()
 	denied := false
 
-	items := []traceimport.FoundryConversationItem{
+	items := []foundry.ConversationItem{
 		{
 			ID:           "mcpr_001",
 			Type:         "mcp_approval_request",
@@ -209,9 +209,9 @@ func TestFoundryTransformer_Transform_MCPCallDenied(t *testing.T) {
 }
 
 func TestFoundryTransformer_Transform_MCPListTools(t *testing.T) {
-	transformer := traceimport.NewFoundryTransformer()
+	transformer := foundry.NewTransformer()
 
-	items := []traceimport.FoundryConversationItem{
+	items := []foundry.ConversationItem{
 		{
 			ID:           "mcpl_001",
 			Type:         "mcp_list_tools",
@@ -241,10 +241,10 @@ func TestFoundryTransformer_Transform_MCPListTools(t *testing.T) {
 }
 
 func TestFoundryTransformer_Transform_MixedConversation(t *testing.T) {
-	transformer := traceimport.NewFoundryTransformer()
+	transformer := foundry.NewTransformer()
 
 	// Simulate a conversation with messages and workflow actions (API returns newest first)
-	items := []traceimport.FoundryConversationItem{
+	items := []foundry.ConversationItem{
 		{
 			ID:     "msg_003",
 			Type:   "message",
@@ -300,9 +300,9 @@ func TestFoundryTransformer_Transform_MixedConversation(t *testing.T) {
 }
 
 func TestFoundryTransformer_Transform_UnknownType(t *testing.T) {
-	transformer := traceimport.NewFoundryTransformer()
+	transformer := foundry.NewTransformer()
 
-	items := []traceimport.FoundryConversationItem{
+	items := []foundry.ConversationItem{
 		{
 			ID:     "unknown_001",
 			Type:   "new_unknown_type",
@@ -319,7 +319,7 @@ func TestFoundryTransformer_Transform_UnknownType(t *testing.T) {
 }
 
 func TestFoundryTransformer_Transform_StatusMapping(t *testing.T) {
-	transformer := traceimport.NewFoundryTransformer()
+	transformer := foundry.NewTransformer()
 
 	testCases := []struct {
 		inputStatus    string
@@ -337,7 +337,7 @@ func TestFoundryTransformer_Transform_StatusMapping(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.inputStatus, func(t *testing.T) {
-			items := []traceimport.FoundryConversationItem{
+			items := []foundry.ConversationItem{
 				{
 					ID:     "msg_test",
 					Type:   "message",
@@ -355,9 +355,9 @@ func TestFoundryTransformer_Transform_StatusMapping(t *testing.T) {
 }
 
 func TestFoundryTransformer_Transform_MessageWithMultipleContentBlocks(t *testing.T) {
-	transformer := traceimport.NewFoundryTransformer()
+	transformer := foundry.NewTransformer()
 
-	items := []traceimport.FoundryConversationItem{
+	items := []foundry.ConversationItem{
 		{
 			ID:     "msg_001",
 			Type:   "message",
@@ -386,7 +386,7 @@ func TestFoundryTransformer_Transform_MessageWithMultipleContentBlocks(t *testin
 }
 
 func TestFoundryTransformer_Transform_WorkflowKindFormatting(t *testing.T) {
-	transformer := traceimport.NewFoundryTransformer()
+	transformer := foundry.NewTransformer()
 
 	testCases := []struct {
 		kind         string
@@ -400,7 +400,7 @@ func TestFoundryTransformer_Transform_WorkflowKindFormatting(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.kind, func(t *testing.T) {
-			items := []traceimport.FoundryConversationItem{
+			items := []foundry.ConversationItem{
 				{
 					ID:     "wfa_test",
 					Type:   "workflow_action",
@@ -418,10 +418,10 @@ func TestFoundryTransformer_Transform_WorkflowKindFormatting(t *testing.T) {
 }
 
 func TestFoundryTransformer_Transform_PreservesChronologicalOrder(t *testing.T) {
-	transformer := traceimport.NewFoundryTransformer()
+	transformer := foundry.NewTransformer()
 
 	// API returns newest first, transformer should reverse to chronological
-	items := []traceimport.FoundryConversationItem{
+	items := []foundry.ConversationItem{
 		{ID: "msg_005", Type: "message", Role: "assistant"},
 		{ID: "msg_004", Type: "message", Role: "user"},
 		{ID: "msg_003", Type: "message", Role: "assistant"},
@@ -439,9 +439,9 @@ func TestFoundryTransformer_Transform_PreservesChronologicalOrder(t *testing.T) 
 }
 
 func TestFoundryTransformer_Transform_ExtractsAgentMetadata(t *testing.T) {
-	transformer := traceimport.NewFoundryTransformer()
+	transformer := foundry.NewTransformer()
 
-	items := []traceimport.FoundryConversationItem{
+	items := []foundry.ConversationItem{
 		{
 			ID:     "msg_001",
 			Type:   "message",
@@ -471,10 +471,10 @@ func TestFoundryTransformer_Transform_ExtractsAgentMetadata(t *testing.T) {
 // TestFoundryTransformer_Transform_SendActivityHierarchy tests that items with the same
 // response_id are grouped under the SendActivity workflow_action as child nodes.
 func TestFoundryTransformer_Transform_SendActivityHierarchy(t *testing.T) {
-	transformer := traceimport.NewFoundryTransformer()
+	transformer := foundry.NewTransformer()
 
 	// Simulate API response (newest first) with items sharing the same response_id
-	items := []traceimport.FoundryConversationItem{
+	items := []foundry.ConversationItem{
 		// Newer items first (as returned by API)
 		{
 			ID:     "msg_002",
@@ -555,9 +555,9 @@ func TestFoundryTransformer_Transform_SendActivityHierarchy(t *testing.T) {
 
 // TestFoundryTransformer_Transform_MultipleResponseGroups tests multiple SendActivity groups.
 func TestFoundryTransformer_Transform_MultipleResponseGroups(t *testing.T) {
-	transformer := traceimport.NewFoundryTransformer()
+	transformer := foundry.NewTransformer()
 
-	items := []traceimport.FoundryConversationItem{
+	items := []foundry.ConversationItem{
 		// Second group (newer)
 		{
 			ID:               "wfa_end",
