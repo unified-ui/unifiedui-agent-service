@@ -357,9 +357,49 @@ The trace import system (`internal/services/traceimport/`) enables importing and
 #### Transformation Algorithm
 
 1. **Reverse Order**: API returns newest-first; transformer reverses for chronological order
-2. **Group by response_id**: Items in same response are related
-3. **Group MCP by approval_request_id**: Links approval_request → approval_response → mcp_call
-4. **Build Hierarchy**: MCP groups create parent nodes with sub-nodes
+2. **Group by response_id**: Items with same `response_id` belong to the same "turn"
+3. **Find SendActivity Containers**: `SendActivity` workflow_actions become container nodes for their `response_id` group
+4. **Build Hierarchy**:
+   - `SendActivity` items become root nodes with children
+   - All items with the same `response_id` as a `SendActivity` become its sub-nodes (`Nodes` field)
+   - Items without `response_id` (e.g., user messages) remain standalone root nodes
+5. **Group MCP by approval_request_id**: Links approval_request → approval_response → mcp_call as nested nodes
+
+#### Hierarchy Example
+
+Given these Foundry items (with same `response_id: wfresp_group1`):
+- `SendActivity` (workflow_action, action-123)
+- `Message` "Hello!" (assistant)
+- `Message` "How can I help?" (assistant)
+
+The transformer produces:
+```
+SendActivity (root node)
+├── Message "Hello!" (sub-node)
+└── Message "How can I help?" (sub-node)
+```
+
+#### Complete Hierarchy Example
+
+```
+User Message "hi"                     ← standalone (no response_id)
+SendActivity (response_id: group1)    ← container
+├── Assistant Message "Hey!"
+└── Assistant Message "What's your name?"
+User Message "I'm Teddy"              ← standalone (no response_id)
+SendActivity (response_id: group2)    ← container
+├── InvokeAzureAgent
+├── Assistant Message "Goodbye!"
+└── EndConversation
+```
+
+#### Key Functions
+
+| Function | Purpose |
+|----------|---------|
+| `findSendActivityContainers()` | Maps `response_id` → `SendActivity` item |
+| `buildTraceNodesWithHierarchy()` | Main loop, skips items that belong to a container |
+| `transformSendActivityWithChildren()` | Builds container node with all grouped items as children |
 
 #### Usage Examples
 
