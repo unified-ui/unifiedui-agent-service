@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/unifiedui/agent-service/internal/domain/models"
 	"github.com/unifiedui/agent-service/internal/services/traceimport"
@@ -115,7 +116,7 @@ func TestFoundryTransformer_Transform_WorkflowAction(t *testing.T) {
 	nodes := transformer.Transform(items, "test-user")
 
 	assert.Len(t, nodes, 1)
-	assert.Equal(t, "Send Activity", nodes[0].Name)
+	assert.Equal(t, "SendActivity", nodes[0].Name) // SendActivity containers use literal name
 	assert.Equal(t, models.NodeTypeWorkflow, nodes[0].Type)
 	assert.Equal(t, models.NodeStatusCompleted, nodes[0].Status)
 	assert.Equal(t, "wfa_001", nodes[0].ReferenceID)
@@ -465,4 +466,198 @@ func TestFoundryTransformer_Transform_ExtractsAgentMetadata(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, "MyCustomAgent", agent["name"])
 	assert.Equal(t, "3", agent["version"])
+}
+
+// TestFoundryTransformer_Transform_SendActivityHierarchy tests that items with the same
+// response_id are grouped under the SendActivity workflow_action as child nodes.
+func TestFoundryTransformer_Transform_SendActivityHierarchy(t *testing.T) {
+	transformer := traceimport.NewFoundryTransformer()
+
+	// Simulate API response (newest first) with items sharing the same response_id
+	items := []traceimport.FoundryConversationItem{
+		// Newer items first (as returned by API)
+		{
+			ID:     "msg_002",
+			Type:   "message",
+			Status: "completed",
+			Role:   "assistant",
+			CreatedBy: map[string]interface{}{
+				"response_id": "wfresp_group1",
+			},
+			Content: []interface{}{
+				map[string]interface{}{
+					"type": "text",
+					"text": "Second response",
+				},
+			},
+		},
+		{
+			ID:               "wfa_sendactivity",
+			Type:             "workflow_action",
+			Status:           "completed",
+			Kind:             "SendActivity",
+			ActionID:         "action-123",
+			PreviousActionID: "action-100",
+			CreatedBy: map[string]interface{}{
+				"response_id": "wfresp_group1",
+			},
+		},
+		{
+			ID:     "msg_001",
+			Type:   "message",
+			Status: "completed",
+			Role:   "assistant",
+			CreatedBy: map[string]interface{}{
+				"response_id": "wfresp_group1",
+			},
+			Content: []interface{}{
+				map[string]interface{}{
+					"type": "text",
+					"text": "First response",
+				},
+			},
+		},
+		{
+			ID:     "msg_user",
+			Type:   "message",
+			Status: "completed",
+			Role:   "user",
+			// User message has no response_id - should be standalone
+			Content: []interface{}{
+				map[string]interface{}{
+					"type": "text",
+					"text": "Hello",
+				},
+			},
+		},
+	}
+
+	nodes := transformer.Transform(items, "test-user")
+
+	// Should have 2 root nodes: User message and SendActivity
+	assert.Len(t, nodes, 2)
+
+	// First root node should be user message (chronological order)
+	assert.Equal(t, "User Message", nodes[0].Name)
+	assert.Equal(t, "msg_user", nodes[0].ReferenceID)
+
+	// Second root node should be SendActivity container
+	assert.Equal(t, "SendActivity", nodes[1].Name)
+	assert.Equal(t, "wfa_sendactivity", nodes[1].ReferenceID)
+
+	// SendActivity should have 2 child nodes (the two assistant messages)
+	require.Len(t, nodes[1].Nodes, 2)
+	assert.Equal(t, "Assistant Response", nodes[1].Nodes[0].Name)
+	assert.Equal(t, "msg_001", nodes[1].Nodes[0].ReferenceID)
+	assert.Equal(t, "Assistant Response", nodes[1].Nodes[1].Name)
+	assert.Equal(t, "msg_002", nodes[1].Nodes[1].ReferenceID)
+}
+
+// TestFoundryTransformer_Transform_MultipleResponseGroups tests multiple SendActivity groups.
+func TestFoundryTransformer_Transform_MultipleResponseGroups(t *testing.T) {
+	transformer := traceimport.NewFoundryTransformer()
+
+	items := []traceimport.FoundryConversationItem{
+		// Second group (newer)
+		{
+			ID:               "wfa_end",
+			Type:             "workflow_action",
+			Status:           "completed",
+			Kind:             "EndConversation",
+			ActionID:         "action-300",
+			PreviousActionID: "action-200",
+			CreatedBy: map[string]interface{}{
+				"response_id": "wfresp_group2",
+			},
+		},
+		{
+			ID:               "wfa_sendactivity2",
+			Type:             "workflow_action",
+			Status:           "completed",
+			Kind:             "SendActivity",
+			ActionID:         "action-200",
+			PreviousActionID: "action-150",
+			CreatedBy: map[string]interface{}{
+				"response_id": "wfresp_group2",
+			},
+		},
+		{
+			ID:     "msg_group2",
+			Type:   "message",
+			Status: "completed",
+			Role:   "assistant",
+			CreatedBy: map[string]interface{}{
+				"response_id": "wfresp_group2",
+			},
+			Content: []interface{}{
+				map[string]interface{}{
+					"type": "text",
+					"text": "Goodbye!",
+				},
+			},
+		},
+		{
+			ID:               "wfa_invoke",
+			Type:             "workflow_action",
+			Status:           "completed",
+			Kind:             "InvokeAzureAgent",
+			ActionID:         "action-150",
+			PreviousActionID: "action-100",
+			CreatedBy: map[string]interface{}{
+				"response_id": "wfresp_group2",
+			},
+		},
+		// First group (older)
+		{
+			ID:               "wfa_sendactivity1",
+			Type:             "workflow_action",
+			Status:           "completed",
+			Kind:             "SendActivity",
+			ActionID:         "action-100",
+			PreviousActionID: "",
+			CreatedBy: map[string]interface{}{
+				"response_id": "wfresp_group1",
+			},
+		},
+		{
+			ID:     "msg_group1",
+			Type:   "message",
+			Status: "completed",
+			Role:   "assistant",
+			CreatedBy: map[string]interface{}{
+				"response_id": "wfresp_group1",
+			},
+			Content: []interface{}{
+				map[string]interface{}{
+					"type": "text",
+					"text": "Hello!",
+				},
+			},
+		},
+	}
+
+	nodes := transformer.Transform(items, "test-user")
+
+	// Should have 2 root nodes (2 SendActivity containers)
+	assert.Len(t, nodes, 2)
+
+	// First: SendActivity1 with 1 child (msg_group1)
+	assert.Equal(t, "SendActivity", nodes[0].Name)
+	assert.Equal(t, "wfa_sendactivity1", nodes[0].ReferenceID)
+	require.Len(t, nodes[0].Nodes, 1)
+	assert.Equal(t, "msg_group1", nodes[0].Nodes[0].ReferenceID)
+
+	// Second: SendActivity2 with 3 children (InvokeAzureAgent, msg_group2, EndConversation)
+	assert.Equal(t, "SendActivity", nodes[1].Name)
+	assert.Equal(t, "wfa_sendactivity2", nodes[1].ReferenceID)
+	require.Len(t, nodes[1].Nodes, 3)
+
+	// Children should include the other workflow actions and the message
+	childRefIDs := []string{}
+	for _, child := range nodes[1].Nodes {
+		childRefIDs = append(childRefIDs, child.ReferenceID)
+	}
+	assert.Contains(t, childRefIDs, "wfa_invoke")
+	assert.Contains(t, childRefIDs, "msg_group2")
+	assert.Contains(t, childRefIDs, "wfa_end")
 }

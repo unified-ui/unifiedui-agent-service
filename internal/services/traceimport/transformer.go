@@ -23,8 +23,9 @@ func NewFoundryTransformer() *FoundryTransformer {
 // Transform converts Foundry conversation items into a hierarchical TraceNode structure.
 // The transformation follows these rules:
 //   - Items are grouped by response_id to form "turns"
-//   - workflow_action items become root nodes with associated messages as children
-//   - message items without workflow context are standalone nodes
+//   - SendActivity workflow_action items become container nodes for their response_id group
+//   - Items with same response_id become children of the SendActivity
+//   - Items without response_id (user messages, standalone items) are root nodes
 //   - mcp_call, mcp_approval_request, mcp_approval_response are grouped by approval_request_id
 //   - The chronological order is preserved (oldest to newest)
 func (t *FoundryTransformer) Transform(items []FoundryConversationItem, createdBy string) []models.TraceNode {
@@ -44,8 +45,11 @@ func (t *FoundryTransformer) Transform(items []FoundryConversationItem, createdB
 	// Build index maps for relationship resolution
 	mcpApprovalGroups := t.groupByApprovalRequestID(reversedItems)
 
-	// Transform into trace nodes
-	nodes := t.buildTraceNodes(reversedItems, responseGroups, mcpApprovalGroups, createdBy)
+	// Find SendActivity containers for each response_id
+	sendActivityContainers := t.findSendActivityContainers(reversedItems)
+
+	// Transform into trace nodes with hierarchy
+	nodes := t.buildTraceNodesWithHierarchy(reversedItems, responseGroups, mcpApprovalGroups, sendActivityContainers, createdBy)
 
 	return nodes
 }
@@ -91,11 +95,29 @@ func (t *FoundryTransformer) extractResponseID(item FoundryConversationItem) str
 	return ""
 }
 
-// buildTraceNodes builds the hierarchical trace node structure.
-func (t *FoundryTransformer) buildTraceNodes(
+// findSendActivityContainers finds all SendActivity workflow_actions and maps their response_id to the item.
+func (t *FoundryTransformer) findSendActivityContainers(items []FoundryConversationItem) map[string]FoundryConversationItem {
+	containers := make(map[string]FoundryConversationItem)
+
+	for _, item := range items {
+		if item.Type == "workflow_action" && item.Kind == "SendActivity" {
+			responseID := t.extractResponseID(item)
+			if responseID != "" {
+				containers[responseID] = item
+			}
+		}
+	}
+
+	return containers
+}
+
+// buildTraceNodesWithHierarchy builds the hierarchical trace node structure.
+// SendActivity workflow_actions become containers for all items with the same response_id.
+func (t *FoundryTransformer) buildTraceNodesWithHierarchy(
 	items []FoundryConversationItem,
 	responseGroups map[string][]FoundryConversationItem,
 	mcpApprovalGroups map[string][]FoundryConversationItem,
+	sendActivityContainers map[string]FoundryConversationItem,
 	createdBy string,
 ) []models.TraceNode {
 	var nodes []models.TraceNode
@@ -107,6 +129,18 @@ func (t *FoundryTransformer) buildTraceNodes(
 			continue
 		}
 
+		responseID := t.extractResponseID(item)
+
+		// Check if this item belongs to a SendActivity container (but is not the container itself)
+		if responseID != "" {
+			if containerItem, hasContainer := sendActivityContainers[responseID]; hasContainer {
+				// If this is NOT the container, skip - it will be processed as a child
+				if item.ID != containerItem.ID {
+					continue
+				}
+			}
+		}
+
 		// Handle based on item type
 		switch item.Type {
 		case "message":
@@ -115,9 +149,16 @@ func (t *FoundryTransformer) buildTraceNodes(
 			processedIDs[item.ID] = true
 
 		case "workflow_action":
-			node := t.transformWorkflowAction(item, responseGroups, createdBy)
-			nodes = append(nodes, node)
-			processedIDs[item.ID] = true
+			if item.Kind == "SendActivity" && responseID != "" {
+				// This is a SendActivity container - build with children
+				node := t.transformSendActivityWithChildren(item, responseGroups, mcpApprovalGroups, processedIDs, createdBy)
+				nodes = append(nodes, node)
+			} else {
+				// Regular workflow_action without grouping
+				node := t.transformWorkflowAction(item, responseGroups, createdBy)
+				nodes = append(nodes, node)
+				processedIDs[item.ID] = true
+			}
 
 		case "mcp_approval_request":
 			// MCP approval request is the parent, gather related items
@@ -157,6 +198,111 @@ func (t *FoundryTransformer) buildTraceNodes(
 	}
 
 	return nodes
+}
+
+// transformSendActivityWithChildren transforms a SendActivity workflow_action into a container node
+// with all items from the same response_id as children.
+func (t *FoundryTransformer) transformSendActivityWithChildren(
+	sendActivity FoundryConversationItem,
+	responseGroups map[string][]FoundryConversationItem,
+	mcpApprovalGroups map[string][]FoundryConversationItem,
+	processedIDs map[string]bool,
+	createdBy string,
+) models.TraceNode {
+	now := time.Now().UTC()
+	responseID := t.extractResponseID(sendActivity)
+
+	// Mark SendActivity as processed
+	processedIDs[sendActivity.ID] = true
+
+	// Build child nodes from items with same response_id
+	var childNodes []models.TraceNode
+	if groupItems, ok := responseGroups[responseID]; ok {
+		for _, groupItem := range groupItems {
+			// Skip the SendActivity itself
+			if groupItem.ID == sendActivity.ID {
+				continue
+			}
+
+			// Skip already processed items
+			if processedIDs[groupItem.ID] {
+				continue
+			}
+
+			var childNode models.TraceNode
+			switch groupItem.Type {
+			case "message":
+				childNode = t.transformMessage(groupItem, createdBy)
+			case "workflow_action":
+				childNode = t.transformWorkflowAction(groupItem, responseGroups, createdBy)
+			case "mcp_approval_request":
+				childNode = t.transformMCPGroup(groupItem, mcpApprovalGroups, createdBy)
+				// Mark related MCP items as processed
+				if relatedItems, ok := mcpApprovalGroups[groupItem.ID]; ok {
+					for _, related := range relatedItems {
+						processedIDs[related.ID] = true
+					}
+				}
+			case "mcp_call":
+				childNode = t.transformMCPCall(groupItem, createdBy)
+			case "mcp_list_tools":
+				childNode = t.transformMCPListTools(groupItem, createdBy)
+			default:
+				childNode = t.transformUnknown(groupItem, createdBy)
+			}
+
+			childNodes = append(childNodes, childNode)
+			processedIDs[groupItem.ID] = true
+		}
+	}
+
+	// Build metadata
+	metadata := map[string]interface{}{
+		"kind": sendActivity.Kind,
+	}
+	if sendActivity.ActionID != "" {
+		metadata["action_id"] = sendActivity.ActionID
+	}
+	if sendActivity.PreviousActionID != "" {
+		metadata["previous_action_id"] = sendActivity.PreviousActionID
+	}
+	if sendActivity.CreatedBy != nil {
+		metadata["created_by"] = sendActivity.CreatedBy
+	}
+
+	// Create the SendActivity container node
+	node := models.TraceNode{
+		ID:          "node_" + uuid.New().String(),
+		Name:        "SendActivity",
+		Type:        models.NodeTypeWorkflow,
+		ReferenceID: sendActivity.ID,
+		Status:      t.mapStatus(sendActivity.Status),
+		Data: &models.NodeData{
+			Output: &models.NodeDataIO{
+				Metadata: metadata,
+			},
+		},
+		Metadata:  t.buildWorkflowMetadata(sendActivity),
+		Nodes:     childNodes,
+		Logs:      []string{},
+		CreatedAt: now,
+		UpdatedAt: now,
+		CreatedBy: createdBy,
+		UpdatedBy: createdBy,
+	}
+
+	return node
+}
+
+// buildTraceNodes builds the hierarchical trace node structure (legacy - now uses buildTraceNodesWithHierarchy).
+func (t *FoundryTransformer) buildTraceNodes(
+	items []FoundryConversationItem,
+	responseGroups map[string][]FoundryConversationItem,
+	mcpApprovalGroups map[string][]FoundryConversationItem,
+	createdBy string,
+) []models.TraceNode {
+	sendActivityContainers := t.findSendActivityContainers(items)
+	return t.buildTraceNodesWithHierarchy(items, responseGroups, mcpApprovalGroups, sendActivityContainers, createdBy)
 }
 
 // hasApprovalRequest checks if there's an approval request item with the given ID.
