@@ -311,6 +311,5 @@ func ConvertNodesToModel(nodes []TraceNodeRequest, createdBy string) []models.Tr
 
 // ImportTraceResponse represents the response for importing traces.
 type ImportTraceResponse struct {
-	Message string `json:"message"`
-	TraceID string `json:"traceId,omitempty"`
+	ID string `json:"id"`
 }

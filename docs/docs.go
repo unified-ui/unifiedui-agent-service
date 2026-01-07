@@ -1113,10 +1113,7 @@ const docTemplate = `{
         "dto.ImportTraceResponse": {
             "type": "object",
             "properties": {
-                "message": {
-                    "type": "string"
-                },
-                "traceId": {
+                "id": {
                     "type": "string"
                 }
             }

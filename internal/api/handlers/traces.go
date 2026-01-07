@@ -735,9 +735,13 @@ func (h *TracesHandler) ImportConversationTrace(c *gin.Context) {
 	}
 
 	// Handle based on agent type
+	var traceID string
+	var importErr error
+
 	switch appConfig.Type {
 	case platform.AgentTypeFoundry:
-		if err := h.importFoundryTraces(ctx, c, tenantID, conversationID, conversation, appConfig, userInfo, foundryAPIKey); err != nil {
+		traceID, importErr = h.importFoundryTraces(ctx, c, tenantID, conversationID, conversation, appConfig, userInfo, foundryAPIKey)
+		if importErr != nil {
 			return // Error already handled
 		}
 	case platform.AgentTypeN8N:
@@ -750,11 +754,12 @@ func (h *TracesHandler) ImportConversationTrace(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, dto.ImportTraceResponse{
-		Message: "Traces imported successfully",
+		ID: traceID,
 	})
 }
 
 // importFoundryTraces handles the Foundry-specific trace import.
+// Returns the trace ID on success.
 func (h *TracesHandler) importFoundryTraces(
 	ctx context.Context,
 	c *gin.Context,
@@ -763,21 +768,21 @@ func (h *TracesHandler) importFoundryTraces(
 	appConfig *platform.ApplicationConfigResponse,
 	userInfo *platform.UserInfo,
 	foundryAPIKey string,
-) error {
+) (string, error) {
 	// Validate required fields
 	if foundryAPIKey == "" {
 		middleware.HandleError(c, errors.NewValidationError("X-Microsoft-Foundry-API-Key header is required for Foundry agents", ""))
-		return errors.NewValidationError("missing foundry api key", "")
+		return "", errors.NewValidationError("missing foundry api key", "")
 	}
 
 	if conversation.ExtConversationID == "" {
 		middleware.HandleError(c, errors.NewValidationError("conversation has no external conversation ID", ""))
-		return errors.NewValidationError("missing ext conversation id", "")
+		return "", errors.NewValidationError("missing ext conversation id", "")
 	}
 
 	if appConfig.Settings.ProjectEndpoint == "" {
 		middleware.HandleError(c, errors.NewValidationError("application configuration missing project endpoint", ""))
-		return errors.NewValidationError("missing project endpoint", "")
+		return "", errors.NewValidationError("missing project endpoint", "")
 	}
 
 	apiVersion := appConfig.Settings.APIVersion
@@ -800,10 +805,11 @@ func (h *TracesHandler) importFoundryTraces(
 		FoundryAPIToken:       foundryAPIKey,
 	}
 
-	if err := h.importService.ImportFoundryTraces(ctx, req); err != nil {
+	traceID, err := h.importService.ImportFoundryTraces(ctx, req)
+	if err != nil {
 		middleware.HandleError(c, errors.NewInternalError("failed to import Foundry traces", err))
-		return err
+		return "", err
 	}
 
-	return nil
+	return traceID, nil
 }

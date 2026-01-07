@@ -38,17 +38,18 @@ func NewFoundryTraceImporter(docDB docdb.Client) *FoundryTraceImporter {
 }
 
 // Import imports traces from Microsoft Foundry.
-func (f *FoundryTraceImporter) Import(ctx context.Context, req *FoundryImportRequest) error {
+// Returns the trace ID on success.
+func (f *FoundryTraceImporter) Import(ctx context.Context, req *FoundryImportRequest) (string, error) {
 	// Fetch conversation items from Foundry
 	items, err := f.fetchConversationItems(ctx, req)
 	if err != nil {
-		return fmt.Errorf("failed to fetch conversation items: %w", err)
+		return "", fmt.Errorf("failed to fetch conversation items: %w", err)
 	}
 
 	// Check if trace already exists for this conversation
 	existingTrace, err := f.docDB.Traces().GetByConversation(ctx, req.TenantID, req.ConversationID)
 	if err != nil {
-		return fmt.Errorf("failed to check existing trace: %w", err)
+		return "", fmt.Errorf("failed to check existing trace: %w", err)
 	}
 
 	now := time.Now().UTC()
@@ -70,39 +71,41 @@ func (f *FoundryTraceImporter) Import(ctx context.Context, req *FoundryImportReq
 		existingTrace.UpdatedBy = req.UserID
 
 		if err := f.docDB.Traces().Update(ctx, existingTrace); err != nil {
-			return fmt.Errorf("failed to update trace: %w", err)
+			return "", fmt.Errorf("failed to update trace: %w", err)
 		}
-	} else {
-		// Create new trace
-		trace := &models.Trace{
-			ID:             "trace_" + uuid.New().String(),
-			TenantID:       req.TenantID,
-			ApplicationID:  req.ApplicationID,
-			ConversationID: req.ConversationID,
-			ContextType:    models.TraceContextConversation,
-			ReferenceID:    req.FoundryConversationID,
-			ReferenceName:  "Microsoft Foundry Conversation",
-			ReferenceMetadata: map[string]interface{}{
-				"foundry_conversation_id": req.FoundryConversationID,
-				"project_endpoint":        req.ProjectEndpoint,
-				"api_version":             req.APIVersion,
-				"items":                   items,
-				"imported_at":             now.Format(time.RFC3339),
-			},
-			Logs:      req.Logs,
-			Nodes:     []models.TraceNode{}, // Empty nodes for now
-			CreatedAt: now,
-			UpdatedAt: now,
-			CreatedBy: req.UserID,
-			UpdatedBy: req.UserID,
-		}
-
-		if err := f.docDB.Traces().Create(ctx, trace); err != nil {
-			return fmt.Errorf("failed to create trace: %w", err)
-		}
+		return existingTrace.ID, nil
 	}
 
-	return nil
+	// Create new trace
+	traceID := "trace_" + uuid.New().String()
+	trace := &models.Trace{
+		ID:             traceID,
+		TenantID:       req.TenantID,
+		ApplicationID:  req.ApplicationID,
+		ConversationID: req.ConversationID,
+		ContextType:    models.TraceContextConversation,
+		ReferenceID:    req.FoundryConversationID,
+		ReferenceName:  "Microsoft Foundry Conversation",
+		ReferenceMetadata: map[string]interface{}{
+			"foundry_conversation_id": req.FoundryConversationID,
+			"project_endpoint":        req.ProjectEndpoint,
+			"api_version":             req.APIVersion,
+			"items":                   items,
+			"imported_at":             now.Format(time.RFC3339),
+		},
+		Logs:      req.Logs,
+		Nodes:     []models.TraceNode{}, // Empty nodes for now
+		CreatedAt: now,
+		UpdatedAt: now,
+		CreatedBy: req.UserID,
+		UpdatedBy: req.UserID,
+	}
+
+	if err := f.docDB.Traces().Create(ctx, trace); err != nil {
+		return "", fmt.Errorf("failed to create trace: %w", err)
+	}
+
+	return traceID, nil
 }
 
 // fetchConversationItems fetches conversation items from Microsoft Foundry.
@@ -215,7 +218,8 @@ func (s *ImportService) EnqueueFoundryImport(req *FoundryImportRequest) {
 
 // ImportFoundryTraces imports traces from Foundry synchronously.
 // Use this for the PUT /traces/import/refresh endpoint.
-func (s *ImportService) ImportFoundryTraces(ctx context.Context, req *FoundryImportRequest) error {
+// Returns the trace ID on success.
+func (s *ImportService) ImportFoundryTraces(ctx context.Context, req *FoundryImportRequest) (string, error) {
 	return s.foundryImporter.Import(ctx, req)
 }
 
@@ -252,7 +256,8 @@ func (s *ImportService) processFoundryJob(ctx context.Context, job *ImportJob) e
 		FoundryAPIToken:       job.Config.FoundryConfig.FoundryAPIToken,
 	}
 
-	return s.foundryImporter.Import(ctx, req)
+	_, err := s.foundryImporter.Import(ctx, req)
+	return err
 }
 
 // GetFoundryImporter returns the Foundry importer for direct use.

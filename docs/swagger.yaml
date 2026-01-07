@@ -65,9 +65,7 @@ definitions:
     type: object
   dto.ImportTraceResponse:
     properties:
-      message:
-        type: string
-      traceId:
+      id:
         type: string
     type: object
   dto.ListTracesResponse:
