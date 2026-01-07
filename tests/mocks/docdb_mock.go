@@ -224,6 +224,24 @@ func (m *MockTracesCollection) GetByAutonomousAgent(ctx context.Context, tenantI
 	return args.Get(0).(*models.Trace), args.Error(1)
 }
 
+// ListByConversation lists traces by conversation ID.
+func (m *MockTracesCollection) ListByConversation(ctx context.Context, tenantID, conversationID string) ([]*models.Trace, error) {
+	args := m.Called(ctx, tenantID, conversationID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*models.Trace), args.Error(1)
+}
+
+// ListByAutonomousAgent lists traces by autonomous agent ID.
+func (m *MockTracesCollection) ListByAutonomousAgent(ctx context.Context, tenantID, autonomousAgentID string) ([]*models.Trace, error) {
+	args := m.Called(ctx, tenantID, autonomousAgentID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*models.Trace), args.Error(1)
+}
+
 // List lists traces.
 func (m *MockTracesCollection) List(ctx context.Context, opts *docdb.ListTracesOptions) ([]*models.Trace, error) {
 	args := m.Called(ctx, opts)

@@ -59,8 +59,8 @@ func Setup(r *gin.Engine, cfg *Config) {
 			// --- Conversation Traces Routes ---
 			conversations := tenants.Group("/conversations/:conversationId")
 			{
-				// Get trace for conversation
-				conversations.GET("/traces", cfg.TracesHandler.GetConversationTrace)
+				// Get traces for conversation
+				conversations.GET("/traces", cfg.TracesHandler.GetConversationTraces)
 				// Refresh (replace) trace for conversation
 				conversations.PUT("/traces", cfg.TracesHandler.RefreshConversationTrace)
 			}
@@ -72,8 +72,8 @@ func Setup(r *gin.Engine, cfg *Config) {
 			// Specific autonomous agent routes
 			agents := tenants.Group("/autonomous-agents/:agentId")
 			{
-				// Get trace for agent
-				agents.GET("/traces", cfg.TracesHandler.GetAutonomousAgentTrace)
+				// Get traces for agent
+				agents.GET("/traces", cfg.TracesHandler.GetAutonomousAgentTraces)
 				// Refresh (replace) trace for agent
 				agents.PUT("/traces", cfg.TracesHandler.RefreshAutonomousAgentTrace)
 			}

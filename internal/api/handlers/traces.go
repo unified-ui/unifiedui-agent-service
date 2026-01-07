@@ -272,36 +272,33 @@ func (h *TracesHandler) AddLogs(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
-// GetConversationTrace handles GET /tenants/{tenantId}/conversations/{conversationId}/traces
-// @Summary Get trace for a conversation
-// @Description Retrieves the trace for a specific conversation
+// GetConversationTraces handles GET /tenants/{tenantId}/conversations/{conversationId}/traces
+// @Summary List traces for a conversation
+// @Description Retrieves all traces for a specific conversation
 // @Tags Traces
 // @Accept json
 // @Produce json
 // @Param tenantId path string true "Tenant ID"
 // @Param conversationId path string true "Conversation ID"
-// @Success 200 {object} dto.TraceResponse
+// @Success 200 {object} dto.ListTracesResponse
 // @Failure 401 {object} dto.ErrorResponse "Unauthorized"
-// @Failure 404 {object} dto.ErrorResponse "Trace not found"
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Security BearerAuth
 // @Router /api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/traces [get]
-func (h *TracesHandler) GetConversationTrace(c *gin.Context) {
+func (h *TracesHandler) GetConversationTraces(c *gin.Context) {
 	ctx := c.Request.Context()
 	tenantID := c.Param("tenantId")
 	conversationID := c.Param("conversationId")
 
-	trace, err := h.docDBClient.Traces().GetByConversation(ctx, tenantID, conversationID)
+	traces, err := h.docDBClient.Traces().ListByConversation(ctx, tenantID, conversationID)
 	if err != nil {
-		middleware.HandleError(c, errors.NewInternalError("failed to get trace", err))
-		return
-	}
-	if trace == nil {
-		middleware.HandleError(c, errors.NewNotFoundError("trace", conversationID))
+		middleware.HandleError(c, errors.NewInternalError("failed to list traces", err))
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.TraceToResponse(trace))
+	c.JSON(http.StatusOK, dto.ListTracesResponse{
+		Traces: dto.TracesToResponse(traces),
+	})
 }
 
 // RefreshConversationTrace handles PUT /tenants/{tenantId}/conversations/{conversationId}/traces
@@ -373,36 +370,33 @@ func (h *TracesHandler) RefreshConversationTrace(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.TraceToResponse(trace))
 }
 
-// GetAutonomousAgentTrace handles GET /tenants/{tenantId}/autonomous-agents/{agentId}/traces
-// @Summary Get trace for an autonomous agent
-// @Description Retrieves the trace for a specific autonomous agent
+// GetAutonomousAgentTraces handles GET /tenants/{tenantId}/autonomous-agents/{agentId}/traces
+// @Summary List traces for an autonomous agent
+// @Description Retrieves all traces for a specific autonomous agent
 // @Tags Traces
 // @Accept json
 // @Produce json
 // @Param tenantId path string true "Tenant ID"
 // @Param agentId path string true "Autonomous Agent ID"
-// @Success 200 {object} dto.TraceResponse
+// @Success 200 {object} dto.ListTracesResponse
 // @Failure 401 {object} dto.ErrorResponse "Unauthorized"
-// @Failure 404 {object} dto.ErrorResponse "Trace not found"
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Security BearerAuth
 // @Router /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/traces [get]
-func (h *TracesHandler) GetAutonomousAgentTrace(c *gin.Context) {
+func (h *TracesHandler) GetAutonomousAgentTraces(c *gin.Context) {
 	ctx := c.Request.Context()
 	tenantID := c.Param("tenantId")
 	agentID := c.Param("agentId")
 
-	trace, err := h.docDBClient.Traces().GetByAutonomousAgent(ctx, tenantID, agentID)
+	traces, err := h.docDBClient.Traces().ListByAutonomousAgent(ctx, tenantID, agentID)
 	if err != nil {
-		middleware.HandleError(c, errors.NewInternalError("failed to get trace", err))
-		return
-	}
-	if trace == nil {
-		middleware.HandleError(c, errors.NewNotFoundError("trace", agentID))
+		middleware.HandleError(c, errors.NewInternalError("failed to list traces", err))
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.TraceToResponse(trace))
+	c.JSON(http.StatusOK, dto.ListTracesResponse{
+		Traces: dto.TracesToResponse(traces),
+	})
 }
 
 // RefreshAutonomousAgentTrace handles PUT /tenants/{tenantId}/autonomous-agents/{agentId}/traces

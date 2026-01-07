@@ -61,7 +61,7 @@ func (c *TracesCollection) Get(ctx context.Context, id string) (*models.Trace, e
 	return &trace, nil
 }
 
-// GetByConversation retrieves a trace by conversation ID.
+// GetByConversation retrieves a trace by conversation ID (for internal use like conflict check).
 func (c *TracesCollection) GetByConversation(ctx context.Context, tenantID, conversationID string) (*models.Trace, error) {
 	filter := bson.M{
 		"tenantId":       tenantID,
@@ -80,7 +80,31 @@ func (c *TracesCollection) GetByConversation(ctx context.Context, tenantID, conv
 	return &trace, nil
 }
 
-// GetByAutonomousAgent retrieves a trace by autonomous agent ID.
+// ListByConversation retrieves traces for a conversation as a list.
+func (c *TracesCollection) ListByConversation(ctx context.Context, tenantID, conversationID string) ([]*models.Trace, error) {
+	filter := bson.M{
+		"tenantId":       tenantID,
+		"conversationId": conversationID,
+		"contextType":    models.TraceContextConversation,
+	}
+
+	findOpts := options.Find().SetSort(bson.M{"createdAt": -1})
+
+	cursor, err := c.collection.Find(ctx, filter, findOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list traces by conversation: %w", err)
+	}
+	defer cursor.Close(ctx)
+
+	var traces []*models.Trace
+	if err := cursor.All(ctx, &traces); err != nil {
+		return nil, fmt.Errorf("failed to decode traces: %w", err)
+	}
+
+	return traces, nil
+}
+
+// GetByAutonomousAgent retrieves the most recent trace for an autonomous agent.
 func (c *TracesCollection) GetByAutonomousAgent(ctx context.Context, tenantID, autonomousAgentID string) (*models.Trace, error) {
 	filter := bson.M{
 		"tenantId":          tenantID,
@@ -88,15 +112,42 @@ func (c *TracesCollection) GetByAutonomousAgent(ctx context.Context, tenantID, a
 		"contextType":       models.TraceContextAutonomousAgent,
 	}
 
+	findOpts := options.FindOne().SetSort(bson.M{"createdAt": -1})
+
 	var trace models.Trace
-	err := c.collection.FindOne(ctx, filter).Decode(&trace)
+	err := c.collection.FindOne(ctx, filter, findOpts).Decode(&trace)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to get trace by autonomous agent: %w", err)
 	}
+
 	return &trace, nil
+}
+
+// ListByAutonomousAgent retrieves traces for an autonomous agent as a list.
+func (c *TracesCollection) ListByAutonomousAgent(ctx context.Context, tenantID, autonomousAgentID string) ([]*models.Trace, error) {
+	filter := bson.M{
+		"tenantId":          tenantID,
+		"autonomousAgentId": autonomousAgentID,
+		"contextType":       models.TraceContextAutonomousAgent,
+	}
+
+	findOpts := options.Find().SetSort(bson.M{"createdAt": -1})
+
+	cursor, err := c.collection.Find(ctx, filter, findOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list traces by autonomous agent: %w", err)
+	}
+	defer cursor.Close(ctx)
+
+	var traces []*models.Trace
+	if err := cursor.All(ctx, &traces); err != nil {
+		return nil, fmt.Errorf("failed to decode traces: %w", err)
+	}
+
+	return traces, nil
 }
 
 // List retrieves traces with pagination and filtering.

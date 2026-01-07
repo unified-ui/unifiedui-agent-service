@@ -27,13 +27,19 @@ type TracesCollection interface {
 	// Get retrieves a trace by ID.
 	Get(ctx context.Context, id string) (*models.Trace, error)
 
-	// GetByConversation retrieves a trace by conversation ID.
-	// Returns the single trace for a conversation (one-to-one relationship).
+	// GetByConversation retrieves the trace for a conversation (for internal use).
+	// Returns nil if no trace exists.
 	GetByConversation(ctx context.Context, tenantID, conversationID string) (*models.Trace, error)
 
-	// GetByAutonomousAgent retrieves a trace by autonomous agent ID.
-	// Returns the single trace for an autonomous agent (one-to-one relationship).
+	// ListByConversation retrieves traces for a conversation as a list.
+	ListByConversation(ctx context.Context, tenantID, conversationID string) ([]*models.Trace, error)
+
+	// GetByAutonomousAgent retrieves the most recent trace for an autonomous agent.
+	// Returns nil if no trace exists.
 	GetByAutonomousAgent(ctx context.Context, tenantID, autonomousAgentID string) (*models.Trace, error)
+
+	// ListByAutonomousAgent retrieves traces for an autonomous agent as a list.
+	ListByAutonomousAgent(ctx context.Context, tenantID, autonomousAgentID string) ([]*models.Trace, error)
 
 	// List retrieves traces with pagination and filtering.
 	List(ctx context.Context, opts *ListTracesOptions) ([]*models.Trace, error)

@@ -191,7 +191,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retrieves the trace for a specific autonomous agent",
+                "description": "Retrieves all traces for a specific autonomous agent",
                 "consumes": [
                     "application/json"
                 ],
@@ -201,7 +201,7 @@ const docTemplate = `{
                 "tags": [
                     "Traces"
                 ],
-                "summary": "Get trace for an autonomous agent",
+                "summary": "List traces for an autonomous agent",
                 "parameters": [
                     {
                         "type": "string",
@@ -222,17 +222,11 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.TraceResponse"
+                            "$ref": "#/definitions/dto.ListTracesResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Trace not found",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
@@ -475,7 +469,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retrieves the trace for a specific conversation",
+                "description": "Retrieves all traces for a specific conversation",
                 "consumes": [
                     "application/json"
                 ],
@@ -485,7 +479,7 @@ const docTemplate = `{
                 "tags": [
                     "Traces"
                 ],
-                "summary": "Get trace for a conversation",
+                "summary": "List traces for a conversation",
                 "parameters": [
                     {
                         "type": "string",
@@ -506,17 +500,11 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.TraceResponse"
+                            "$ref": "#/definitions/dto.ListTracesResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Trace not found",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
@@ -1217,7 +1205,9 @@ const docTemplate = `{
                 },
                 "logs": {
                     "type": "array",
-                    "items": {}
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "metadata": {
                     "type": "object",
@@ -1278,7 +1268,9 @@ const docTemplate = `{
                 },
                 "logs": {
                     "type": "array",
-                    "items": {}
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "nodes": {
                     "type": "array",

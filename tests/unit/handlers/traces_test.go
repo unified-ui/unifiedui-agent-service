@@ -377,20 +377,21 @@ func TestTracesHandler_DeleteTrace_Success(t *testing.T) {
 	mockDocDB.GetTracesCollection().AssertExpectations(t)
 }
 
-func TestTracesHandler_GetConversationTrace_Success(t *testing.T) {
+func TestTracesHandler_GetConversationTraces_Success(t *testing.T) {
 	// Setup
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
 	existingTrace := testutils.NewTestTrace()
+	traces := []*models.Trace{existingTrace}
 
-	// GetConversationTrace does NOT call ValidateConversation - it just fetches the trace
-	mockDocDB.GetTracesCollection().On("GetByConversation", mock.Anything, mock.Anything, mock.Anything).Return(existingTrace, nil)
+	// GetConversationTraces uses ListByConversation which returns a list
+	mockDocDB.GetTracesCollection().On("ListByConversation", mock.Anything, mock.Anything, mock.Anything).Return(traces, nil)
 
 	handler := handlers.NewTracesHandler(mockDocDB, mockPlatform)
 
 	router := testutils.SetupTestRouter()
-	router.GET("/tenants/:tenantId/conversations/:conversationId/traces", handler.GetConversationTrace)
+	router.GET("/tenants/:tenantId/conversations/:conversationId/traces", handler.GetConversationTraces)
 
 	// Execute
 	headers := map[string]string{"Authorization": "Bearer test-token"}
@@ -400,10 +401,11 @@ func TestTracesHandler_GetConversationTrace_Success(t *testing.T) {
 	// Assert
 	testutils.AssertStatusCode(t, http.StatusOK, w)
 
-	var response dto.TraceResponse
+	var response dto.ListTracesResponse
 	testutils.ParseJSONResponse(t, w, &response)
 
-	assert.Equal(t, existingTrace.ID, response.ID)
+	assert.Len(t, response.Traces, 1)
+	assert.Equal(t, existingTrace.ID, response.Traces[0].ID)
 
 	mockDocDB.GetTracesCollection().AssertExpectations(t)
 }
