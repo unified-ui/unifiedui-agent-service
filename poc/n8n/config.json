@@ -2,7 +2,6 @@
     "docversion": "v1",
     "type": "N8N",
     "tenant_id": "b4e1f3d2-5c6a-4e2b-9f4d-8e2f3c4b5a6d",
-    "conversation_id": "cdf4c7ea-96ff-4d48-9852-641937d9442e",
     "application_id": "f4f38f3f-dea9-430e-bc48-5e7236dfd773",
     "settings": {
         "api_version": "v1",
@@ -15,7 +14,7 @@
             "credentials_uri": "vault://localhost:8200/secret/*",
             "name": "n8n-instance",
             "description": "n8n-instance-credentials",
-            "type": "N8N_API_KEY",
+            "type": "API_KEY",
             "is_active": true,
             "secret": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjMTYxYzQ0ZS0zOWIzLTQxZDQtYmI3Ni0yNTFhZjEwYjc2MDYiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzY3MTY2NTgzfQ.rrLwm-w0KAVs5TknaHX8zPhrVgyadPZOpmEZ8WDSzQo"
         },
@@ -24,7 +23,7 @@
             "credentials_uri": "vault://localhost:8200/secret/*",
             "name": "chat-credentials",
             "description": "Credentials for chat integration",
-            "type": "N8N_BASIC_AUTH",
+            "type": "BASIC_AUTH",
             "is_active": true,
             "secret": {
                 "username": "n8n-workflow-user",

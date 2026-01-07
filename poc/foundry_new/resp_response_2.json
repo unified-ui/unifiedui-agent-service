@@ -1,0 +1,136 @@
+{
+    "metadata": {},
+    "temperature": null,
+    "top_p": null,
+    "user": null,
+    "service_tier": "auto",
+    "model": "",
+    "background": false,
+    "tools": [],
+    "tool_choice": "auto",
+    "truncation": "auto",
+    "id": "wfresp_f0eee68b42421a9600nvTuoiS1noMNMEDhKkzFQYfMltJRGPWc",
+    "object": "response",
+    "status": "completed",
+    "created_at": 1767639774,
+    "error": null,
+    "incomplete_details": null,
+    "output": [
+        {
+            "type": "workflow_action",
+            "id": "wfa_f0eee68b42421a9600qryyIc2sC7RhND3pGFko8EQbe8K0PZ5J",
+            "created_by": {
+                "agent": {
+                    "type": "agent_id",
+                    "name": "BasicWorkflow",
+                    "version": "1"
+                },
+                "response_id": "wfresp_f0eee68b42421a9600nvTuoiS1noMNMEDhKkzFQYfMltJRGPWc"
+            },
+            "kind": "InvokeAzureAgent",
+            "action_id": "action-1767634350800",
+            "parent_action_id": "trigger_wf",
+            "previous_action_id": "action-1767634216505_Post",
+            "status": "completed"
+        },
+        {
+            "type": "message",
+            "id": "msg_0781aebc9ba8fce400695c0ae09bcc81939ae7941b5870c03a",
+            "created_by": {
+                "agent": {
+                    "type": "agent_id",
+                    "name": "BasicAssistantAgent",
+                    "version": "2"
+                }
+            },
+            "status": "completed",
+            "role": "assistant",
+            "content": [
+                {
+                    "type": "output_text",
+                    "text": "Hello, Teddy! How can I assist you today?",
+                    "annotations": [],
+                    "logprobs": []
+                }
+            ]
+        },
+        {
+            "type": "workflow_action",
+            "id": "wfa_f0eee68b42421a9600gIXiYoMllcxiKhU02dIz2E5RPePhTOlj",
+            "created_by": {
+                "agent": {
+                    "type": "agent_id",
+                    "name": "BasicWorkflow",
+                    "version": "1"
+                },
+                "response_id": "wfresp_f0eee68b42421a9600nvTuoiS1noMNMEDhKkzFQYfMltJRGPWc"
+            },
+            "kind": "SendActivity",
+            "action_id": "action-1767634451682",
+            "parent_action_id": "trigger_wf",
+            "previous_action_id": "action-1767634350800_Post",
+            "status": "completed"
+        },
+        {
+            "type": "message",
+            "id": "msg_f0eee68b42421a9600p9YWxtxFbkvF1JI2JVSKfSOdzs7Qmol4",
+            "created_by": {
+                "agent": {
+                    "type": "agent_id",
+                    "name": "BasicWorkflow",
+                    "version": "1"
+                },
+                "response_id": "wfresp_f0eee68b42421a9600nvTuoiS1noMNMEDhKkzFQYfMltJRGPWc"
+            },
+            "status": "completed",
+            "role": "assistant",
+            "content": [
+                {
+                    "type": "output_text",
+                    "text": "Conversation is ending here.",
+                    "annotations": []
+                }
+            ]
+        },
+        {
+            "type": "workflow_action",
+            "id": "wfa_f0eee68b42421a9600wmiTdfWCZEmgjOmFpGGBckWFeUizYqv6",
+            "created_by": {
+                "agent": {
+                    "type": "agent_id",
+                    "name": "BasicWorkflow",
+                    "version": "1"
+                },
+                "response_id": "wfresp_f0eee68b42421a9600nvTuoiS1noMNMEDhKkzFQYfMltJRGPWc"
+            },
+            "kind": "EndConversation",
+            "action_id": "action-1767634464332",
+            "parent_action_id": "trigger_wf",
+            "previous_action_id": "action-1767634451682",
+            "status": "completed"
+        }
+    ],
+    "instructions": "",
+    "output_text": "",
+    "usage": {
+        "input_tokens": 21,
+        "input_tokens_details": {
+            "cached_tokens": 0
+        },
+        "output_tokens": 12,
+        "output_tokens_details": {
+            "reasoning_tokens": 0
+        },
+        "total_tokens": 33
+    },
+    "parallel_tool_calls": true,
+    "conversation": {
+        "id": "conv_f0eee68b42421a9600f9DnWea5y4PwGt3E9yDAEWz1nCtkNtNf"
+    },
+    "agent": {
+        "type": "agent_id",
+        "name": "BasicWorkflow",
+        "version": "1"
+    },
+    "structured_inputs": {}
+}

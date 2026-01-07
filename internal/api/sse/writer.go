@@ -33,6 +33,8 @@ const (
 	StreamTypeEnd StreamMessageType = "STREAM_END"
 	// StreamTypeError indicates an error in the stream.
 	StreamTypeError StreamMessageType = "ERROR"
+	// StreamTypeNewMessage indicates a new message starts in the stream (for Foundry multi-message responses).
+	StreamTypeNewMessage StreamMessageType = "STREAM_NEW_MESSAGE"
 )
 
 // StreamMessage represents a unified stream message format.
@@ -101,12 +103,13 @@ func (w *Writer) WriteMessage(content string) error {
 	return w.WriteEvent(EventMessage, content)
 }
 
-// WriteStreamStart writes the STREAM_START message.
-func (w *Writer) WriteStreamStart(messageID string) error {
+// WriteStreamStart writes the STREAM_START message with messageId and conversationId.
+func (w *Writer) WriteStreamStart(messageID, conversationID string) error {
 	return w.WriteJSON(EventMessage, &StreamMessage{
 		Type: StreamTypeStart,
 		Config: map[string]interface{}{
-			"messageId": messageID,
+			"messageId":      messageID,
+			"conversationId": conversationID,
 		},
 	})
 }

@@ -53,45 +53,82 @@ func NewTestAssistantMessage() *models.Message {
 
 // NewTestTrace creates a test trace with default values.
 func NewTestTrace() *models.Trace {
+	now := time.Now().UTC()
 	return &models.Trace{
 		ID:             TestTraceID,
 		TenantID:       TestTenantID,
+		ApplicationID:  TestApplicationID,
 		ConversationID: TestConversationID,
-		MessageID:      TestMessageID,
-		AgentID:        TestApplicationID,
-		Type:           models.TraceTypeLLM,
-		Name:           "test-llm-call",
-		Status:         models.TraceStatusCompleted,
-		Input:          "Test input",
-		Output:         "Test output",
-		StartedAt:      time.Now().UTC().Add(-100 * time.Millisecond),
-		DurationMs:     100,
+		ContextType:    models.TraceContextConversation,
+		ReferenceID:    "workflow-execution-123",
+		ReferenceName:  "Test Workflow Run",
+		Nodes: []models.TraceNode{
+			{
+				ID:        "node-1",
+				Name:      "test-llm-call",
+				Type:      models.NodeTypeLLM,
+				Status:    models.NodeStatusCompleted,
+				StartAt:   timePtr(now.Add(-100 * time.Millisecond)),
+				EndAt:     timePtr(now),
+				Duration:  0.1,
+				CreatedAt: now,
+				UpdatedAt: now,
+			},
+		},
+		Logs:      []string{},
+		CreatedAt: now,
+		UpdatedAt: now,
+		CreatedBy: TestUserID,
+		UpdatedBy: TestUserID,
 	}
 }
 
-// NewTestToolTrace creates a test tool trace.
+// NewTestToolTrace creates a test trace with a tool node.
 func NewTestToolTrace() *models.Trace {
 	now := time.Now().UTC()
 	return &models.Trace{
 		ID:             TestTraceID + "-tool",
 		TenantID:       TestTenantID,
+		ApplicationID:  TestApplicationID,
 		ConversationID: TestConversationID,
-		MessageID:      TestMessageID,
-		AgentID:        TestApplicationID,
-		ParentTraceID:  TestTraceID,
-		Type:           models.TraceTypeTool,
-		Name:           "search-tool",
-		Status:         models.TraceStatusCompleted,
-		Input:          map[string]interface{}{"query": "test search"},
-		Output:         map[string]interface{}{"results": []string{"result1", "result2"}},
-		StartedAt:      now.Add(-50 * time.Millisecond),
-		DurationMs:     50,
-		Metadata: models.TraceMetadata{
-			ToolName:   "search-tool",
-			ToolInput:  map[string]interface{}{"query": "test search"},
-			ToolOutput: map[string]interface{}{"results": []string{"result1", "result2"}},
+		ContextType:    models.TraceContextConversation,
+		ReferenceID:    "workflow-execution-456",
+		ReferenceName:  "Tool Workflow Run",
+		Nodes: []models.TraceNode{
+			{
+				ID:       "node-tool-1",
+				Name:     "search-tool",
+				Type:     models.NodeTypeTool,
+				Status:   models.NodeStatusCompleted,
+				StartAt:  timePtr(now.Add(-50 * time.Millisecond)),
+				EndAt:    timePtr(now),
+				Duration: 0.05,
+				Data: &models.NodeData{
+					Input: &models.NodeDataIO{
+						Text:      "test search query",
+						ExtraData: map[string]interface{}{"query": "test search"},
+					},
+					Output: &models.NodeDataIO{
+						Text:      "search results",
+						ExtraData: map[string]interface{}{"results": []string{"result1", "result2"}},
+					},
+				},
+				Metadata:  map[string]interface{}{"toolName": "search-tool"},
+				CreatedAt: now,
+				UpdatedAt: now,
+			},
 		},
+		Logs:      []string{},
+		CreatedAt: now,
+		UpdatedAt: now,
+		CreatedBy: TestUserID,
+		UpdatedBy: TestUserID,
 	}
+}
+
+// timePtr returns a pointer to the given time.
+func timePtr(t time.Time) *time.Time {
+	return &t
 }
 
 // NewTestSession creates a test session with default values.
@@ -143,7 +180,39 @@ func NewTestTraces(count int) []*models.Trace {
 	for i := 0; i < count; i++ {
 		trace := NewTestTrace()
 		trace.ID = TestTraceID + "-" + string(rune('0'+i))
+		trace.ReferenceID = "workflow-" + string(rune('0'+i))
 		traces[i] = trace
 	}
 	return traces
+}
+
+// NewTestAutonomousAgentTrace creates a test trace for autonomous agent context.
+func NewTestAutonomousAgentTrace() *models.Trace {
+	now := time.Now().UTC()
+	return &models.Trace{
+		ID:                TestTraceID + "-auto",
+		TenantID:          TestTenantID,
+		AutonomousAgentID: "auto-agent-123",
+		ContextType:       models.TraceContextAutonomousAgent,
+		ReferenceID:       "scheduled-run-123",
+		ReferenceName:     "Scheduled Agent Run",
+		Nodes: []models.TraceNode{
+			{
+				ID:        "node-auto-1",
+				Name:      "agent-execution",
+				Type:      models.NodeTypeAgent,
+				Status:    models.NodeStatusCompleted,
+				StartAt:   timePtr(now.Add(-200 * time.Millisecond)),
+				EndAt:     timePtr(now),
+				Duration:  0.2,
+				CreatedAt: now,
+				UpdatedAt: now,
+			},
+		},
+		Logs:      []string{},
+		CreatedAt: now,
+		UpdatedAt: now,
+		CreatedBy: TestUserID,
+		UpdatedBy: TestUserID,
+	}
 }

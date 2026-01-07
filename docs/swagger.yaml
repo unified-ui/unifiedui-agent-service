@@ -1,5 +1,59 @@
 basePath: /
 definitions:
+  dto.AddLogsRequest:
+    properties:
+      logs:
+        items: {}
+        minItems: 1
+        type: array
+    required:
+    - logs
+    type: object
+  dto.AddNodesRequest:
+    properties:
+      nodes:
+        items:
+          $ref: '#/definitions/dto.TraceNodeRequest'
+        minItems: 1
+        type: array
+    required:
+    - nodes
+    type: object
+  dto.CreateTraceRequest:
+    properties:
+      applicationId:
+        description: Context fields - EITHER (applicationId + conversationId) OR autonomousAgentId
+        type: string
+      autonomousAgentId:
+        type: string
+      conversationId:
+        type: string
+      id:
+        description: ID is optional; if not provided, one will be generated.
+        type: string
+      logs:
+        description: Initial logs (optional).
+        items: {}
+        type: array
+      nodes:
+        description: Initial nodes (optional).
+        items:
+          $ref: '#/definitions/dto.TraceNodeRequest'
+        type: array
+      referenceId:
+        description: Reference fields for external system linkage.
+        type: string
+      referenceMetadata:
+        additionalProperties: true
+        type: object
+      referenceName:
+        type: string
+    type: object
+  dto.CreateTraceResponse:
+    properties:
+      id:
+        type: string
+    type: object
   dto.ErrorResponse:
     properties:
       code:
@@ -9,27 +63,195 @@ definitions:
       message:
         type: string
     type: object
-  handlers.GetMessageTracesResponse:
+  dto.ImportTraceResponse:
     properties:
-      total:
-        type: integer
+      id:
+        type: string
+    type: object
+  dto.ListTracesResponse:
+    properties:
       traces:
         items:
-          $ref: '#/definitions/models.Trace'
+          $ref: '#/definitions/dto.TraceResponse'
         type: array
+    type: object
+  dto.NodeDataIORequest:
+    properties:
+      extraData:
+        additionalProperties: true
+        type: object
+      metadata:
+        additionalProperties: true
+        type: object
+      text:
+        type: string
+    type: object
+  dto.NodeDataIOResponse:
+    properties:
+      extraData:
+        additionalProperties: true
+        type: object
+      metadata:
+        additionalProperties: true
+        type: object
+      text:
+        type: string
+    type: object
+  dto.NodeDataRequest:
+    properties:
+      input:
+        $ref: '#/definitions/dto.NodeDataIORequest'
+      output:
+        $ref: '#/definitions/dto.NodeDataIORequest'
+    type: object
+  dto.NodeDataResponse:
+    properties:
+      input:
+        $ref: '#/definitions/dto.NodeDataIOResponse'
+      output:
+        $ref: '#/definitions/dto.NodeDataIOResponse'
+    type: object
+  dto.RefreshTraceRequest:
+    properties:
+      logs:
+        description: Logs to set.
+        items: {}
+        type: array
+      nodes:
+        description: Nodes to set.
+        items:
+          $ref: '#/definitions/dto.TraceNodeRequest'
+        type: array
+      referenceId:
+        description: Reference fields for external system linkage.
+        type: string
+      referenceMetadata:
+        additionalProperties: true
+        type: object
+      referenceName:
+        type: string
+    type: object
+  dto.TraceNodeRequest:
+    properties:
+      data:
+        $ref: '#/definitions/dto.NodeDataRequest'
+      duration:
+        type: number
+      endAt:
+        type: string
+      id:
+        type: string
+      logs:
+        items: {}
+        type: array
+      metadata:
+        additionalProperties: true
+        type: object
+      name:
+        type: string
+      nodes:
+        description: Sub-nodes
+        items:
+          $ref: '#/definitions/dto.TraceNodeRequest'
+        type: array
+      referenceId:
+        type: string
+      startAt:
+        type: string
+      status:
+        type: string
+      type:
+        type: string
+    required:
+    - id
+    - name
+    - status
+    - type
+    type: object
+  dto.TraceNodeResponse:
+    properties:
+      createdAt:
+        type: string
+      createdBy:
+        type: string
+      data:
+        $ref: '#/definitions/dto.NodeDataResponse'
+      duration:
+        type: number
+      endAt:
+        type: string
+      id:
+        type: string
+      logs:
+        items:
+          type: string
+        type: array
+      metadata:
+        additionalProperties: true
+        type: object
+      name:
+        type: string
+      nodes:
+        items:
+          $ref: '#/definitions/dto.TraceNodeResponse'
+        type: array
+      referenceId:
+        type: string
+      startAt:
+        type: string
+      status:
+        type: string
+      type:
+        type: string
+      updatedAt:
+        type: string
+      updatedBy:
+        type: string
+    type: object
+  dto.TraceResponse:
+    properties:
+      applicationId:
+        type: string
+      autonomousAgentId:
+        type: string
+      contextType:
+        type: string
+      conversationId:
+        type: string
+      createdAt:
+        type: string
+      createdBy:
+        type: string
+      id:
+        type: string
+      logs:
+        items:
+          type: string
+        type: array
+      nodes:
+        items:
+          $ref: '#/definitions/dto.TraceNodeResponse'
+        type: array
+      referenceId:
+        type: string
+      referenceMetadata:
+        additionalProperties: true
+        type: object
+      referenceName:
+        type: string
+      tenantId:
+        type: string
+      updatedAt:
+        type: string
+      updatedBy:
+        type: string
     type: object
   handlers.GetMessagesResponse:
     properties:
-      limit:
-        type: integer
       messages:
         items:
-          $ref: '#/definitions/models.Message'
+          $ref: '#/definitions/handlers.MessageResponse'
         type: array
-      offset:
-        type: integer
-      total:
-        type: integer
     type: object
   handlers.HealthResponse:
     properties:
@@ -58,11 +280,44 @@ definitions:
     required:
     - content
     type: object
+  handlers.MessageResponse:
+    properties:
+      applicationId:
+        type: string
+      content:
+        type: string
+      conversationId:
+        type: string
+      createdAt:
+        type: string
+      errorMessage:
+        type: string
+      id:
+        type: string
+      metadata:
+        $ref: '#/definitions/models.AssistantMetadata'
+      status:
+        $ref: '#/definitions/models.MessageStatus'
+      statusTraces:
+        items:
+          $ref: '#/definitions/models.StatusTrace'
+        type: array
+      type:
+        $ref: '#/definitions/models.MessageType'
+      updatedAt:
+        type: string
+      userId:
+        type: string
+      userMessageId:
+        type: string
+    type: object
   handlers.SendMessageRequest:
     properties:
       applicationId:
         type: string
       conversationId:
+        type: string
+      extConversationId:
         type: string
       invokeConfig:
         $ref: '#/definitions/handlers.InvokeConfig'
@@ -74,199 +329,60 @@ definitions:
     type: object
   handlers.SendMessageResponse:
     properties:
-      message:
-        $ref: '#/definitions/models.Message'
-    type: object
-  handlers.TraceUpdate:
-    properties:
-      conversationId:
-        type: string
-      durationMs:
-        type: integer
-      endedAt:
-        type: string
-      error:
-        type: string
-      input: {}
-      messageId:
-        type: string
-      metadata:
-        $ref: '#/definitions/models.TraceMetadata'
-      name:
-        type: string
-      output: {}
-      parentTraceId:
-        type: string
-      startedAt:
-        type: string
-      status:
-        type: string
-      traceId:
-        type: string
-      type:
-        type: string
-    required:
-    - conversationId
-    - messageId
-    - name
-    - status
-    - traceId
-    - type
-    type: object
-  handlers.UpdateTracesRequest:
-    properties:
-      traces:
-        items:
-          $ref: '#/definitions/handlers.TraceUpdate'
-        minItems: 1
-        type: array
-    required:
-    - traces
-    type: object
-  handlers.UpdateTracesResponse:
-    properties:
-      created:
-        type: integer
-      updated:
-        type: integer
-    type: object
-  models.Message:
-    properties:
-      agentId:
-        type: string
-      content:
+      assistantMessageId:
         type: string
       conversationId:
         type: string
-      createdAt:
-        type: string
-      id:
-        type: string
-      metadata:
-        $ref: '#/definitions/models.Metadata'
-      role:
-        $ref: '#/definitions/models.MessageRole'
-      tenantId:
-        type: string
-      updatedAt:
-        type: string
-      userId:
+      userMessageId:
         type: string
     type: object
-  models.MessageRole:
-    enum:
-    - user
-    - assistant
-    - system
-    type: string
-    x-enum-varnames:
-    - RoleUser
-    - RoleAssistant
-    - RoleSystem
-  models.Metadata:
+  models.AssistantMetadata:
     properties:
       agentType:
-        description: AgentType is the type of agent that processed the message.
         type: string
-      custom:
-        additionalProperties: true
-        description: Custom holds additional custom metadata.
-        type: object
+      executionId:
+        type: string
       latencyMs:
-        description: Latency is the response latency in milliseconds.
         type: integer
       model:
-        description: Model is the model used for generating the response.
         type: string
       tokensInput:
-        description: TokensInput is the number of input tokens.
         type: integer
       tokensOutput:
-        description: TokensOutput is the number of output tokens.
         type: integer
     type: object
-  models.Trace:
-    properties:
-      agentId:
-        type: string
-      conversationId:
-        type: string
-      durationMs:
-        type: integer
-      endedAt:
-        type: string
-      error:
-        type: string
-      id:
-        type: string
-      input: {}
-      messageId:
-        type: string
-      metadata:
-        $ref: '#/definitions/models.TraceMetadata'
-      name:
-        type: string
-      output: {}
-      parentTraceId:
-        type: string
-      startedAt:
-        type: string
-      status:
-        $ref: '#/definitions/models.TraceStatus'
-      tenantId:
-        type: string
-      type:
-        $ref: '#/definitions/models.TraceType'
-    type: object
-  models.TraceMetadata:
-    properties:
-      custom:
-        additionalProperties: true
-        description: Custom holds additional custom metadata.
-        type: object
-      model:
-        description: Model is the model used (for LLM traces).
-        type: string
-      tokensInput:
-        description: TokensInput is the number of input tokens.
-        type: integer
-      tokensOutput:
-        description: TokensOutput is the number of output tokens.
-        type: integer
-      toolInput:
-        description: ToolInput is the input to the tool.
-      toolName:
-        description: ToolName is the name of the tool (for tool traces).
-        type: string
-      toolOutput:
-        description: ToolOutput is the output from the tool.
-    type: object
-  models.TraceStatus:
+  models.MessageStatus:
     enum:
     - pending
-    - running
-    - completed
+    - success
     - failed
     type: string
     x-enum-varnames:
-    - TraceStatusPending
-    - TraceStatusRunning
-    - TraceStatusCompleted
-    - TraceStatusFailed
-  models.TraceType:
+    - MessageStatusPending
+    - MessageStatusSuccess
+    - MessageStatusFailed
+  models.MessageType:
     enum:
-    - llm
-    - tool
-    - agent
-    - chain
-    - retriever
+    - user
+    - assistant
     type: string
     x-enum-varnames:
-    - TraceTypeLLM
-    - TraceTypeTool
-    - TraceTypeAgent
-    - TraceTypeChain
-    - TraceTypeRetriever
+    - MessageTypeUser
+    - MessageTypeAssistant
+  models.StatusTrace:
+    properties:
+      content:
+        type: string
+      data:
+        additionalProperties: true
+        type: object
+      name:
+        type: string
+      timestamp:
+        type: string
+      type:
+        type: string
+    type: object
 host: localhost:8085
 info:
   contact:
@@ -336,36 +452,126 @@ paths:
       tags:
       - Health
   /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/traces:
-    put:
+    get:
       consumes:
       - application/json
-      description: Called by autonomous agents to report their trace data
+      description: Retrieves all traces for a specific autonomous agent
       parameters:
       - description: Tenant ID
         in: path
         name: tenantId
         required: true
         type: string
-      - description: Agent ID
+      - description: Autonomous Agent ID
         in: path
         name: agentId
         required: true
         type: string
-      - description: Trace updates
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/handlers.UpdateTracesRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/handlers.UpdateTracesResponse'
+            $ref: '#/definitions/dto.ListTracesResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List traces for an autonomous agent
+      tags:
+      - Traces
+    put:
+      consumes:
+      - application/json
+      description: Replaces the trace for a specific autonomous agent completely
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Autonomous Agent ID
+        in: path
+        name: agentId
+        required: true
+        type: string
+      - description: New trace data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.RefreshTraceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.TraceResponse'
         "400":
-          description: Bad Request
+          description: Bad request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Trace not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Refresh trace for an autonomous agent
+      tags:
+      - Traces
+  /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/traces:
+    get:
+      consumes:
+      - application/json
+      description: Retrieves a list of traces for autonomous agents with pagination
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Filter by autonomous agent ID
+        in: query
+        name: autonomousAgentId
+        type: string
+      - description: 'Maximum number of results (default: 20, max: 100)'
+        in: query
+        name: limit
+        type: integer
+      - description: Number of results to skip
+        in: query
+        name: skip
+        type: integer
+      - description: 'Sort order: asc or desc (default: desc)'
+        in: query
+        name: order
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ListTracesResponse'
+        "400":
+          description: Bad request
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
         "401":
@@ -373,19 +579,20 @@ paths:
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
       security:
       - BearerAuth: []
-      summary: Update traces
+      summary: List traces for autonomous agents
       tags:
       - Traces
   /api/v1/agent-service/tenants/{tenantId}/conversation/messages:
     get:
       consumes:
       - application/json
-      description: Retrieves messages for a conversation with pagination
+      description: Retrieves messages for a conversation with pagination (descending
+        order by createdAt)
       parameters:
       - description: Tenant ID
         in: path
@@ -397,7 +604,7 @@ paths:
         name: conversationId
         required: true
         type: string
-      - default: 50
+      - default: 25
         description: Maximum number of messages
         in: query
         maximum: 100
@@ -408,7 +615,7 @@ paths:
         description: Offset for pagination
         in: query
         minimum: 0
-        name: offset
+        name: skip
         type: integer
       produces:
       - application/json
@@ -445,6 +652,10 @@ paths:
         name: tenantId
         required: true
         type: string
+      - description: Microsoft Foundry API Key (required for Foundry agents)
+        in: header
+        name: X-Microsoft-Foundry-API-Key
+        type: string
       - description: Message content with applicationId
         in: body
         name: request
@@ -475,24 +686,19 @@ paths:
       summary: Send a message
       tags:
       - Messages
-  /api/v1/agent-service/tenants/{tenantId}/conversation/messages/{messageId}/traces:
+  /api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/traces:
     get:
       consumes:
       - application/json
-      description: Retrieves all traces associated with a specific message
+      description: Retrieves all traces for a specific conversation
       parameters:
       - description: Tenant ID
         in: path
         name: tenantId
         required: true
         type: string
-      - description: Message ID
-        in: path
-        name: messageId
-        required: true
-        type: string
       - description: Conversation ID
-        in: query
+        in: path
         name: conversationId
         required: true
         type: string
@@ -502,22 +708,342 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/handlers.GetMessageTracesResponse'
+            $ref: '#/definitions/dto.ListTracesResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List traces for a conversation
+      tags:
+      - Traces
+    put:
+      consumes:
+      - application/json
+      description: Replaces the trace for a specific conversation completely
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Conversation ID
+        in: path
+        name: conversationId
+        required: true
+        type: string
+      - description: New trace data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.RefreshTraceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.TraceResponse'
         "400":
-          description: Bad Request
+          description: Bad request
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
         "401":
           description: Unauthorized
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Trace not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
       security:
       - BearerAuth: []
-      summary: Get message traces
+      summary: Refresh trace for a conversation
+      tags:
+      - Traces
+  /api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/traces/import/refresh:
+    put:
+      consumes:
+      - application/json
+      description: Imports traces from an external system (Microsoft Foundry, N8N)
+        for a conversation
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Conversation ID
+        in: path
+        name: conversationId
+        required: true
+        type: string
+      - description: Microsoft Foundry API Key (required for Foundry agents)
+        in: header
+        name: X-Microsoft-Foundry-API-Key
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ImportTraceResponse'
+        "400":
+          description: Bad request - missing required header or configuration
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Conversation not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Import and refresh traces for a conversation
+      tags:
+      - Traces
+  /api/v1/agent-service/tenants/{tenantId}/traces:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new trace for a conversation or autonomous agent
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Trace creation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateTraceRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.CreateTraceResponse'
+        "400":
+          description: Bad request - validation error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Application, Conversation, or AutonomousAgent not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a new trace
+      tags:
+      - Traces
+  /api/v1/agent-service/tenants/{tenantId}/traces/{traceId}:
+    delete:
+      consumes:
+      - application/json
+      description: Deletes a specific trace by its ID
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Trace ID
+        in: path
+        name: traceId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Trace not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete a trace
+      tags:
+      - Traces
+    get:
+      consumes:
+      - application/json
+      description: Retrieves a specific trace by its ID
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Trace ID
+        in: path
+        name: traceId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.TraceResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Trace not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get a trace by ID
+      tags:
+      - Traces
+  /api/v1/agent-service/tenants/{tenantId}/traces/{traceId}/logs:
+    post:
+      consumes:
+      - application/json
+      description: Appends logs to an existing trace
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Trace ID
+        in: path
+        name: traceId
+        required: true
+        type: string
+      - description: Logs to add
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.AddLogsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Trace not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Add logs to a trace
+      tags:
+      - Traces
+  /api/v1/agent-service/tenants/{tenantId}/traces/{traceId}/nodes:
+    post:
+      consumes:
+      - application/json
+      description: Appends nodes to an existing trace
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Trace ID
+        in: path
+        name: traceId
+        required: true
+        type: string
+      - description: Nodes to add
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.AddNodesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Trace not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Add nodes to a trace
       tags:
       - Traces
 schemes:

@@ -1,0 +1,18 @@
+{
+    "docversion": "v1",
+    "type": "MICROSOFT_FOUNDRY",
+    "tenant_id": "b4e1f3d2-5c6a-4e2b-9f4d-8e2f3c4b5a6d",
+    "application_id": "f4f38f3f-dea9-430e-bc48-5e7236dfd773",
+    "settings": {
+        "api_version": "2025-11-15-preview",
+        "agent_type": "AGENT|MULTI_AGENT",
+        "project_endpoint": "https://engo-foundry.services.ai.azure.com/api/projects/proj-default-26",
+        "agent_name": "foundry-workflow-agent"
+    },
+    "user": {
+        "id": "c161c44e-39b3-41d4-bb76-251af10b7606",
+        "display_name": "Enrico Goerlitz",
+        "principal_name": "enrico.goerlitz@example.com",
+        "mail": "enrico.goerlitz@example.com"
+    }
+}

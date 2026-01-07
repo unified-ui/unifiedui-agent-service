@@ -49,6 +49,7 @@ import (
 	"github.com/unifiedui/agent-service/internal/services/agents"
 	"github.com/unifiedui/agent-service/internal/services/platform"
 	"github.com/unifiedui/agent-service/internal/services/session"
+	"github.com/unifiedui/agent-service/internal/services/traceimport"
 )
 
 func main() {
@@ -102,11 +103,16 @@ func main() {
 		log.Fatalf("failed to initialize session service: %v", err)
 	}
 
+	// Create import service with job queue (3 workers by default)
+	importService := traceimport.NewImportService(docDBClient)
+	importService.Start(3)
+	defer importService.Stop()
+
 	// Set Gin mode
 	gin.SetMode(cfg.Server.GinMode)
 
 	// Setup router
-	router := setupRouter(cfg, cacheClient, docDBClient, vaultClient, sessionService)
+	router := setupRouter(cfg, cacheClient, docDBClient, vaultClient, sessionService, importService)
 
 	// Create HTTP server
 	srv := &http.Server{
@@ -222,8 +228,20 @@ func createEncryptor(cfg config.VaultConfig, vaultClient vault.Client) (encrypti
 }
 
 // setupRouter creates and configures the Gin router.
-func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb.Client, vaultClient vault.Client, sessionService session.Service) *gin.Engine {
+func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb.Client, vaultClient vault.Client, sessionService session.Service, importService *traceimport.ImportService) *gin.Engine {
 	router := gin.New()
+
+	// Create CORS config
+	corsConfig := middleware.DefaultCORSConfig()
+
+	// Create CORS middleware with default config
+	corsMw := middleware.NewCORSMiddleware(corsConfig)
+
+	// Apply CORS middleware globally (must be first)
+	router.Use(corsMw)
+
+	// Add explicit OPTIONS handler for all routes (needed for CORS preflight)
+	middleware.SetupCORSRoutes(router, corsConfig)
 
 	// Create middleware
 	loggingMw := middleware.NewLoggingMiddleware()
@@ -234,6 +252,8 @@ func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb
 	platformClient := platform.NewClient(&platform.ClientConfig{
 		BaseURL:    cfg.Platform.URL,
 		ConfigPath: cfg.Platform.ConfigPath,
+		ServiceKey: cfg.Platform.ServiceKey,
+		Timeout:    cfg.Platform.Timeout,
 	})
 
 	// Create agent factory
@@ -241,8 +261,8 @@ func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb
 
 	// Create handlers
 	healthHandler := handlers.NewHealthHandler(cacheClient, docDBClient)
-	messagesHandler := handlers.NewMessagesHandler(docDBClient, platformClient, agentFactory, sessionService)
-	tracesHandler := handlers.NewTracesHandler(docDBClient)
+	messagesHandler := handlers.NewMessagesHandler(docDBClient, platformClient, agentFactory, sessionService, importService)
+	tracesHandler := handlers.NewTracesHandler(docDBClient, platformClient, importService)
 
 	// Setup routes
 	routesCfg := &routes.Config{

@@ -16,8 +16,11 @@ type Client interface {
 	// MessagesRaw returns the raw messages collection for direct operations.
 	MessagesRaw() Collection
 
-	// Traces returns the traces collection.
-	Traces() Collection
+	// Traces returns the typed traces collection with domain methods.
+	Traces() TracesCollection
+
+	// TracesRaw returns the raw traces collection for direct operations.
+	TracesRaw() Collection
 
 	// Ping verifies the database connection.
 	Ping(ctx context.Context) error

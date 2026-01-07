@@ -6,7 +6,7 @@ type AgentType string
 
 const (
 	AgentTypeN8N     AgentType = "N8N"
-	AgentTypeFoundry AgentType = "FOUNDRY"
+	AgentTypeFoundry AgentType = "MICROSOFT_FOUNDRY"
 	AgentTypeCopilot AgentType = "COPILOT"
 	AgentTypeCustom  AgentType = "CUSTOM"
 )
@@ -28,7 +28,31 @@ const (
 	N8NWorkflowTypeHumanInLoop N8NWorkflowType = "N8N_HUMAN_IN_THE_LOOP"
 )
 
+// ServiceConfigResponse represents the config response from platform service (without user data).
+// DEPRECATED: Use ApplicationConfigResponse instead.
+// This is kept for backwards compatibility.
+type ServiceConfigResponse struct {
+	DocVersion    string        `json:"docversion"`
+	Type          AgentType     `json:"type"`
+	TenantID      string        `json:"tenant_id"`
+	ApplicationID string        `json:"application_id"`
+	Settings      AgentSettings `json:"settings"`
+}
+
+// ApplicationConfigResponse represents the config response from platform service.
+// This is the response from GET /tenants/{tenant_id}/applications/{application_id}/config
+// and includes user information.
+type ApplicationConfigResponse struct {
+	DocVersion    string        `json:"docversion"`
+	Type          AgentType     `json:"type"`
+	TenantID      string        `json:"tenant_id"`
+	ApplicationID string        `json:"application_id"`
+	Settings      AgentSettings `json:"settings"`
+	User          *UserInfo     `json:"user,omitempty"`
+}
+
 // AgentConfig represents the complete configuration for an agent application.
+// This includes user data and is used internally when user context is available.
 type AgentConfig struct {
 	DocVersion     string        `json:"docversion"`
 	Type           AgentType     `json:"type"`
@@ -36,18 +60,26 @@ type AgentConfig struct {
 	ConversationID string        `json:"conversation_id"`
 	ApplicationID  string        `json:"application_id"`
 	Settings       AgentSettings `json:"settings"`
-	User           UserInfo      `json:"user"`
+	User           *UserInfo     `json:"user,omitempty"`
 }
 
 // AgentSettings contains the agent-specific settings.
 type AgentSettings struct {
-	APIVersion            string          `json:"api_version"`
-	WorkflowType          N8NWorkflowType `json:"workflow_type"`
-	UseUnifiedChatHistory bool            `json:"use_unified_chat_history"`
-	ChatHistoryCount      int             `json:"chat_history_count"`
-	ChatURL               string          `json:"chat_url"`
-	APICredentials        *Credentials    `json:"api_credentials,omitempty"`
-	ChatCredentials       *Credentials    `json:"chat_credentials,omitempty"`
+	// Common settings
+	APIVersion            string `json:"api_version"`
+	UseUnifiedChatHistory bool   `json:"use_unified_chat_history"`
+	ChatHistoryCount      int    `json:"chat_history_count"`
+
+	// N8N specific settings
+	WorkflowType    N8NWorkflowType `json:"workflow_type,omitempty"`
+	ChatURL         string          `json:"chat_url,omitempty"`
+	APICredentials  *Credentials    `json:"api_credentials,omitempty"`
+	ChatCredentials *Credentials    `json:"chat_credentials,omitempty"`
+
+	// Microsoft Foundry specific settings
+	AgentType       string `json:"agent_type,omitempty"`       // "AGENT" or "MULTI_AGENT"
+	ProjectEndpoint string `json:"project_endpoint,omitempty"` // Full endpoint URL
+	AgentName       string `json:"agent_name,omitempty"`       // Agent name to invoke
 }
 
 // Credentials represents authentication credentials.
@@ -67,12 +99,28 @@ type BasicAuthSecret struct {
 	Password string `json:"password"`
 }
 
-// UserInfo represents user information from the platform.
+// UserInfo represents user information from the platform's identity/me endpoint.
+// This matches the IdentityUserResponse from the Python platform service.
 type UserInfo struct {
-	ID            string `json:"id"`
-	DisplayName   string `json:"display_name"`
-	PrincipalName string `json:"principal_name"`
-	Mail          string `json:"mail"`
+	ID               string                   `json:"id"`
+	IdentityProvider string                   `json:"identity_provider"`
+	IdentityTenantID string                   `json:"identity_tenant_id"`
+	DisplayName      string                   `json:"display_name"`
+	PrincipalName    string                   `json:"principal_name"`
+	Firstname        string                   `json:"firstname"`
+	Lastname         string                   `json:"lastname"`
+	Mail             string                   `json:"mail"`
+	Tenants          []map[string]interface{} `json:"tenants"`
+	Groups           []map[string]interface{} `json:"groups"`
+}
+
+// ConversationResponse represents a conversation from the platform service.
+type ConversationResponse struct {
+	ID                string `json:"id"`
+	Name              string `json:"name"`
+	TenantID          string `json:"tenant_id"`
+	ApplicationID     string `json:"application_id"`
+	ExtConversationID string `json:"ext_conversation_id,omitempty"`
 }
 
 // GetSecretAsString returns the secret as a string (for API keys).
