@@ -23,8 +23,9 @@ type TraceImporter interface {
 
 // FoundryTraceImporter imports traces from Microsoft Foundry.
 type FoundryTraceImporter struct {
-	httpClient *http.Client
-	docDB      docdb.Client
+	httpClient  *http.Client
+	docDB       docdb.Client
+	transformer *FoundryTransformer
 }
 
 // NewFoundryTraceImporter creates a new Foundry trace importer.
@@ -33,7 +34,8 @@ func NewFoundryTraceImporter(docDB docdb.Client) *FoundryTraceImporter {
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
-		docDB: docDB,
+		docDB:       docDB,
+		transformer: NewFoundryTransformer(),
 	}
 }
 
@@ -44,6 +46,12 @@ func (f *FoundryTraceImporter) Import(ctx context.Context, req *FoundryImportReq
 	items, err := f.fetchConversationItems(ctx, req)
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch conversation items: %w", err)
+	}
+
+	// Transform Foundry items into TraceNodes
+	var nodes []models.TraceNode
+	if items != nil && len(items.Data) > 0 {
+		nodes = f.transformer.Transform(items.Data, req.UserID)
 	}
 
 	// Check if trace already exists for this conversation
@@ -62,11 +70,11 @@ func (f *FoundryTraceImporter) Import(ctx context.Context, req *FoundryImportReq
 			"foundry_conversation_id": req.FoundryConversationID,
 			"project_endpoint":        req.ProjectEndpoint,
 			"api_version":             req.APIVersion,
-			"items":                   items,
 			"imported_at":             now.Format(time.RFC3339),
+			"item_count":              len(items.Data),
 		}
 		existingTrace.Logs = req.Logs
-		existingTrace.Nodes = []models.TraceNode{} // Empty nodes for now
+		existingTrace.Nodes = nodes
 		existingTrace.UpdatedAt = now
 		existingTrace.UpdatedBy = req.UserID
 
@@ -90,11 +98,11 @@ func (f *FoundryTraceImporter) Import(ctx context.Context, req *FoundryImportReq
 			"foundry_conversation_id": req.FoundryConversationID,
 			"project_endpoint":        req.ProjectEndpoint,
 			"api_version":             req.APIVersion,
-			"items":                   items,
 			"imported_at":             now.Format(time.RFC3339),
+			"item_count":              len(items.Data),
 		},
 		Logs:      req.Logs,
-		Nodes:     []models.TraceNode{}, // Empty nodes for now
+		Nodes:     nodes,
 		CreatedAt: now,
 		UpdatedAt: now,
 		CreatedBy: req.UserID,

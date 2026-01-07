@@ -1,0 +1,673 @@
+// Package traceimport provides functionality for importing traces from external systems.
+package traceimport
+
+import (
+	"encoding/json"
+	"sort"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/unifiedui/agent-service/internal/domain/models"
+)
+
+// FoundryTransformer transforms Foundry conversation items into TraceNodes.
+type FoundryTransformer struct{}
+
+// NewFoundryTransformer creates a new Foundry transformer.
+func NewFoundryTransformer() *FoundryTransformer {
+	return &FoundryTransformer{}
+}
+
+// Transform converts Foundry conversation items into a hierarchical TraceNode structure.
+// The transformation follows these rules:
+//   - Items are grouped by response_id to form "turns"
+//   - workflow_action items become root nodes with associated messages as children
+//   - message items without workflow context are standalone nodes
+//   - mcp_call, mcp_approval_request, mcp_approval_response are grouped by approval_request_id
+//   - The chronological order is preserved (oldest to newest)
+func (t *FoundryTransformer) Transform(items []FoundryConversationItem, createdBy string) []models.TraceNode {
+	if len(items) == 0 {
+		return []models.TraceNode{}
+	}
+
+	// Reverse items to get chronological order (API returns newest first)
+	reversedItems := make([]FoundryConversationItem, len(items))
+	for i, item := range items {
+		reversedItems[len(items)-1-i] = item
+	}
+
+	// Group items by response_id for turn-based grouping
+	responseGroups := t.groupByResponseID(reversedItems)
+
+	// Build index maps for relationship resolution
+	mcpApprovalGroups := t.groupByApprovalRequestID(reversedItems)
+
+	// Transform into trace nodes
+	nodes := t.buildTraceNodes(reversedItems, responseGroups, mcpApprovalGroups, createdBy)
+
+	return nodes
+}
+
+// groupByResponseID groups items by their response_id.
+// Returns a map from response_id to list of items.
+func (t *FoundryTransformer) groupByResponseID(items []FoundryConversationItem) map[string][]FoundryConversationItem {
+	groups := make(map[string][]FoundryConversationItem)
+
+	for _, item := range items {
+		responseID := t.extractResponseID(item)
+		if responseID != "" {
+			groups[responseID] = append(groups[responseID], item)
+		}
+	}
+
+	return groups
+}
+
+// groupByApprovalRequestID groups MCP items by their approval_request_id.
+func (t *FoundryTransformer) groupByApprovalRequestID(items []FoundryConversationItem) map[string][]FoundryConversationItem {
+	groups := make(map[string][]FoundryConversationItem)
+
+	for _, item := range items {
+		if item.ApprovalRequestID != "" {
+			groups[item.ApprovalRequestID] = append(groups[item.ApprovalRequestID], item)
+		}
+	}
+
+	return groups
+}
+
+// extractResponseID extracts the response_id from an item's created_by field.
+func (t *FoundryTransformer) extractResponseID(item FoundryConversationItem) string {
+	if item.CreatedBy == nil {
+		return ""
+	}
+
+	if responseID, ok := item.CreatedBy["response_id"].(string); ok {
+		return responseID
+	}
+
+	return ""
+}
+
+// buildTraceNodes builds the hierarchical trace node structure.
+func (t *FoundryTransformer) buildTraceNodes(
+	items []FoundryConversationItem,
+	responseGroups map[string][]FoundryConversationItem,
+	mcpApprovalGroups map[string][]FoundryConversationItem,
+	createdBy string,
+) []models.TraceNode {
+	var nodes []models.TraceNode
+	processedIDs := make(map[string]bool)
+
+	for _, item := range items {
+		// Skip already processed items
+		if processedIDs[item.ID] {
+			continue
+		}
+
+		// Handle based on item type
+		switch item.Type {
+		case "message":
+			node := t.transformMessage(item, createdBy)
+			nodes = append(nodes, node)
+			processedIDs[item.ID] = true
+
+		case "workflow_action":
+			node := t.transformWorkflowAction(item, responseGroups, createdBy)
+			nodes = append(nodes, node)
+			processedIDs[item.ID] = true
+
+		case "mcp_approval_request":
+			// MCP approval request is the parent, gather related items
+			node := t.transformMCPGroup(item, mcpApprovalGroups, createdBy)
+			nodes = append(nodes, node)
+			processedIDs[item.ID] = true
+			// Mark related items as processed
+			if relatedItems, ok := mcpApprovalGroups[item.ID]; ok {
+				for _, related := range relatedItems {
+					processedIDs[related.ID] = true
+				}
+			}
+
+		case "mcp_call":
+			// Only process if not part of an approval group
+			if item.ApprovalRequestID == "" || !t.hasApprovalRequest(items, item.ApprovalRequestID) {
+				node := t.transformMCPCall(item, createdBy)
+				nodes = append(nodes, node)
+			}
+			processedIDs[item.ID] = true
+
+		case "mcp_approval_response":
+			// Skip - will be processed as part of approval request
+			processedIDs[item.ID] = true
+
+		case "mcp_list_tools":
+			node := t.transformMCPListTools(item, createdBy)
+			nodes = append(nodes, node)
+			processedIDs[item.ID] = true
+
+		default:
+			// Handle unknown types as custom nodes
+			node := t.transformUnknown(item, createdBy)
+			nodes = append(nodes, node)
+			processedIDs[item.ID] = true
+		}
+	}
+
+	return nodes
+}
+
+// hasApprovalRequest checks if there's an approval request item with the given ID.
+func (t *FoundryTransformer) hasApprovalRequest(items []FoundryConversationItem, approvalRequestID string) bool {
+	for _, item := range items {
+		if item.Type == "mcp_approval_request" && item.ID == approvalRequestID {
+			return true
+		}
+	}
+	return false
+}
+
+// transformMessage transforms a message item into a TraceNode.
+func (t *FoundryTransformer) transformMessage(item FoundryConversationItem, createdBy string) models.TraceNode {
+	now := time.Now().UTC()
+
+	// Extract text from content
+	inputText, outputText := t.extractMessageContent(item)
+
+	// Determine name based on role
+	name := "Message"
+	if item.Role == "user" {
+		name = "User Message"
+	} else if item.Role == "assistant" {
+		name = "Assistant Response"
+	}
+
+	node := models.TraceNode{
+		ID:          "node_" + uuid.New().String(),
+		Name:        name,
+		Type:        models.NodeTypeLLM,
+		ReferenceID: item.ID,
+		Status:      t.mapStatus(item.Status),
+		Data: &models.NodeData{
+			Input: &models.NodeDataIO{
+				Text: inputText,
+				Metadata: map[string]interface{}{
+					"role": item.Role,
+					"type": item.Type,
+				},
+			},
+			Output: &models.NodeDataIO{
+				Text: outputText,
+				Metadata: map[string]interface{}{
+					"role": item.Role,
+					"type": item.Type,
+				},
+			},
+		},
+		Metadata:  t.buildMessageMetadata(item),
+		Nodes:     []models.TraceNode{},
+		Logs:      []string{},
+		CreatedAt: now,
+		UpdatedAt: now,
+		CreatedBy: createdBy,
+		UpdatedBy: createdBy,
+	}
+
+	return node
+}
+
+// transformWorkflowAction transforms a workflow_action item into a TraceNode.
+func (t *FoundryTransformer) transformWorkflowAction(
+	item FoundryConversationItem,
+	responseGroups map[string][]FoundryConversationItem,
+	createdBy string,
+) models.TraceNode {
+	now := time.Now().UTC()
+
+	// Build name from kind
+	name := "Workflow Action"
+	if item.Kind != "" {
+		name = t.formatKindAsName(item.Kind)
+	}
+
+	node := models.TraceNode{
+		ID:          "node_" + uuid.New().String(),
+		Name:        name,
+		Type:        models.NodeTypeWorkflow,
+		ReferenceID: item.ID,
+		Status:      t.mapStatus(item.Status),
+		Data: &models.NodeData{
+			Input: &models.NodeDataIO{
+				Metadata: map[string]interface{}{
+					"kind":               item.Kind,
+					"action_id":          item.ActionID,
+					"parent_action_id":   item.ParentActionID,
+					"previous_action_id": item.PreviousActionID,
+				},
+			},
+		},
+		Metadata:  t.buildWorkflowMetadata(item),
+		Nodes:     []models.TraceNode{},
+		Logs:      []string{},
+		CreatedAt: now,
+		UpdatedAt: now,
+		CreatedBy: createdBy,
+		UpdatedBy: createdBy,
+	}
+
+	return node
+}
+
+// transformMCPGroup transforms an MCP approval request and its related items into a TraceNode.
+func (t *FoundryTransformer) transformMCPGroup(
+	approvalRequest FoundryConversationItem,
+	mcpApprovalGroups map[string][]FoundryConversationItem,
+	createdBy string,
+) models.TraceNode {
+	now := time.Now().UTC()
+
+	// Get related items
+	relatedItems := mcpApprovalGroups[approvalRequest.ID]
+
+	// Find the actual call and response
+	var mcpCall *FoundryConversationItem
+	var mcpResponse *FoundryConversationItem
+
+	for i := range relatedItems {
+		switch relatedItems[i].Type {
+		case "mcp_call":
+			mcpCall = &relatedItems[i]
+		case "mcp_approval_response":
+			mcpResponse = &relatedItems[i]
+		}
+	}
+
+	// Build name from tool name
+	name := "MCP Tool Call"
+	if approvalRequest.Name != "" {
+		name = approvalRequest.Name
+	}
+
+	// Build input from arguments
+	inputText := approvalRequest.Arguments
+	outputText := ""
+	if mcpCall != nil && mcpCall.Output != "" {
+		outputText = mcpCall.Output
+	}
+
+	// Determine status
+	status := models.NodeStatusCompleted
+	if mcpResponse != nil && mcpResponse.Approve != nil && !*mcpResponse.Approve {
+		status = models.NodeStatusCancelled
+	}
+
+	// Build sub-nodes for the group
+	var subNodes []models.TraceNode
+
+	// Add approval request as sub-node
+	subNodes = append(subNodes, t.transformMCPApprovalRequest(approvalRequest, createdBy))
+
+	// Add approval response if exists
+	if mcpResponse != nil {
+		subNodes = append(subNodes, t.transformMCPApprovalResponse(*mcpResponse, createdBy))
+	}
+
+	// Add call if exists
+	if mcpCall != nil {
+		subNodes = append(subNodes, t.transformMCPCall(*mcpCall, createdBy))
+	}
+
+	node := models.TraceNode{
+		ID:          "node_" + uuid.New().String(),
+		Name:        name,
+		Type:        models.NodeTypeTool,
+		ReferenceID: approvalRequest.ID,
+		Status:      status,
+		Data: &models.NodeData{
+			Input: &models.NodeDataIO{
+				Text: inputText,
+				Metadata: map[string]interface{}{
+					"server_label": approvalRequest.ServerLabel,
+					"tool_name":    approvalRequest.Name,
+				},
+			},
+			Output: &models.NodeDataIO{
+				Text: outputText,
+			},
+		},
+		Metadata:  t.buildMCPMetadata(approvalRequest),
+		Nodes:     subNodes,
+		Logs:      []string{},
+		CreatedAt: now,
+		UpdatedAt: now,
+		CreatedBy: createdBy,
+		UpdatedBy: createdBy,
+	}
+
+	return node
+}
+
+// transformMCPApprovalRequest transforms an mcp_approval_request into a TraceNode.
+func (t *FoundryTransformer) transformMCPApprovalRequest(item FoundryConversationItem, createdBy string) models.TraceNode {
+	now := time.Now().UTC()
+
+	return models.TraceNode{
+		ID:          "node_" + uuid.New().String(),
+		Name:        "Approval Request: " + item.Name,
+		Type:        models.NodeTypeTool,
+		ReferenceID: item.ID,
+		Status:      models.NodeStatusCompleted,
+		Data: &models.NodeData{
+			Input: &models.NodeDataIO{
+				Text: item.Arguments,
+				Metadata: map[string]interface{}{
+					"server_label": item.ServerLabel,
+					"tool_name":    item.Name,
+				},
+			},
+		},
+		Metadata:  t.buildMCPMetadata(item),
+		Nodes:     []models.TraceNode{},
+		Logs:      []string{},
+		CreatedAt: now,
+		UpdatedAt: now,
+		CreatedBy: createdBy,
+		UpdatedBy: createdBy,
+	}
+}
+
+// transformMCPApprovalResponse transforms an mcp_approval_response into a TraceNode.
+func (t *FoundryTransformer) transformMCPApprovalResponse(item FoundryConversationItem, createdBy string) models.TraceNode {
+	now := time.Now().UTC()
+
+	status := models.NodeStatusCompleted
+	approved := false
+	if item.Approve != nil {
+		approved = *item.Approve
+		if !approved {
+			status = models.NodeStatusCancelled
+		}
+	}
+
+	name := "Approval Response: Denied"
+	if approved {
+		name = "Approval Response: Approved"
+	}
+
+	return models.TraceNode{
+		ID:          "node_" + uuid.New().String(),
+		Name:        name,
+		Type:        models.NodeTypeTool,
+		ReferenceID: item.ID,
+		Status:      status,
+		Data: &models.NodeData{
+			Output: &models.NodeDataIO{
+				Metadata: map[string]interface{}{
+					"approved":            approved,
+					"approval_request_id": item.ApprovalRequestID,
+				},
+			},
+		},
+		Metadata: map[string]interface{}{
+			"partition_key":       item.PartitionKey,
+			"approval_request_id": item.ApprovalRequestID,
+		},
+		Nodes:     []models.TraceNode{},
+		Logs:      []string{},
+		CreatedAt: now,
+		UpdatedAt: now,
+		CreatedBy: createdBy,
+		UpdatedBy: createdBy,
+	}
+}
+
+// transformMCPCall transforms an mcp_call into a TraceNode.
+func (t *FoundryTransformer) transformMCPCall(item FoundryConversationItem, createdBy string) models.TraceNode {
+	now := time.Now().UTC()
+
+	name := "MCP Call"
+	if item.Name != "" {
+		name = "MCP Call: " + item.Name
+	}
+
+	return models.TraceNode{
+		ID:          "node_" + uuid.New().String(),
+		Name:        name,
+		Type:        models.NodeTypeTool,
+		ReferenceID: item.ID,
+		Status:      t.mapStatus(item.Status),
+		Data: &models.NodeData{
+			Input: &models.NodeDataIO{
+				Text: item.Arguments,
+				Metadata: map[string]interface{}{
+					"server_label": item.ServerLabel,
+					"tool_name":    item.Name,
+				},
+			},
+			Output: &models.NodeDataIO{
+				Text: item.Output,
+			},
+		},
+		Metadata:  t.buildMCPMetadata(item),
+		Nodes:     []models.TraceNode{},
+		Logs:      []string{},
+		CreatedAt: now,
+		UpdatedAt: now,
+		CreatedBy: createdBy,
+		UpdatedBy: createdBy,
+	}
+}
+
+// transformMCPListTools transforms an mcp_list_tools into a TraceNode.
+func (t *FoundryTransformer) transformMCPListTools(item FoundryConversationItem, createdBy string) models.TraceNode {
+	now := time.Now().UTC()
+
+	// Serialize tools for output
+	toolsJSON := ""
+	if item.Content != nil {
+		if data, err := json.Marshal(item.Content); err == nil {
+			toolsJSON = string(data)
+		}
+	}
+
+	return models.TraceNode{
+		ID:          "node_" + uuid.New().String(),
+		Name:        "MCP List Tools: " + item.ServerLabel,
+		Type:        models.NodeTypeTool,
+		ReferenceID: item.ID,
+		Status:      models.NodeStatusCompleted,
+		Data: &models.NodeData{
+			Input: &models.NodeDataIO{
+				Metadata: map[string]interface{}{
+					"server_label": item.ServerLabel,
+				},
+			},
+			Output: &models.NodeDataIO{
+				Text: toolsJSON,
+			},
+		},
+		Metadata: map[string]interface{}{
+			"partition_key": item.PartitionKey,
+			"response_id":   t.extractResponseID(item),
+		},
+		Nodes:     []models.TraceNode{},
+		Logs:      []string{},
+		CreatedAt: now,
+		UpdatedAt: now,
+		CreatedBy: createdBy,
+		UpdatedBy: createdBy,
+	}
+}
+
+// transformUnknown transforms an unknown item type into a TraceNode.
+func (t *FoundryTransformer) transformUnknown(item FoundryConversationItem, createdBy string) models.TraceNode {
+	now := time.Now().UTC()
+
+	// Serialize the whole item for reference
+	itemJSON := ""
+	if data, err := json.Marshal(item); err == nil {
+		itemJSON = string(data)
+	}
+
+	return models.TraceNode{
+		ID:          "node_" + uuid.New().String(),
+		Name:        "Unknown: " + item.Type,
+		Type:        models.NodeTypeCustom,
+		ReferenceID: item.ID,
+		Status:      t.mapStatus(item.Status),
+		Data: &models.NodeData{
+			Input: &models.NodeDataIO{
+				Text: itemJSON,
+				Metadata: map[string]interface{}{
+					"original_type": item.Type,
+				},
+			},
+		},
+		Metadata: map[string]interface{}{
+			"partition_key": item.PartitionKey,
+			"original_type": item.Type,
+		},
+		Nodes:     []models.TraceNode{},
+		Logs:      []string{},
+		CreatedAt: now,
+		UpdatedAt: now,
+		CreatedBy: createdBy,
+		UpdatedBy: createdBy,
+	}
+}
+
+// extractMessageContent extracts input and output text from message content.
+func (t *FoundryTransformer) extractMessageContent(item FoundryConversationItem) (inputText, outputText string) {
+	if item.Content == nil {
+		return "", ""
+	}
+
+	var texts []string
+
+	for _, c := range item.Content {
+		contentMap, ok := c.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		text, ok := contentMap["text"].(string)
+		if ok && text != "" {
+			texts = append(texts, text)
+		}
+	}
+
+	combinedText := strings.Join(texts, "\n")
+
+	// For user messages, text goes to input; for assistant, text goes to output
+	if item.Role == "user" {
+		return combinedText, ""
+	}
+	return "", combinedText
+}
+
+// mapStatus maps Foundry status to NodeStatus.
+func (t *FoundryTransformer) mapStatus(status string) models.NodeStatus {
+	switch status {
+	case "completed":
+		return models.NodeStatusCompleted
+	case "failed":
+		return models.NodeStatusFailed
+	case "cancelled":
+		return models.NodeStatusCancelled
+	case "pending":
+		return models.NodeStatusPending
+	case "running", "in_progress":
+		return models.NodeStatusRunning
+	default:
+		if status == "" {
+			return models.NodeStatusCompleted
+		}
+		return models.NodeStatusCompleted
+	}
+}
+
+// formatKindAsName converts a workflow kind to a readable name.
+func (t *FoundryTransformer) formatKindAsName(kind string) string {
+	// Convert camelCase/PascalCase to readable format
+	// e.g., "EndConversation" -> "End Conversation"
+	var result strings.Builder
+	for i, r := range kind {
+		if i > 0 && r >= 'A' && r <= 'Z' {
+			result.WriteRune(' ')
+		}
+		result.WriteRune(r)
+	}
+	return result.String()
+}
+
+// buildMessageMetadata builds metadata for a message node.
+func (t *FoundryTransformer) buildMessageMetadata(item FoundryConversationItem) map[string]interface{} {
+	metadata := map[string]interface{}{
+		"partition_key": item.PartitionKey,
+	}
+
+	if responseID := t.extractResponseID(item); responseID != "" {
+		metadata["response_id"] = responseID
+	}
+
+	// Extract agent info if present
+	if item.CreatedBy != nil {
+		if agent, ok := item.CreatedBy["agent"].(map[string]interface{}); ok {
+			metadata["agent"] = agent
+		}
+	}
+
+	return metadata
+}
+
+// buildWorkflowMetadata builds metadata for a workflow action node.
+func (t *FoundryTransformer) buildWorkflowMetadata(item FoundryConversationItem) map[string]interface{} {
+	metadata := map[string]interface{}{
+		"action_id":          item.ActionID,
+		"parent_action_id":   item.ParentActionID,
+		"previous_action_id": item.PreviousActionID,
+		"kind":               item.Kind,
+	}
+
+	if responseID := t.extractResponseID(item); responseID != "" {
+		metadata["response_id"] = responseID
+	}
+
+	if item.CreatedBy != nil {
+		if agent, ok := item.CreatedBy["agent"].(map[string]interface{}); ok {
+			metadata["agent"] = agent
+		}
+	}
+
+	return metadata
+}
+
+// buildMCPMetadata builds metadata for an MCP node.
+func (t *FoundryTransformer) buildMCPMetadata(item FoundryConversationItem) map[string]interface{} {
+	metadata := map[string]interface{}{
+		"partition_key":       item.PartitionKey,
+		"server_label":        item.ServerLabel,
+		"approval_request_id": item.ApprovalRequestID,
+	}
+
+	if responseID := t.extractResponseID(item); responseID != "" {
+		metadata["response_id"] = responseID
+	}
+
+	if item.CreatedBy != nil {
+		if agent, ok := item.CreatedBy["agent"].(map[string]interface{}); ok {
+			metadata["agent"] = agent
+		}
+	}
+
+	return metadata
+}
+
+// SortNodesByTime sorts nodes by their creation time.
+func SortNodesByTime(nodes []models.TraceNode) {
+	sort.Slice(nodes, func(i, j int) bool {
+		return nodes[i].CreatedAt.Before(nodes[j].CreatedAt)
+	})
+}

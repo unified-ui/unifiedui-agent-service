@@ -284,16 +284,137 @@ type TracesCollection interface {
 }
 ```
 
-### Future: Trace Transformers
-The architecture supports pluggable transformers for converting external formats:
+### Trace Import System
 
-```go
-// Planned interface for trace transformation
-type TraceTransformer interface {
-    Transform(externalData interface{}) (*models.Trace, error)
-    SourceType() string // "n8n", "langchain", "langgraph", etc.
-}
+The trace import system (`internal/services/traceimport/`) enables importing and transforming traces from external AI platforms.
+
+#### Architecture
+
 ```
+┌──────────────────┐     ┌─────────────────┐     ┌────────────────┐
+│  ImportService   │────▶│ FoundryImporter │────▶│  Foundry API   │
+│  (Queue + Sync)  │     └─────────────────┘     └────────────────┘
+└──────────────────┘              │
+                                  ▼
+                         ┌─────────────────┐
+                         │  Transformer    │
+                         │  (Items→Nodes)  │
+                         └─────────────────┘
+                                  │
+                                  ▼
+                         ┌─────────────────┐
+                         │   TracesDB      │
+                         └─────────────────┘
+```
+
+#### Components
+
+1. **ImportService** (`importer.go`): Manages async job queue and sync imports
+2. **FoundryTraceImporter** (`importer.go`): Fetches from Microsoft Foundry API
+3. **FoundryTransformer** (`transformer.go`): Transforms Foundry items to TraceNodes
+4. **JobQueue** (`queue.go`): Background worker queue for async processing
+
+#### Foundry Item Type Mappings
+
+| Foundry Type | NodeType | Description |
+|--------------|----------|-------------|
+| `message` | `llm` | User/assistant messages |
+| `workflow_action` | `workflow` | Workflow steps (SendActivity, EndConversation, InvokeAzureAgent) |
+| `mcp_approval_request` | `tool` | MCP tool approval requests (parent) |
+| `mcp_approval_response` | `tool` | User approval/denial |
+| `mcp_call` | `tool` | Actual tool execution |
+| `mcp_list_tools` | `tool` | Tool discovery |
+| Unknown types | `custom` | Fallback for new types |
+
+#### Foundry Status Mappings
+
+| Foundry Status | NodeStatus |
+|----------------|------------|
+| `completed` | `completed` |
+| `failed` | `failed` |
+| `cancelled` | `cancelled` |
+| `pending` | `pending` |
+| `running`, `in_progress` | `running` |
+| Empty/Unknown | `completed` |
+
+#### Field Mappings
+
+**Root Trace:**
+- `referenceId` ← `foundryConversationId`
+- `referenceName` ← `"Microsoft Foundry Conversation"`
+- `referenceMetadata` ← `{ foundry_conversation_id, project_endpoint, api_version, imported_at, item_count }`
+- `logs` ← Request logs array
+
+**TraceNode:**
+- `referenceId` ← `item.id`
+- `type` ← Mapped from `item.type` (see table above)
+- `status` ← Mapped from `item.status` (see table above)
+- `name` ← Derived from type/role/kind
+- `data.input.text` ← Content text (for user messages) or arguments (for tools)
+- `data.output.text` ← Content text (for assistant) or output (for tools)
+- `metadata` ← `{ partition_key, response_id, agent, action_id, parent_action_id, etc. }`
+
+#### Transformation Algorithm
+
+1. **Reverse Order**: API returns newest-first; transformer reverses for chronological order
+2. **Group by response_id**: Items in same response are related
+3. **Group MCP by approval_request_id**: Links approval_request → approval_response → mcp_call
+4. **Build Hierarchy**: MCP groups create parent nodes with sub-nodes
+
+#### Usage Examples
+
+**Sync Import (PUT /traces/import/refresh):**
+```go
+traceID, err := importService.ImportFoundryTraces(ctx, &FoundryImportRequest{
+    ImportRequest: ImportRequest{
+        TenantID:       tenantID,
+        ConversationID: conversationID,
+        ApplicationID:  applicationID,
+        Logs:           []string{"Import initiated"},
+        UserID:         userID,
+    },
+    FoundryConversationID: foundryConvID,
+    ProjectEndpoint:       "https://project.ai.azure.com",
+    APIVersion:            "2025-01-01-preview",
+    FoundryAPIToken:       token,
+})
+```
+
+**Async Import (Background):**
+```go
+importService.EnqueueFoundryImport(&FoundryImportRequest{...})
+```
+
+#### Adding a New Backend Importer (e.g., N8N)
+
+1. Create transformer: `internal/services/traceimport/n8n_transformer.go`
+   ```go
+   type N8NTransformer struct{}
+   
+   func (t *N8NTransformer) Transform(executions []N8NExecution, createdBy string) []models.TraceNode {
+       // Map N8N execution nodes to TraceNodes
+   }
+   ```
+
+2. Create importer: `internal/services/traceimport/n8n_importer.go`
+   ```go
+   type N8NTraceImporter struct {
+       httpClient  *http.Client
+       docDB       docdb.Client
+       transformer *N8NTransformer
+   }
+   ```
+
+3. Register in ImportService:
+   ```go
+   func (s *ImportService) processN8NJob(ctx context.Context, job *ImportJob) error {
+       // Call N8N importer
+   }
+   ```
+
+4. Add job type: `JobTypeN8N = "N8N"`
+
+5. Add tests: `tests/unit/services/traceimport/n8n_transformer_test.go`
 
 ### MongoDB Indexes
 ```go
