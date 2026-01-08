@@ -28,7 +28,7 @@ func (t *Transformer) TransformExecution(execution *ExecutionResponse, createdBy
 	}
 
 	runData := execution.Data.ResultData.RunData
-	if runData == nil || len(runData) == 0 {
+	if len(runData) == 0 {
 		return []models.TraceNode{}
 	}
 
@@ -254,7 +254,7 @@ func (t *Transformer) buildNodeData(nodeExec *NodeExecution, nodeType string) *m
 // extractInputData extracts input data from node execution.
 func (t *Transformer) extractInputData(nodeExec *NodeExecution, nodeType string) *models.NodeDataIO {
 	// Check for input override
-	if nodeExec.InputOverride != nil && len(nodeExec.InputOverride) > 0 {
+	if len(nodeExec.InputOverride) > 0 {
 		return &models.NodeDataIO{
 			ExtraData: nodeExec.InputOverride,
 		}
@@ -262,7 +262,7 @@ func (t *Transformer) extractInputData(nodeExec *NodeExecution, nodeType string)
 
 	// For chat triggers, try to extract chat input
 	if strings.Contains(nodeType, "chatTrigger") || strings.Contains(nodeType, "ChatTrigger") {
-		if nodeExec.Data.Main != nil && len(nodeExec.Data.Main) > 0 && len(nodeExec.Data.Main[0]) > 0 {
+		if len(nodeExec.Data.Main) > 0 && len(nodeExec.Data.Main[0]) > 0 {
 			firstItem := nodeExec.Data.Main[0][0]
 			if chatInput, ok := firstItem.JSON["chatInput"].(string); ok {
 				return &models.NodeDataIO{
@@ -282,7 +282,7 @@ func (t *Transformer) extractInputData(nodeExec *NodeExecution, nodeType string)
 
 // extractOutputData extracts output data from node execution.
 func (t *Transformer) extractOutputData(nodeExec *NodeExecution, nodeType string) *models.NodeDataIO {
-	if nodeExec.Data.Main == nil || len(nodeExec.Data.Main) == 0 {
+	if len(nodeExec.Data.Main) == 0 {
 		return nil
 	}
 
@@ -412,7 +412,7 @@ func (t *Transformer) ExtractSessionID(execution *ExecutionResponse) string {
 	for nodeName, nodeExecutions := range runData {
 		if strings.Contains(strings.ToLower(nodeName), "chat") || strings.Contains(strings.ToLower(nodeName), "trigger") {
 			for _, nodeExec := range nodeExecutions {
-				if nodeExec.Data.Main != nil && len(nodeExec.Data.Main) > 0 && len(nodeExec.Data.Main[0]) > 0 {
+				if len(nodeExec.Data.Main) > 0 && len(nodeExec.Data.Main[0]) > 0 {
 					firstItem := nodeExec.Data.Main[0][0]
 					if sessionID, ok := firstItem.JSON["sessionId"].(string); ok {
 						return sessionID
