@@ -403,23 +403,31 @@ func (h *MessagesHandler) handleStreamingResponse(
 			h.enqueueFoundryTraceImport(tenantCtx, agentConfig, userMessage, extConversationID, foundryAPIKey)
 		}
 	} else {
-		h.handleDefaultStreaming(ctx, writer, streamReader, agentConfig, userMessage, assistantMessage, startTime)
+		executionID := h.handleDefaultStreaming(ctx, writer, streamReader, tenantCtx, agentConfig, userMessage, assistantMessage, startTime)
 		// Update session cache with new chat history (only for non-Foundry agents)
 		h.updateSessionCache(ctx, tenantCtx, agentConfig, userMessage, assistantMessage)
+
+		// Enqueue trace import job for N8N after streaming completes
+		if h.importService != nil && agentConfig.Type == platform.AgentTypeN8N {
+			h.enqueueN8NTraceImport(tenantCtx, agentConfig, userMessage, executionID)
+		}
 	}
 }
 
 // handleDefaultStreaming handles the default streaming response (for N8N etc.)
+// Returns the executionID if one was received during streaming.
 func (h *MessagesHandler) handleDefaultStreaming(
 	ctx context.Context,
 	writer *sse.Writer,
 	streamReader agents.StreamReader,
+	tenantCtx *middleware.TenantContext,
 	agentConfig *platform.AgentConfig,
 	userMessage *models.Message,
 	assistantMessage *models.Message,
 	startTime time.Time,
-) {
+) string {
 	var fullContent string
+	var executionID string
 
 	// Send STREAM_START with messageId and conversationId
 	writer.WriteStreamStart(assistantMessage.ID, userMessage.ConversationID)
@@ -442,6 +450,7 @@ func (h *MessagesHandler) handleDefaultStreaming(
 			writer.WriteTextStream(chunk.Content)
 		case agents.ChunkTypeMetadata:
 			if chunk.ExecutionID != "" {
+				executionID = chunk.ExecutionID
 				if assistantMessage.Metadata == nil {
 					assistantMessage.Metadata = &models.AssistantMetadata{}
 				}
@@ -472,6 +481,8 @@ func (h *MessagesHandler) handleDefaultStreaming(
 	if err := h.docDBClient.Messages().Add(ctx, assistantMessage); err != nil {
 		// Log error but don't fail - message was already sent to client
 	}
+
+	return executionID
 }
 
 // handleFoundryStreaming handles Microsoft Foundry streaming responses with multiple messages support.
@@ -766,6 +777,84 @@ func (h *MessagesHandler) enqueueFoundryTraceImport(
 	req.WithBackendConfig("api_token", foundryAPIKey)
 
 	_ = h.importService.EnqueueImport(platform.AgentTypeFoundry, req)
+}
+
+// enqueueN8NTraceImport enqueues a trace import job for N8N agents.
+func (h *MessagesHandler) enqueueN8NTraceImport(
+	tenantCtx *middleware.TenantContext,
+	agentConfig *platform.AgentConfig,
+	userMessage *models.Message,
+	executionID string,
+) {
+	// Get API key from N8N credentials
+	apiKey := ""
+	if agentConfig.Settings.APICredentials != nil {
+		apiKey = agentConfig.Settings.APICredentials.GetSecretAsString()
+	}
+
+	// If no API key, we can't import traces
+	if apiKey == "" {
+		return
+	}
+
+	// Extract base URL from ChatURL (e.g., "http://localhost:5678/webhook/xxx" -> "http://localhost:5678")
+	baseURL := extractBaseURL(agentConfig.Settings.ChatURL)
+	if baseURL == "" {
+		return
+	}
+
+	// We need either executionID or sessionID (conversation ID as sessionID)
+	// If no executionID, we'll use the conversationID as sessionID to search for the execution
+	if executionID == "" && userMessage.ConversationID == "" {
+		return
+	}
+
+	req := traceimport.NewImportRequest(
+		tenantCtx.TenantID,
+		userMessage.ConversationID,
+		userMessage.ApplicationID,
+		tenantCtx.UserID,
+	)
+
+	// Add N8N-specific configuration
+	req.WithBackendConfig("execution_id", executionID)
+	req.WithBackendConfig("session_id", userMessage.ConversationID) // Use conversationID as sessionID for fallback search
+	req.WithBackendConfig("base_url", baseURL)
+	req.WithBackendConfig("api_key", apiKey)
+
+	_ = h.importService.EnqueueImport(platform.AgentTypeN8N, req)
+}
+
+// extractBaseURL extracts the base URL from a full URL (removes path).
+// e.g., "http://localhost:5678/webhook/xxx" -> "http://localhost:5678"
+func extractBaseURL(fullURL string) string {
+	if fullURL == "" {
+		return ""
+	}
+
+	// Find the protocol prefix
+	protocolEnd := 0
+	if len(fullURL) > 8 && fullURL[:8] == "https://" {
+		protocolEnd = 8
+	} else if len(fullURL) > 7 && fullURL[:7] == "http://" {
+		protocolEnd = 7
+	}
+
+	// Find the first slash after the protocol
+	slashIdx := -1
+	for i := protocolEnd; i < len(fullURL); i++ {
+		if fullURL[i] == '/' {
+			slashIdx = i
+			break
+		}
+	}
+
+	if slashIdx == -1 {
+		// No path, return as-is
+		return fullURL
+	}
+
+	return fullURL[:slashIdx]
 }
 
 // generateMessageID generates a unique message ID.

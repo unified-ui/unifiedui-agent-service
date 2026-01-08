@@ -51,6 +51,7 @@ import (
 	"github.com/unifiedui/agent-service/internal/services/session"
 	"github.com/unifiedui/agent-service/internal/services/traceimport"
 	"github.com/unifiedui/agent-service/internal/services/traceimport/foundry"
+	"github.com/unifiedui/agent-service/internal/services/traceimport/n8n"
 )
 
 func main() {
@@ -109,7 +110,7 @@ func main() {
 
 	// Register trace importers (breaks import cycle by registering here instead of in factory)
 	importService.RegisterImporter(foundry.NewTraceImporter(docDBClient))
-	// Future: importService.RegisterImporter(n8n.NewTraceImporter(docDBClient))
+	importService.RegisterImporter(n8n.NewTraceImporter(docDBClient))
 
 	importService.Start(3)
 	defer importService.Stop()
