@@ -73,9 +73,13 @@ func (n *TraceImporter) Import(ctx context.Context, req *traceimport.ImportReque
 	nodes := n.transformer.TransformExecution(execution, req.UserID)
 
 	// Check if trace already exists for this conversation
-	existingTrace, err := n.docDB.Traces().GetByConversation(ctx, req.TenantID, req.ConversationID)
-	if err != nil {
-		return "", fmt.Errorf("failed to check existing trace: %w", err)
+	// Skip this check if ExistingTraceID is provided (upsert scenario handled by caller)
+	var existingTrace *models.Trace
+	if req.ExistingTraceID == "" && req.ConversationID != "" {
+		existingTrace, err = n.docDB.Traces().GetByConversation(ctx, req.TenantID, req.ConversationID)
+		if err != nil {
+			return "", fmt.Errorf("failed to check existing trace: %w", err)
+		}
 	}
 
 	now := time.Now().UTC()
@@ -110,7 +114,7 @@ func (n *TraceImporter) Import(ctx context.Context, req *traceimport.ImportReque
 	}
 
 	if existingTrace != nil {
-		// Update existing trace with new data
+		// Update existing trace with new data (conversation context)
 		existingTrace.ReferenceID = n8nConfig.ExecutionID
 		existingTrace.ReferenceName = "N8N Workflow Execution"
 		existingTrace.ReferenceMetadata = referenceMetadata
@@ -125,14 +129,46 @@ func (n *TraceImporter) Import(ctx context.Context, req *traceimport.ImportReque
 		return existingTrace.ID, nil
 	}
 
+	// If ExistingTraceID is provided, we need to update that trace (autonomous agent upsert)
+	if req.ExistingTraceID != "" {
+		// Fetch the existing trace and update it
+		existingTraceByID, err := n.docDB.Traces().Get(ctx, req.ExistingTraceID)
+		if err != nil {
+			return "", fmt.Errorf("failed to get existing trace for update: %w", err)
+		}
+		if existingTraceByID != nil {
+			existingTraceByID.ReferenceID = n8nConfig.ExecutionID
+			existingTraceByID.ReferenceName = "N8N Workflow Execution"
+			existingTraceByID.ReferenceMetadata = referenceMetadata
+			existingTraceByID.Logs = req.Logs
+			existingTraceByID.Nodes = nodes
+			existingTraceByID.UpdatedAt = now
+			existingTraceByID.UpdatedBy = req.UserID
+
+			if err := n.docDB.Traces().Update(ctx, existingTraceByID); err != nil {
+				return "", fmt.Errorf("failed to update trace: %w", err)
+			}
+			return existingTraceByID.ID, nil
+		}
+	}
+
 	// Create new trace
 	traceID := "trace_" + uuid.New().String()
+
+	// Determine context type
+	contextType := models.TraceContextConversation
+	if req.AutonomousAgentID != "" {
+		contextType = models.TraceContextAutonomousAgent
+	}
+
+	// Create new trace
 	trace := &models.Trace{
 		ID:                traceID,
 		TenantID:          req.TenantID,
 		ApplicationID:     req.ApplicationID,
 		ConversationID:    req.ConversationID,
-		ContextType:       models.TraceContextConversation,
+		AutonomousAgentID: req.AutonomousAgentID,
+		ContextType:       contextType,
 		ReferenceID:       n8nConfig.ExecutionID,
 		ReferenceName:     "N8N Workflow Execution",
 		ReferenceMetadata: referenceMetadata,

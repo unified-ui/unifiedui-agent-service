@@ -51,6 +51,10 @@ type ImportRequest struct {
 	ConversationID string
 	// ApplicationID is the application ID.
 	ApplicationID string
+	// AutonomousAgentID is the autonomous agent ID (for autonomous agent context).
+	AutonomousAgentID string
+	// ExistingTraceID is set when updating an existing trace (preserves the ID).
+	ExistingTraceID string
 	// Logs are optional log entries to add to the trace.
 	Logs []string
 	// UserID is the user who initiated the import.

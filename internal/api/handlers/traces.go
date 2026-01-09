@@ -932,18 +932,16 @@ func (h *TracesHandler) ImportAutonomousAgentTrace(c *gin.Context) {
 
 	// Create import request using autonomous agent context
 	importReq := &traceimport.ImportRequest{
-		TenantID:      tenantID,
-		UserID:        "autonomous-agent-" + agentID, // Special user ID for autonomous agents
-		BackendConfig: backendConfig,
+		TenantID:          tenantID,
+		AutonomousAgentID: agentID,
+		UserID:            "autonomous-agent-" + agentID, // Special user ID for autonomous agents
+		BackendConfig:     backendConfig,
 	}
 
-	// If trace exists, we need to delete it first and re-import (or update in place)
+	// If trace exists, set the existing trace ID to preserve it during upsert
+	// The importer will handle the update logic using this ID
 	if isUpdate {
-		// Delete the existing trace first
-		if err := h.docDBClient.Traces().Delete(ctx, existingTrace.ID); err != nil {
-			middleware.HandleError(c, errors.NewInternalError("failed to delete existing trace for update", err))
-			return
-		}
+		importReq.ExistingTraceID = existingTrace.ID
 	}
 
 	// Import traces using factory pattern
@@ -951,14 +949,6 @@ func (h *TracesHandler) ImportAutonomousAgentTrace(c *gin.Context) {
 	if err != nil {
 		middleware.HandleError(c, errors.NewInternalError("failed to import traces", err))
 		return
-	}
-
-	// After import, update the trace to link it to the autonomous agent
-	trace, err := h.docDBClient.Traces().Get(ctx, traceID)
-	if err == nil && trace != nil {
-		trace.AutonomousAgentID = agentID
-		trace.ContextType = models.TraceContextAutonomousAgent
-		_ = h.docDBClient.Traces().Update(ctx, trace)
 	}
 
 	// Return appropriate status code based on create vs update

@@ -23,10 +23,15 @@ type MockTraceImporter struct {
 }
 
 // NewMockTraceImporter creates a new mock trace importer that returns a success result.
+// If ExistingTraceID is set in the request, it returns that ID (simulating upsert behavior).
 func NewMockTraceImporter() *MockTraceImporter {
 	return &MockTraceImporter{
 		AgentType: platform.AgentTypeN8N,
 		ImportFunc: func(ctx context.Context, req *traceimport.ImportRequest) (string, error) {
+			// Preserve existing trace ID if set (upsert behavior)
+			if req.ExistingTraceID != "" {
+				return req.ExistingTraceID, nil
+			}
 			return "mock-trace-id", nil
 		},
 	}

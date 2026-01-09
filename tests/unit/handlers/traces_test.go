@@ -731,11 +731,8 @@ func TestTracesHandler_ImportAutonomousAgentTrace_UpdateExisting(t *testing.T) {
 
 	// Mock traces collection - GetByReferenceID returns existing trace
 	mockDocDB.GetTracesCollection().On("GetByReferenceID", mock.Anything, testutils.TestTenantID, "n8n-execution-123").Return(existingTrace, nil)
-	// Delete existing trace
-	mockDocDB.GetTracesCollection().On("Delete", mock.Anything, "existing-trace-id").Return(nil)
-	// Create new trace
-	mockDocDB.GetTracesCollection().On("Create", mock.Anything, mock.Anything).Return(nil)
-	mockDocDB.GetTracesCollection().On("Get", mock.Anything, mock.Anything).Return(testutils.NewTestTrace(), nil)
+	// No Delete needed - the importer will update the existing trace
+	// Update is called by the mock importer
 	mockDocDB.GetTracesCollection().On("Update", mock.Anything, mock.Anything).Return(nil)
 
 	handler := createTestTracesHandler(mockDocDB, mockPlatform)
@@ -756,7 +753,8 @@ func TestTracesHandler_ImportAutonomousAgentTrace_UpdateExisting(t *testing.T) {
 	var response dto.ImportTraceResponse
 	testutils.ParseJSONResponse(t, w, &response)
 
-	assert.NotEmpty(t, response.ID)
+	// IMPORTANT: The trace ID should be preserved during upsert
+	assert.Equal(t, "existing-trace-id", response.ID, "trace ID should be preserved during upsert")
 
 	mockPlatform.AssertExpectations(t)
 }

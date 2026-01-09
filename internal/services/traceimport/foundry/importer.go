@@ -62,15 +62,19 @@ func (f *TraceImporter) Import(ctx context.Context, req *traceimport.ImportReque
 	}
 
 	// Check if trace already exists for this conversation
-	existingTrace, err := f.docDB.Traces().GetByConversation(ctx, req.TenantID, req.ConversationID)
-	if err != nil {
-		return "", fmt.Errorf("failed to check existing trace: %w", err)
+	// Skip this check if ExistingTraceID is provided (upsert scenario handled by caller)
+	var existingTrace *models.Trace
+	if req.ExistingTraceID == "" && req.ConversationID != "" {
+		existingTrace, err = f.docDB.Traces().GetByConversation(ctx, req.TenantID, req.ConversationID)
+		if err != nil {
+			return "", fmt.Errorf("failed to check existing trace: %w", err)
+		}
 	}
 
 	now := time.Now().UTC()
 
 	if existingTrace != nil {
-		// Update existing trace with new data
+		// Update existing trace with new data (conversation context)
 		existingTrace.ReferenceID = foundryConfig.FoundryConversationID
 		existingTrace.ReferenceName = "Microsoft Foundry Conversation"
 		existingTrace.ReferenceMetadata = map[string]interface{}{
@@ -91,16 +95,53 @@ func (f *TraceImporter) Import(ctx context.Context, req *traceimport.ImportReque
 		return existingTrace.ID, nil
 	}
 
+	// If ExistingTraceID is provided, we need to update that trace (autonomous agent upsert)
+	if req.ExistingTraceID != "" {
+		existingTraceByID, err := f.docDB.Traces().Get(ctx, req.ExistingTraceID)
+		if err != nil {
+			return "", fmt.Errorf("failed to get existing trace for update: %w", err)
+		}
+		if existingTraceByID != nil {
+			existingTraceByID.ReferenceID = foundryConfig.FoundryConversationID
+			existingTraceByID.ReferenceName = "Microsoft Foundry Conversation"
+			existingTraceByID.ReferenceMetadata = map[string]interface{}{
+				"foundry_conversation_id": foundryConfig.FoundryConversationID,
+				"project_endpoint":        foundryConfig.ProjectEndpoint,
+				"api_version":             foundryConfig.APIVersion,
+				"imported_at":             now.Format(time.RFC3339),
+				"item_count":              len(items.Data),
+			}
+			existingTraceByID.Logs = req.Logs
+			existingTraceByID.Nodes = nodes
+			existingTraceByID.UpdatedAt = now
+			existingTraceByID.UpdatedBy = req.UserID
+
+			if err := f.docDB.Traces().Update(ctx, existingTraceByID); err != nil {
+				return "", fmt.Errorf("failed to update trace: %w", err)
+			}
+			return existingTraceByID.ID, nil
+		}
+	}
+
 	// Create new trace
 	traceID := "trace_" + uuid.New().String()
+
+	// Determine context type
+	contextType := models.TraceContextConversation
+	if req.AutonomousAgentID != "" {
+		contextType = models.TraceContextAutonomousAgent
+	}
+
+	// Create new trace
 	trace := &models.Trace{
-		ID:             traceID,
-		TenantID:       req.TenantID,
-		ApplicationID:  req.ApplicationID,
-		ConversationID: req.ConversationID,
-		ContextType:    models.TraceContextConversation,
-		ReferenceID:    foundryConfig.FoundryConversationID,
-		ReferenceName:  "Microsoft Foundry Conversation",
+		ID:                traceID,
+		TenantID:          req.TenantID,
+		ApplicationID:     req.ApplicationID,
+		ConversationID:    req.ConversationID,
+		AutonomousAgentID: req.AutonomousAgentID,
+		ContextType:       contextType,
+		ReferenceID:       foundryConfig.FoundryConversationID,
+		ReferenceName:     "Microsoft Foundry Conversation",
 		ReferenceMetadata: map[string]interface{}{
 			"foundry_conversation_id": foundryConfig.FoundryConversationID,
 			"project_endpoint":        foundryConfig.ProjectEndpoint,
