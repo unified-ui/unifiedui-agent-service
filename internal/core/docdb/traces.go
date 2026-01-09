@@ -31,6 +31,11 @@ type TracesCollection interface {
 	// Returns nil if no trace exists.
 	GetByConversation(ctx context.Context, tenantID, conversationID string) (*models.Trace, error)
 
+	// GetByReferenceID retrieves a trace by its external reference ID.
+	// Used for upsert operations when importing traces.
+	// Returns nil if no trace exists.
+	GetByReferenceID(ctx context.Context, tenantID, referenceID string) (*models.Trace, error)
+
 	// ListByConversation retrieves traces for a conversation as a list.
 	ListByConversation(ctx context.Context, tenantID, conversationID string) ([]*models.Trace, error)
 

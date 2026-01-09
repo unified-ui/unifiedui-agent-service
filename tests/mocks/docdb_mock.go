@@ -215,6 +215,15 @@ func (m *MockTracesCollection) GetByConversation(ctx context.Context, tenantID, 
 	return args.Get(0).(*models.Trace), args.Error(1)
 }
 
+// GetByReferenceID gets a trace by its external reference ID.
+func (m *MockTracesCollection) GetByReferenceID(ctx context.Context, tenantID, referenceID string) (*models.Trace, error) {
+	args := m.Called(ctx, tenantID, referenceID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.Trace), args.Error(1)
+}
+
 // GetByAutonomousAgent gets a trace by autonomous agent ID.
 func (m *MockTracesCollection) GetByAutonomousAgent(ctx context.Context, tenantID, autonomousAgentID string) (*models.Trace, error) {
 	args := m.Called(ctx, tenantID, autonomousAgentID)

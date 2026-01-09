@@ -852,9 +852,9 @@ func (h *TracesHandler) buildN8NConfig(
 
 // --- Autonomous Agent Import Handlers ---
 
-// ImportAutonomousAgentTrace handles POST /autonomous-agents/{agentId}/traces/import
-// @Summary Import traces for an autonomous agent
-// @Description Imports traces from an external system (N8N, etc.) for an autonomous agent
+// ImportAutonomousAgentTrace handles PUT /autonomous-agents/{agentId}/traces/import
+// @Summary Import or update traces for an autonomous agent (upsert by executionId)
+// @Description Imports traces from an external system (N8N, etc.) for an autonomous agent. If a trace with the same executionId already exists, it will be updated; otherwise a new trace is created.
 // @Tags Traces
 // @Accept json
 // @Produce json
@@ -862,13 +862,14 @@ func (h *TracesHandler) buildN8NConfig(
 // @Param agentId path string true "Autonomous Agent ID"
 // @Param X-Unified-UI-Autonomous-Agent-API-Key header string true "Autonomous Agent API Key"
 // @Param request body dto.AutonomousAgentImportTraceRequest true "Import request"
-// @Success 201 {object} dto.ImportTraceResponse
+// @Success 200 {object} dto.ImportTraceResponse "Trace updated"
+// @Success 201 {object} dto.ImportTraceResponse "Trace created"
 // @Failure 400 {object} dto.ErrorResponse "Bad request - validation error"
 // @Failure 401 {object} dto.ErrorResponse "Unauthorized - invalid API key"
 // @Failure 404 {object} dto.ErrorResponse "Autonomous agent not found"
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Security ApiKeyAuth
-// @Router /api/v1/agent-service/autonomous-agents/{agentId}/traces/import [post]
+// @Router /api/v1/agent-service/autonomous-agents/{agentId}/traces/import [put]
 func (h *TracesHandler) ImportAutonomousAgentTrace(c *gin.Context) {
 	ctx := c.Request.Context()
 	tenantID := c.Param("tenantId")
@@ -914,6 +915,14 @@ func (h *TracesHandler) ImportAutonomousAgentTrace(c *gin.Context) {
 		return
 	}
 
+	// Check if a trace with this executionId (referenceId) already exists
+	existingTrace, err := h.docDBClient.Traces().GetByReferenceID(ctx, tenantID, req.ExecutionID)
+	if err != nil {
+		middleware.HandleError(c, errors.NewInternalError("failed to check for existing trace", err))
+		return
+	}
+	isUpdate := existingTrace != nil
+
 	// Build backend-specific configuration
 	backendConfig, err := h.buildAutonomousAgentBackendConfig(c, agentConfig, req)
 	if err != nil {
@@ -926,6 +935,15 @@ func (h *TracesHandler) ImportAutonomousAgentTrace(c *gin.Context) {
 		TenantID:      tenantID,
 		UserID:        "autonomous-agent-" + agentID, // Special user ID for autonomous agents
 		BackendConfig: backendConfig,
+	}
+
+	// If trace exists, we need to delete it first and re-import (or update in place)
+	if isUpdate {
+		// Delete the existing trace first
+		if err := h.docDBClient.Traces().Delete(ctx, existingTrace.ID); err != nil {
+			middleware.HandleError(c, errors.NewInternalError("failed to delete existing trace for update", err))
+			return
+		}
 	}
 
 	// Import traces using factory pattern
@@ -943,7 +961,13 @@ func (h *TracesHandler) ImportAutonomousAgentTrace(c *gin.Context) {
 		_ = h.docDBClient.Traces().Update(ctx, trace)
 	}
 
-	c.JSON(http.StatusCreated, dto.ImportTraceResponse{
+	// Return appropriate status code based on create vs update
+	statusCode := http.StatusCreated
+	if isUpdate {
+		statusCode = http.StatusOK
+	}
+
+	c.JSON(statusCode, dto.ImportTraceResponse{
 		ID: traceID,
 	})
 }

@@ -154,7 +154,7 @@ type ImportTraceResponse struct {
 }
 
 // AutonomousAgentImportTraceRequest represents the request body for importing traces for an autonomous agent.
-// This is used with POST /autonomous-agents/{agentId}/traces/import
+// This is used with PUT /autonomous-agents/{agentId}/traces/import (upsert by executionId)
 type AutonomousAgentImportTraceRequest struct {
 	// Type is the agent type for the import (e.g., "N8N", "MICROSOFT_FOUNDRY").
 	// This determines which importer to use.

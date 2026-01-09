@@ -473,11 +473,12 @@ paths:
       tags:
       - Traces
   /api/v1/agent-service/autonomous-agents/{agentId}/traces/import:
-    post:
+    put:
       consumes:
       - application/json
       description: Imports traces from an external system (N8N, etc.) for an autonomous
-        agent
+        agent. If a trace with the same executionId already exists, it will be updated;
+        otherwise a new trace is created.
       parameters:
       - description: Tenant ID
         in: path
@@ -503,8 +504,12 @@ paths:
       produces:
       - application/json
       responses:
+        "200":
+          description: Trace updated
+          schema:
+            $ref: '#/definitions/dto.ImportTraceResponse'
         "201":
-          description: Created
+          description: Trace created
           schema:
             $ref: '#/definitions/dto.ImportTraceResponse'
         "400":
@@ -525,7 +530,7 @@ paths:
             $ref: '#/definitions/dto.ErrorResponse'
       security:
       - ApiKeyAuth: []
-      summary: Import traces for an autonomous agent
+      summary: Import or update traces for an autonomous agent (upsert by executionId)
       tags:
       - Traces
   /api/v1/agent-service/health:

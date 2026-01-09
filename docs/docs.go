@@ -25,13 +25,13 @@ const docTemplate = `{
     "basePath": "{{.BasePath}}",
     "paths": {
         "/api/v1/agent-service/autonomous-agents/{agentId}/traces/import": {
-            "post": {
+            "put": {
                 "security": [
                     {
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Imports traces from an external system (N8N, etc.) for an autonomous agent",
+                "description": "Imports traces from an external system (N8N, etc.) for an autonomous agent. If a trace with the same executionId already exists, it will be updated; otherwise a new trace is created.",
                 "consumes": [
                     "application/json"
                 ],
@@ -41,7 +41,7 @@ const docTemplate = `{
                 "tags": [
                     "Traces"
                 ],
-                "summary": "Import traces for an autonomous agent",
+                "summary": "Import or update traces for an autonomous agent (upsert by executionId)",
                 "parameters": [
                     {
                         "type": "string",
@@ -75,8 +75,14 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
+                    "200": {
+                        "description": "Trace updated",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ImportTraceResponse"
+                        }
+                    },
                     "201": {
-                        "description": "Created",
+                        "description": "Trace created",
                         "schema": {
                             "$ref": "#/definitions/dto.ImportTraceResponse"
                         }

@@ -510,7 +510,7 @@ func TestTracesHandler_RefreshConversationTrace_Success(t *testing.T) {
 }
 
 // =============================================================================
-// Tests for ImportAutonomousAgentTrace handler (POST /autonomous-agents/{agentId}/traces/import)
+// Tests for ImportAutonomousAgentTrace handler (PUT /autonomous-agents/{agentId}/traces/import)
 // =============================================================================
 
 func TestTracesHandler_ImportAutonomousAgentTrace_Success(t *testing.T) {
@@ -545,7 +545,8 @@ func TestTracesHandler_ImportAutonomousAgentTrace_Success(t *testing.T) {
 	// Mock platform client responses
 	mockPlatform.On("GetAutonomousAgentConfig", mock.Anything, testutils.TestTenantID, "auto-agent-123", "test-api-key").Return(agentConfig, nil)
 
-	// Mock traces collection - create will be called
+	// Mock traces collection - GetByReferenceID returns nil (new trace)
+	mockDocDB.GetTracesCollection().On("GetByReferenceID", mock.Anything, testutils.TestTenantID, "n8n-execution-123").Return(nil, nil)
 	mockDocDB.GetTracesCollection().On("Create", mock.Anything, mock.Anything).Return(nil)
 	mockDocDB.GetTracesCollection().On("Get", mock.Anything, mock.Anything).Return(testutils.NewTestTrace(), nil)
 	mockDocDB.GetTracesCollection().On("Update", mock.Anything, mock.Anything).Return(nil)
@@ -556,11 +557,11 @@ func TestTracesHandler_ImportAutonomousAgentTrace_Success(t *testing.T) {
 	handler.GetImportService().RegisterImporter(mocks.NewMockTraceImporter())
 
 	router := testutils.SetupTestRouter()
-	router.POST("/tenants/:tenantId/autonomous-agents/:agentId/traces/import", autonomousAgentAPIKeyMiddleware(), handler.ImportAutonomousAgentTrace)
+	router.PUT("/tenants/:tenantId/autonomous-agents/:agentId/traces/import", autonomousAgentAPIKeyMiddleware(), handler.ImportAutonomousAgentTrace)
 
 	// Execute - use API key header instead of Bearer token
 	headers := map[string]string{"X-Unified-UI-Autonomous-Agent-API-Key": "test-api-key"}
-	w := testutils.PerformRequest(router, "POST", "/tenants/"+testutils.TestTenantID+"/autonomous-agents/auto-agent-123/traces/import", importReq, headers)
+	w := testutils.PerformRequest(router, "PUT", "/tenants/"+testutils.TestTenantID+"/autonomous-agents/auto-agent-123/traces/import", importReq, headers)
 
 	// Assert
 	testutils.AssertStatusCode(t, http.StatusCreated, w)
@@ -590,11 +591,11 @@ func TestTracesHandler_ImportAutonomousAgentTrace_InvalidAPIKey(t *testing.T) {
 	handler := createTestTracesHandler(mockDocDB, mockPlatform)
 
 	router := testutils.SetupTestRouter()
-	router.POST("/tenants/:tenantId/autonomous-agents/:agentId/traces/import", autonomousAgentAPIKeyMiddleware(), handler.ImportAutonomousAgentTrace)
+	router.PUT("/tenants/:tenantId/autonomous-agents/:agentId/traces/import", autonomousAgentAPIKeyMiddleware(), handler.ImportAutonomousAgentTrace)
 
 	// Execute
 	headers := map[string]string{"X-Unified-UI-Autonomous-Agent-API-Key": "invalid-api-key"}
-	w := testutils.PerformRequest(router, "POST", "/tenants/"+testutils.TestTenantID+"/autonomous-agents/auto-agent-123/traces/import", importReq, headers)
+	w := testutils.PerformRequest(router, "PUT", "/tenants/"+testutils.TestTenantID+"/autonomous-agents/auto-agent-123/traces/import", importReq, headers)
 
 	// Assert
 	testutils.AssertStatusCode(t, http.StatusUnauthorized, w)
@@ -619,11 +620,11 @@ func TestTracesHandler_ImportAutonomousAgentTrace_AgentNotFound(t *testing.T) {
 	handler := createTestTracesHandler(mockDocDB, mockPlatform)
 
 	router := testutils.SetupTestRouter()
-	router.POST("/tenants/:tenantId/autonomous-agents/:agentId/traces/import", autonomousAgentAPIKeyMiddleware(), handler.ImportAutonomousAgentTrace)
+	router.PUT("/tenants/:tenantId/autonomous-agents/:agentId/traces/import", autonomousAgentAPIKeyMiddleware(), handler.ImportAutonomousAgentTrace)
 
 	// Execute
 	headers := map[string]string{"X-Unified-UI-Autonomous-Agent-API-Key": "test-api-key"}
-	w := testutils.PerformRequest(router, "POST", "/tenants/"+testutils.TestTenantID+"/autonomous-agents/non-existent-agent/traces/import", importReq, headers)
+	w := testutils.PerformRequest(router, "PUT", "/tenants/"+testutils.TestTenantID+"/autonomous-agents/non-existent-agent/traces/import", importReq, headers)
 
 	// Assert
 	testutils.AssertStatusCode(t, http.StatusNotFound, w)
@@ -654,11 +655,11 @@ func TestTracesHandler_ImportAutonomousAgentTrace_UnsupportedAgentType(t *testin
 	// Note: No importer registered for the requested type
 
 	router := testutils.SetupTestRouter()
-	router.POST("/tenants/:tenantId/autonomous-agents/:agentId/traces/import", autonomousAgentAPIKeyMiddleware(), handler.ImportAutonomousAgentTrace)
+	router.PUT("/tenants/:tenantId/autonomous-agents/:agentId/traces/import", autonomousAgentAPIKeyMiddleware(), handler.ImportAutonomousAgentTrace)
 
 	// Execute
 	headers := map[string]string{"X-Unified-UI-Autonomous-Agent-API-Key": "test-api-key"}
-	w := testutils.PerformRequest(router, "POST", "/tenants/"+testutils.TestTenantID+"/autonomous-agents/auto-agent-123/traces/import", importReq, headers)
+	w := testutils.PerformRequest(router, "PUT", "/tenants/"+testutils.TestTenantID+"/autonomous-agents/auto-agent-123/traces/import", importReq, headers)
 
 	// Assert - should fail due to unsupported/invalid type
 	testutils.AssertStatusCode(t, http.StatusBadRequest, w)
@@ -679,14 +680,85 @@ func TestTracesHandler_ImportAutonomousAgentTrace_MissingExecutionID(t *testing.
 	handler := createTestTracesHandler(mockDocDB, mockPlatform)
 
 	router := testutils.SetupTestRouter()
-	router.POST("/tenants/:tenantId/autonomous-agents/:agentId/traces/import", autonomousAgentAPIKeyMiddleware(), handler.ImportAutonomousAgentTrace)
+	router.PUT("/tenants/:tenantId/autonomous-agents/:agentId/traces/import", autonomousAgentAPIKeyMiddleware(), handler.ImportAutonomousAgentTrace)
 
 	// Execute
 	headers := map[string]string{"X-Unified-UI-Autonomous-Agent-API-Key": "test-api-key"}
-	w := testutils.PerformRequest(router, "POST", "/tenants/"+testutils.TestTenantID+"/autonomous-agents/auto-agent-123/traces/import", importReq, headers)
+	w := testutils.PerformRequest(router, "PUT", "/tenants/"+testutils.TestTenantID+"/autonomous-agents/auto-agent-123/traces/import", importReq, headers)
 
 	// Assert - should fail validation
 	testutils.AssertStatusCode(t, http.StatusBadRequest, w)
+}
+
+func TestTracesHandler_ImportAutonomousAgentTrace_UpdateExisting(t *testing.T) {
+	// Setup - test upsert scenario where trace already exists (should return 200)
+	mockDocDB := mocks.NewMockDocDBClient()
+	mockPlatform := &mocks.MockPlatformClient{}
+
+	importReq := dto.AutonomousAgentImportTraceRequest{
+		Type:        "N8N",
+		ExecutionID: "n8n-execution-123",
+		SessionID:   "session-456",
+	}
+
+	agentConfig := &platform.AutonomousAgentConfigResponse{
+		Type:              platform.AgentTypeN8N,
+		TenantID:          testutils.TestTenantID,
+		AutonomousAgentID: "auto-agent-123",
+		Settings: platform.AutonomousAgentConfigSettings{
+			APIVersion:          "v1",
+			N8NHost:             "https://n8n.example.com",
+			N8NWorkflowEndpoint: "https://n8n.example.com/api/v1",
+			WorkflowID:          "workflow-123",
+			APICredentials: &platform.Credentials{
+				ID:     "cred-123",
+				Name:   "N8N API Key",
+				Type:   platform.CredentialTypeN8NAPIKey,
+				Secret: "test-n8n-api-key",
+			},
+		},
+	}
+
+	// Existing trace to be replaced
+	existingTrace := testutils.NewTestTrace()
+	existingTrace.ID = "existing-trace-id"
+	existingTrace.ReferenceID = "n8n-execution-123"
+	existingTrace.AutonomousAgentID = "auto-agent-123"
+	existingTrace.ContextType = models.TraceContextAutonomousAgent
+
+	// Mock platform client responses
+	mockPlatform.On("GetAutonomousAgentConfig", mock.Anything, testutils.TestTenantID, "auto-agent-123", "test-api-key").Return(agentConfig, nil)
+
+	// Mock traces collection - GetByReferenceID returns existing trace
+	mockDocDB.GetTracesCollection().On("GetByReferenceID", mock.Anything, testutils.TestTenantID, "n8n-execution-123").Return(existingTrace, nil)
+	// Delete existing trace
+	mockDocDB.GetTracesCollection().On("Delete", mock.Anything, "existing-trace-id").Return(nil)
+	// Create new trace
+	mockDocDB.GetTracesCollection().On("Create", mock.Anything, mock.Anything).Return(nil)
+	mockDocDB.GetTracesCollection().On("Get", mock.Anything, mock.Anything).Return(testutils.NewTestTrace(), nil)
+	mockDocDB.GetTracesCollection().On("Update", mock.Anything, mock.Anything).Return(nil)
+
+	handler := createTestTracesHandler(mockDocDB, mockPlatform)
+
+	// Register N8N importer (handler needs this)
+	handler.GetImportService().RegisterImporter(mocks.NewMockTraceImporter())
+
+	router := testutils.SetupTestRouter()
+	router.PUT("/tenants/:tenantId/autonomous-agents/:agentId/traces/import", autonomousAgentAPIKeyMiddleware(), handler.ImportAutonomousAgentTrace)
+
+	// Execute - use API key header instead of Bearer token
+	headers := map[string]string{"X-Unified-UI-Autonomous-Agent-API-Key": "test-api-key"}
+	w := testutils.PerformRequest(router, "PUT", "/tenants/"+testutils.TestTenantID+"/autonomous-agents/auto-agent-123/traces/import", importReq, headers)
+
+	// Assert - should return 200 for update (not 201 for create)
+	testutils.AssertStatusCode(t, http.StatusOK, w)
+
+	var response dto.ImportTraceResponse
+	testutils.ParseJSONResponse(t, w, &response)
+
+	assert.NotEmpty(t, response.ID)
+
+	mockPlatform.AssertExpectations(t)
 }
 
 // =============================================================================

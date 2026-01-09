@@ -88,8 +88,8 @@ func Setup(r *gin.Engine, cfg *Config) {
 		{
 			agentImportRoutes := agentImport.Group("/autonomous-agents/:agentId")
 			{
-				// Import traces for an autonomous agent
-				agentImportRoutes.POST("/traces/import", cfg.TracesHandler.ImportAutonomousAgentTrace)
+				// Import/upsert traces for an autonomous agent (create or replace by executionId)
+				agentImportRoutes.PUT("/traces/import", cfg.TracesHandler.ImportAutonomousAgentTrace)
 				// Refresh imported trace for an autonomous agent
 				agentImportRoutes.PUT("/traces/:traceId/import/refresh", cfg.TracesHandler.RefreshAutonomousAgentImportTrace)
 			}

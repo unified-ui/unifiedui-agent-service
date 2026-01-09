@@ -80,6 +80,25 @@ func (c *TracesCollection) GetByConversation(ctx context.Context, tenantID, conv
 	return &trace, nil
 }
 
+// GetByReferenceID retrieves a trace by its external reference ID.
+// Used for upsert operations when importing traces.
+func (c *TracesCollection) GetByReferenceID(ctx context.Context, tenantID, referenceID string) (*models.Trace, error) {
+	filter := bson.M{
+		"tenantId":    tenantID,
+		"referenceId": referenceID,
+	}
+
+	var trace models.Trace
+	err := c.collection.FindOne(ctx, filter).Decode(&trace)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get trace by reference ID: %w", err)
+	}
+	return &trace, nil
+}
+
 // ListByConversation retrieves traces for a conversation as a list.
 func (c *TracesCollection) ListByConversation(ctx context.Context, tenantID, conversationID string) ([]*models.Trace, error) {
 	filter := bson.M{
