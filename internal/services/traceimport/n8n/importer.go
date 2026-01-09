@@ -72,11 +72,12 @@ func (n *TraceImporter) Import(ctx context.Context, req *traceimport.ImportReque
 	// Transform N8N execution into TraceNodes
 	nodes := n.transformer.TransformExecution(execution, req.UserID)
 
-	// Check if trace already exists for this conversation
+	// Check if trace already exists for this executionId (referenceId)
 	// Skip this check if ExistingTraceID is provided (upsert scenario handled by caller)
+	// N8N: Each execution creates a new trace, lookup by executionId as referenceId
 	var existingTrace *models.Trace
-	if req.ExistingTraceID == "" && req.ConversationID != "" {
-		existingTrace, err = n.docDB.Traces().GetByConversation(ctx, req.TenantID, req.ConversationID)
+	if req.ExistingTraceID == "" && n8nConfig.ExecutionID != "" {
+		existingTrace, err = n.docDB.Traces().GetByReferenceID(ctx, req.TenantID, n8nConfig.ExecutionID)
 		if err != nil {
 			return "", fmt.Errorf("failed to check existing trace: %w", err)
 		}
@@ -238,9 +239,13 @@ func (n *TraceImporter) fetchExecution(ctx context.Context, config *N8NConfig) (
 func (n *TraceImporter) findExecutionBySessionID(ctx context.Context, config *N8NConfig) (string, error) {
 	// Build URL for listing executions
 	// We'll fetch recent executions and filter by session ID
+	// If workflowId is available, use it to narrow down the search
 	url := fmt.Sprintf("%s/api/v1/executions?status=success&limit=100&includeData=true",
 		config.BaseURL,
 	)
+	if config.WorkflowID != "" {
+		url = fmt.Sprintf("%s&workflowId=%s", url, config.WorkflowID)
+	}
 
 	// Create request
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)

@@ -61,11 +61,11 @@ func (f *TraceImporter) Import(ctx context.Context, req *traceimport.ImportReque
 		nodes = f.transformer.Transform(items.Data, req.UserID)
 	}
 
-	// Check if trace already exists for this conversation
+	// Check if trace already exists for this extConversationId (referenceId)
 	// Skip this check if ExistingTraceID is provided (upsert scenario handled by caller)
 	var existingTrace *models.Trace
-	if req.ExistingTraceID == "" && req.ConversationID != "" {
-		existingTrace, err = f.docDB.Traces().GetByConversation(ctx, req.TenantID, req.ConversationID)
+	if req.ExistingTraceID == "" && foundryConfig.FoundryConversationID != "" {
+		existingTrace, err = f.docDB.Traces().GetByReferenceID(ctx, req.TenantID, foundryConfig.FoundryConversationID)
 		if err != nil {
 			return "", fmt.Errorf("failed to check existing trace: %w", err)
 		}
