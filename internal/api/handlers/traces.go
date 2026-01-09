@@ -3,6 +3,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -34,6 +35,11 @@ func NewTracesHandler(docDBClient docdb.Client, platformClient platform.Client, 
 		platformClient: platformClient,
 		importService:  importService,
 	}
+}
+
+// GetImportService returns the import service for testing purposes.
+func (h *TracesHandler) GetImportService() *traceimport.ImportService {
+	return h.importService
 }
 
 // CreateTrace handles POST /tenants/{tenantId}/traces
@@ -842,4 +848,319 @@ func (h *TracesHandler) buildN8NConfig(
 		"N8N trace import not yet implemented",
 		"",
 	)
+}
+
+// --- Autonomous Agent Import Handlers ---
+
+// ImportAutonomousAgentTrace handles POST /autonomous-agents/{agentId}/traces/import
+// @Summary Import traces for an autonomous agent
+// @Description Imports traces from an external system (N8N, etc.) for an autonomous agent
+// @Tags Traces
+// @Accept json
+// @Produce json
+// @Param tenantId path string true "Tenant ID"
+// @Param agentId path string true "Autonomous Agent ID"
+// @Param X-Unified-UI-Autonomous-Agent-API-Key header string true "Autonomous Agent API Key"
+// @Param request body dto.AutonomousAgentImportTraceRequest true "Import request"
+// @Success 201 {object} dto.ImportTraceResponse
+// @Failure 400 {object} dto.ErrorResponse "Bad request - validation error"
+// @Failure 401 {object} dto.ErrorResponse "Unauthorized - invalid API key"
+// @Failure 404 {object} dto.ErrorResponse "Autonomous agent not found"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error"
+// @Security ApiKeyAuth
+// @Router /api/v1/agent-service/autonomous-agents/{agentId}/traces/import [post]
+func (h *TracesHandler) ImportAutonomousAgentTrace(c *gin.Context) {
+	ctx := c.Request.Context()
+	tenantID := c.Param("tenantId")
+	agentID := c.Param("agentId")
+	apiKey := middleware.GetAutonomousAgentAPIKey(c)
+
+	// Parse request body
+	var req dto.AutonomousAgentImportTraceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.HandleError(c, errors.NewValidationError("invalid request body", err.Error()))
+		return
+	}
+
+	// Get autonomous agent config from platform service (validates API key)
+	agentConfig, err := h.platformClient.GetAutonomousAgentConfig(ctx, tenantID, agentID, apiKey)
+	if err != nil {
+		errStr := err.Error()
+		if strings.HasPrefix(errStr, "unauthorized") {
+			middleware.HandleError(c, errors.NewUnauthorizedError("invalid API key"))
+			return
+		}
+		if strings.HasPrefix(errStr, "not_found") {
+			middleware.HandleError(c, errors.NewNotFoundError("autonomous agent", agentID))
+			return
+		}
+		middleware.HandleError(c, errors.NewInternalError("failed to get autonomous agent config", err))
+		return
+	}
+
+	// Map request type to platform agent type
+	agentType, err := h.mapImportType(req.Type)
+	if err != nil {
+		middleware.HandleError(c, errors.NewValidationError("invalid agent type", err.Error()))
+		return
+	}
+
+	// Check if importer is registered for this agent type
+	if !h.importService.HasImporter(agentType) {
+		middleware.HandleError(c, errors.NewValidationError(
+			"unsupported agent type for trace import",
+			string(agentType),
+		))
+		return
+	}
+
+	// Build backend-specific configuration
+	backendConfig, err := h.buildAutonomousAgentBackendConfig(c, agentConfig, req)
+	if err != nil {
+		middleware.HandleError(c, err)
+		return
+	}
+
+	// Create import request using autonomous agent context
+	importReq := &traceimport.ImportRequest{
+		TenantID:      tenantID,
+		UserID:        "autonomous-agent-" + agentID, // Special user ID for autonomous agents
+		BackendConfig: backendConfig,
+	}
+
+	// Import traces using factory pattern
+	traceID, err := h.importService.Import(ctx, agentType, importReq)
+	if err != nil {
+		middleware.HandleError(c, errors.NewInternalError("failed to import traces", err))
+		return
+	}
+
+	// After import, update the trace to link it to the autonomous agent
+	trace, err := h.docDBClient.Traces().Get(ctx, traceID)
+	if err == nil && trace != nil {
+		trace.AutonomousAgentID = agentID
+		trace.ContextType = models.TraceContextAutonomousAgent
+		_ = h.docDBClient.Traces().Update(ctx, trace)
+	}
+
+	c.JSON(http.StatusCreated, dto.ImportTraceResponse{
+		ID: traceID,
+	})
+}
+
+// RefreshAutonomousAgentImportTrace handles PUT /autonomous-agents/{agentId}/traces/{traceId}/import/refresh
+// @Summary Refresh an imported trace for an autonomous agent
+// @Description Re-imports traces from the external system using the existing trace's reference ID
+// @Tags Traces
+// @Accept json
+// @Produce json
+// @Param tenantId path string true "Tenant ID"
+// @Param agentId path string true "Autonomous Agent ID"
+// @Param traceId path string true "Trace ID"
+// @Param X-Unified-UI-Autonomous-Agent-API-Key header string true "Autonomous Agent API Key"
+// @Success 200 {object} dto.ImportTraceResponse
+// @Failure 400 {object} dto.ErrorResponse "Bad request - trace has no reference ID"
+// @Failure 401 {object} dto.ErrorResponse "Unauthorized - invalid API key"
+// @Failure 404 {object} dto.ErrorResponse "Trace or autonomous agent not found"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error"
+// @Security ApiKeyAuth
+// @Router /api/v1/agent-service/autonomous-agents/{agentId}/traces/{traceId}/import/refresh [put]
+func (h *TracesHandler) RefreshAutonomousAgentImportTrace(c *gin.Context) {
+	ctx := c.Request.Context()
+	tenantID := c.Param("tenantId")
+	agentID := c.Param("agentId")
+	traceID := c.Param("traceId")
+	apiKey := middleware.GetAutonomousAgentAPIKey(c)
+
+	// Get autonomous agent config from platform service (validates API key)
+	agentConfig, err := h.platformClient.GetAutonomousAgentConfig(ctx, tenantID, agentID, apiKey)
+	if err != nil {
+		errStr := err.Error()
+		if strings.HasPrefix(errStr, "unauthorized") {
+			middleware.HandleError(c, errors.NewUnauthorizedError("invalid API key"))
+			return
+		}
+		if strings.HasPrefix(errStr, "not_found") {
+			middleware.HandleError(c, errors.NewNotFoundError("autonomous agent", agentID))
+			return
+		}
+		middleware.HandleError(c, errors.NewInternalError("failed to get autonomous agent config", err))
+		return
+	}
+
+	// Get existing trace
+	trace, err := h.docDBClient.Traces().Get(ctx, traceID)
+	if err != nil {
+		middleware.HandleError(c, errors.NewInternalError("failed to get trace", err))
+		return
+	}
+	if trace == nil {
+		middleware.HandleError(c, errors.NewNotFoundError("trace", traceID))
+		return
+	}
+
+	// Verify trace belongs to this autonomous agent
+	if trace.AutonomousAgentID != agentID {
+		middleware.HandleError(c, errors.NewForbiddenError("trace does not belong to this autonomous agent"))
+		return
+	}
+
+	// Get execution ID from trace reference metadata
+	executionID := h.getExecutionIDFromTrace(trace)
+	if executionID == "" {
+		middleware.HandleError(c, errors.NewValidationError(
+			"trace has no execution ID",
+			"cannot refresh trace without original execution reference",
+		))
+		return
+	}
+
+	// Determine agent type from config
+	agentType := agentConfig.Type
+
+	// Check if importer is registered for this agent type
+	if !h.importService.HasImporter(agentType) {
+		middleware.HandleError(c, errors.NewValidationError(
+			"unsupported agent type for trace import",
+			string(agentType),
+		))
+		return
+	}
+
+	// Build backend-specific configuration for refresh
+	backendConfig, err := h.buildAutonomousAgentRefreshBackendConfig(c, agentConfig, executionID)
+	if err != nil {
+		middleware.HandleError(c, err)
+		return
+	}
+
+	// Create import request
+	importReq := &traceimport.ImportRequest{
+		TenantID:      tenantID,
+		UserID:        "autonomous-agent-" + agentID,
+		BackendConfig: backendConfig,
+	}
+
+	// Import traces using factory pattern - this will update the existing trace
+	newTraceID, err := h.importService.Import(ctx, agentType, importReq)
+	if err != nil {
+		middleware.HandleError(c, errors.NewInternalError("failed to refresh traces", err))
+		return
+	}
+
+	// Ensure the trace is linked to the autonomous agent
+	updatedTrace, err := h.docDBClient.Traces().Get(ctx, newTraceID)
+	if err == nil && updatedTrace != nil {
+		updatedTrace.AutonomousAgentID = agentID
+		updatedTrace.ContextType = models.TraceContextAutonomousAgent
+		_ = h.docDBClient.Traces().Update(ctx, updatedTrace)
+	}
+
+	c.JSON(http.StatusOK, dto.ImportTraceResponse{
+		ID: newTraceID,
+	})
+}
+
+// mapImportType maps the request type string to platform.AgentType.
+func (h *TracesHandler) mapImportType(importType string) (platform.AgentType, error) {
+	switch strings.ToUpper(importType) {
+	case "N8N":
+		return platform.AgentTypeN8N, nil
+	case "MICROSOFT_FOUNDRY", "FOUNDRY":
+		return platform.AgentTypeFoundry, nil
+	default:
+		return "", fmt.Errorf("unknown import type: %s", importType)
+	}
+}
+
+// buildAutonomousAgentBackendConfig builds the backend-specific configuration for autonomous agent imports.
+func (h *TracesHandler) buildAutonomousAgentBackendConfig(
+	c *gin.Context,
+	agentConfig *platform.AutonomousAgentConfigResponse,
+	req dto.AutonomousAgentImportTraceRequest,
+) (map[string]interface{}, error) {
+	switch agentConfig.Type {
+	case platform.AgentTypeN8N:
+		return h.buildN8NAutonomousAgentConfig(c, agentConfig, req.ExecutionID, req.SessionID)
+	default:
+		return nil, errors.NewValidationError(
+			"unsupported agent type for autonomous agent import",
+			string(agentConfig.Type),
+		)
+	}
+}
+
+// buildAutonomousAgentRefreshBackendConfig builds the backend config for refresh operations.
+func (h *TracesHandler) buildAutonomousAgentRefreshBackendConfig(
+	c *gin.Context,
+	agentConfig *platform.AutonomousAgentConfigResponse,
+	executionID string,
+) (map[string]interface{}, error) {
+	switch agentConfig.Type {
+	case platform.AgentTypeN8N:
+		return h.buildN8NAutonomousAgentConfig(c, agentConfig, executionID, "")
+	default:
+		return nil, errors.NewValidationError(
+			"unsupported agent type for autonomous agent import",
+			string(agentConfig.Type),
+		)
+	}
+}
+
+// buildN8NAutonomousAgentConfig builds the N8N-specific backend configuration for autonomous agents.
+func (h *TracesHandler) buildN8NAutonomousAgentConfig(
+	c *gin.Context,
+	agentConfig *platform.AutonomousAgentConfigResponse,
+	executionID string,
+	sessionID string,
+) (map[string]interface{}, error) {
+	settings := agentConfig.Settings
+
+	if settings.N8NHost == "" {
+		return nil, errors.NewValidationError(
+			"autonomous agent configuration missing N8N host",
+			"",
+		)
+	}
+
+	// Get API key from credentials
+	apiKey := ""
+	if settings.APICredentials != nil {
+		apiKey = settings.APICredentials.GetSecretAsString()
+	}
+
+	if apiKey == "" {
+		return nil, errors.NewValidationError(
+			"autonomous agent configuration missing API credentials",
+			"",
+		)
+	}
+
+	return map[string]interface{}{
+		"execution_id": executionID,
+		"session_id":   sessionID,
+		"base_url":     settings.N8NHost,
+		"workflow_id":  settings.WorkflowID,
+		"api_key":      apiKey,
+	}, nil
+}
+
+// getExecutionIDFromTrace extracts the execution ID from a trace's reference metadata.
+func (h *TracesHandler) getExecutionIDFromTrace(trace *models.Trace) string {
+	if trace.ReferenceMetadata == nil {
+		return trace.ReferenceID // Fallback to referenceId
+	}
+
+	// Try to get N8N execution ID
+	if execID, ok := trace.ReferenceMetadata["n8n_execution_id"].(string); ok && execID != "" {
+		return execID
+	}
+
+	// Try to get Foundry conversation ID
+	if extConvID, ok := trace.ReferenceMetadata["ext_conversation_id"].(string); ok && extConvID != "" {
+		return extConvID
+	}
+
+	// Fallback to referenceId
+	return trace.ReferenceID
 }

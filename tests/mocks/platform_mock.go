@@ -72,5 +72,14 @@ func (m *MockPlatformClient) GetConversation(ctx context.Context, tenantID, conv
 	return args.Get(0).(*platform.ConversationResponse), args.Error(1)
 }
 
+// GetAutonomousAgentConfig mocks the GetAutonomousAgentConfig method.
+func (m *MockPlatformClient) GetAutonomousAgentConfig(ctx context.Context, tenantID, autonomousAgentID, apiKey string) (*platform.AutonomousAgentConfigResponse, error) {
+	args := m.Called(ctx, tenantID, autonomousAgentID, apiKey)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*platform.AutonomousAgentConfigResponse), args.Error(1)
+}
+
 // Ensure MockPlatformClient implements platform.Client interface.
 var _ platform.Client = (*MockPlatformClient)(nil)

@@ -2,6 +2,9 @@
 package mocks
 
 import (
+	"context"
+
+	"github.com/unifiedui/agent-service/internal/services/platform"
 	"github.com/unifiedui/agent-service/internal/services/traceimport"
 )
 
@@ -10,4 +13,34 @@ import (
 // that creates a real but non-started ImportService suitable for testing.
 func NewMockImportService(mockDocDB *MockDocDBClient) *traceimport.ImportService {
 	return traceimport.NewImportService(mockDocDB)
+}
+
+// MockTraceImporter implements TraceImporter for testing.
+// This mock can be used to simulate trace import operations without actual external calls.
+type MockTraceImporter struct {
+	AgentType  platform.AgentType
+	ImportFunc func(ctx context.Context, req *traceimport.ImportRequest) (string, error)
+}
+
+// NewMockTraceImporter creates a new mock trace importer that returns a success result.
+func NewMockTraceImporter() *MockTraceImporter {
+	return &MockTraceImporter{
+		AgentType: platform.AgentTypeN8N,
+		ImportFunc: func(ctx context.Context, req *traceimport.ImportRequest) (string, error) {
+			return "mock-trace-id", nil
+		},
+	}
+}
+
+// Type returns the agent type this importer handles.
+func (m *MockTraceImporter) Type() platform.AgentType {
+	return m.AgentType
+}
+
+// Import simulates importing traces.
+func (m *MockTraceImporter) Import(ctx context.Context, req *traceimport.ImportRequest) (string, error) {
+	if m.ImportFunc != nil {
+		return m.ImportFunc(ctx, req)
+	}
+	return "mock-trace-id", nil
 }

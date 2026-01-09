@@ -123,6 +123,29 @@ type ConversationResponse struct {
 	ExtConversationID string `json:"ext_conversation_id,omitempty"`
 }
 
+// AutonomousAgentConfigResponse represents the config response from platform service
+// for autonomous agents. This is the response from GET /tenants/{tenant_id}/autonomous-agents/{id}/config
+// and uses API key authentication (not Bearer token).
+type AutonomousAgentConfigResponse struct {
+	DocVersion        string                        `json:"docversion"`
+	Type              AgentType                     `json:"type"`
+	TenantID          string                        `json:"tenant_id"`
+	AutonomousAgentID string                        `json:"autonomous_agent_id"`
+	Settings          AutonomousAgentConfigSettings `json:"settings"`
+}
+
+// AutonomousAgentConfigSettings contains the autonomous agent-specific settings.
+type AutonomousAgentConfigSettings struct {
+	// API version for the autonomous agent config format
+	APIVersion string `json:"api_version"`
+
+	// N8N specific settings
+	N8NHost             string       `json:"n8n_host,omitempty"`
+	N8NWorkflowEndpoint string       `json:"n8n_workflow_endpoint,omitempty"`
+	WorkflowID          string       `json:"workflow_id,omitempty"`
+	APICredentials      *Credentials `json:"api_credentials,omitempty"`
+}
+
 // GetSecretAsString returns the secret as a string (for API keys).
 func (c *Credentials) GetSecretAsString() string {
 	if s, ok := c.Secret.(string); ok {

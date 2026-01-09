@@ -80,6 +80,20 @@ func Setup(r *gin.Engine, cfg *Config) {
 				agents.PUT("/traces", cfg.TracesHandler.RefreshAutonomousAgentTrace)
 			}
 		}
+
+		// --- Autonomous Agent Import Routes (API Key Auth) ---
+		// These routes use X-Unified-UI-Autonomous-Agent-API-Key header instead of Bearer token
+		agentImport := v1.Group("/tenants/:tenantId")
+		agentImport.Use(cfg.AuthMiddleware.AuthenticateAutonomousAgentAPIKey())
+		{
+			agentImportRoutes := agentImport.Group("/autonomous-agents/:agentId")
+			{
+				// Import traces for an autonomous agent
+				agentImportRoutes.POST("/traces/import", cfg.TracesHandler.ImportAutonomousAgentTrace)
+				// Refresh imported trace for an autonomous agent
+				agentImportRoutes.PUT("/traces/:traceId/import/refresh", cfg.TracesHandler.RefreshAutonomousAgentImportTrace)
+			}
+		}
 	}
 }
 

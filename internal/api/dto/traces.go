@@ -148,6 +148,33 @@ type CreateTraceResponse struct {
 	ID string `json:"id"`
 }
 
+// ImportTraceResponse represents the response for importing a trace.
+type ImportTraceResponse struct {
+	ID string `json:"id"`
+}
+
+// AutonomousAgentImportTraceRequest represents the request body for importing traces for an autonomous agent.
+// This is used with POST /autonomous-agents/{agentId}/traces/import
+type AutonomousAgentImportTraceRequest struct {
+	// Type is the agent type for the import (e.g., "N8N", "MICROSOFT_FOUNDRY").
+	// This determines which importer to use.
+	Type string `json:"type" binding:"required"`
+
+	// ExecutionID is the external execution/run identifier (e.g., N8N execution ID).
+	// Required for initial import.
+	ExecutionID string `json:"executionId" binding:"required"`
+
+	// SessionID is an optional session identifier for finding executions.
+	SessionID string `json:"sessionId,omitempty"`
+}
+
+// AutonomousAgentRefreshTraceRequest represents the request body for refreshing an existing trace.
+// This is used with PUT /autonomous-agents/{agentId}/traces/{traceId}/import/refresh
+// No body is required as the executionId is retrieved from the existing trace's referenceId.
+type AutonomousAgentRefreshTraceRequest struct {
+	// No fields needed - uses existing trace's referenceId as executionId
+}
+
 // --- Transformation Functions ---
 
 // ToTraceNode converts a TraceNodeRequest to a models.TraceNode.
@@ -305,11 +332,4 @@ func ConvertNodesToModel(nodes []TraceNodeRequest, createdBy string) []models.Tr
 		result[i] = node.ToTraceNode(createdBy)
 	}
 	return result
-}
-
-// --- Import DTOs ---
-
-// ImportTraceResponse represents the response for importing traces.
-type ImportTraceResponse struct {
-	ID string `json:"id"`
 }

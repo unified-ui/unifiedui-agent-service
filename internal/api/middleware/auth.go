@@ -67,3 +67,33 @@ func GetToken(c *gin.Context) string {
 	}
 	return ""
 }
+
+// GetAutonomousAgentAPIKey retrieves the autonomous agent API key from the gin context.
+func GetAutonomousAgentAPIKey(c *gin.Context) string {
+	if key, exists := c.Get("autonomous_agent_api_key"); exists {
+		return key.(string)
+	}
+	return ""
+}
+
+// AuthenticateAutonomousAgentAPIKey returns a gin middleware that validates the autonomous agent API key.
+// It extracts the X-Unified-UI-Autonomous-Agent-API-Key header and stores it in the context.
+// Unlike Bearer token auth, this API key will be validated against the platform service's
+// autonomous agent config endpoint (which validates against primary/secondary keys).
+func (m *AuthMiddleware) AuthenticateAutonomousAgentAPIKey() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		apiKey := c.GetHeader("X-Unified-UI-Autonomous-Agent-API-Key")
+		if apiKey == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"code":    "UNAUTHORIZED",
+				"message": "missing X-Unified-UI-Autonomous-Agent-API-Key header",
+			})
+			return
+		}
+
+		// Store API key in context for downstream handlers
+		c.Set("autonomous_agent_api_key", apiKey)
+
+		c.Next()
+	}
+}
