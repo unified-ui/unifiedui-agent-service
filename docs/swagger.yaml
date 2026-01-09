@@ -19,6 +19,25 @@ definitions:
     required:
     - nodes
     type: object
+  dto.AutonomousAgentImportTraceRequest:
+    properties:
+      executionId:
+        description: |-
+          ExecutionID is the external execution/run identifier (e.g., N8N execution ID).
+          Required for initial import.
+        type: string
+      sessionId:
+        description: SessionID is an optional session identifier for finding executions.
+        type: string
+      type:
+        description: |-
+          Type is the agent type for the import (e.g., "N8N", "MICROSOFT_FOUNDRY").
+          This determines which importer to use.
+        type: string
+    required:
+    - executionId
+    - type
+    type: object
   dto.CreateTraceRequest:
     properties:
       applicationId:
@@ -398,6 +417,117 @@ info:
   title: UnifiedUI Chat Service API
   version: "1.0"
 paths:
+  /api/v1/agent-service/autonomous-agents/{agentId}/traces/{traceId}/import/refresh:
+    put:
+      consumes:
+      - application/json
+      description: Re-imports traces from the external system using the existing trace's
+        reference ID
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Autonomous Agent ID
+        in: path
+        name: agentId
+        required: true
+        type: string
+      - description: Trace ID
+        in: path
+        name: traceId
+        required: true
+        type: string
+      - description: Autonomous Agent API Key
+        in: header
+        name: X-Unified-UI-Autonomous-Agent-API-Key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ImportTraceResponse'
+        "400":
+          description: Bad request - trace has no reference ID
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized - invalid API key
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Trace or autonomous agent not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Refresh an imported trace for an autonomous agent
+      tags:
+      - Traces
+  /api/v1/agent-service/autonomous-agents/{agentId}/traces/import:
+    post:
+      consumes:
+      - application/json
+      description: Imports traces from an external system (N8N, etc.) for an autonomous
+        agent
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Autonomous Agent ID
+        in: path
+        name: agentId
+        required: true
+        type: string
+      - description: Autonomous Agent API Key
+        in: header
+        name: X-Unified-UI-Autonomous-Agent-API-Key
+        required: true
+        type: string
+      - description: Import request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.AutonomousAgentImportTraceRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.ImportTraceResponse'
+        "400":
+          description: Bad request - validation error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized - invalid API key
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Autonomous agent not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Import traces for an autonomous agent
+      tags:
+      - Traces
   /api/v1/agent-service/health:
     get:
       description: Returns the overall health status and component statuses

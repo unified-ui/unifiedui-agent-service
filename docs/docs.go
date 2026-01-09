@@ -24,6 +24,172 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/v1/agent-service/autonomous-agents/{agentId}/traces/import": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Imports traces from an external system (N8N, etc.) for an autonomous agent",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Traces"
+                ],
+                "summary": "Import traces for an autonomous agent",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Tenant ID",
+                        "name": "tenantId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Autonomous Agent ID",
+                        "name": "agentId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Autonomous Agent API Key",
+                        "name": "X-Unified-UI-Autonomous-Agent-API-Key",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Import request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.AutonomousAgentImportTraceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ImportTraceResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request - validation error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - invalid API key",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Autonomous agent not found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agent-service/autonomous-agents/{agentId}/traces/{traceId}/import/refresh": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Re-imports traces from the external system using the existing trace's reference ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Traces"
+                ],
+                "summary": "Refresh an imported trace for an autonomous agent",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Tenant ID",
+                        "name": "tenantId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Autonomous Agent ID",
+                        "name": "agentId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Trace ID",
+                        "name": "traceId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Autonomous Agent API Key",
+                        "name": "X-Unified-UI-Autonomous-Agent-API-Key",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ImportTraceResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request - trace has no reference ID",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - invalid API key",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Trace or autonomous agent not found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/agent-service/health": {
             "get": {
                 "description": "Returns the overall health status and component statuses",
@@ -1043,6 +1209,27 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/dto.TraceNodeRequest"
                     }
+                }
+            }
+        },
+        "dto.AutonomousAgentImportTraceRequest": {
+            "type": "object",
+            "required": [
+                "executionId",
+                "type"
+            ],
+            "properties": {
+                "executionId": {
+                    "description": "ExecutionID is the external execution/run identifier (e.g., N8N execution ID).\nRequired for initial import.",
+                    "type": "string"
+                },
+                "sessionId": {
+                    "description": "SessionID is an optional session identifier for finding executions.",
+                    "type": "string"
+                },
+                "type": {
+                    "description": "Type is the agent type for the import (e.g., \"N8N\", \"MICROSOFT_FOUNDRY\").\nThis determines which importer to use.",
+                    "type": "string"
                 }
             }
         },
