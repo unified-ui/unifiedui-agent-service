@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/unifiedui/agent-service/internal/pkg/contextformat"
 	"github.com/unifiedui/agent-service/internal/services/agents/foundry"
 	"github.com/unifiedui/agent-service/internal/services/agents/n8n"
 	"github.com/unifiedui/agent-service/internal/services/platform"
@@ -92,9 +93,12 @@ type n8nWorkflowAdapter struct {
 }
 
 func (a *n8nWorkflowAdapter) Invoke(ctx context.Context, req *InvokeRequest) (*InvokeResponse, error) {
+	// Prepend context data to message if present
+	message := contextformat.PrependContextToMessage(req.ContextData, req.Message)
+
 	n8nReq := &n8n.InvokeRequest{
 		ConversationID: req.ConversationID,
-		Message:        req.Message,
+		Message:        message,
 		SessionID:      req.SessionID,
 		ChatHistory:    req.ChatHistory,
 	}
@@ -113,9 +117,12 @@ func (a *n8nWorkflowAdapter) Invoke(ctx context.Context, req *InvokeRequest) (*I
 }
 
 func (a *n8nWorkflowAdapter) InvokeStream(ctx context.Context, req *InvokeRequest) (<-chan *StreamChunk, error) {
+	// Prepend context data to message if present
+	message := contextformat.PrependContextToMessage(req.ContextData, req.Message)
+
 	n8nReq := &n8n.InvokeRequest{
 		ConversationID: req.ConversationID,
-		Message:        req.Message,
+		Message:        message,
 		SessionID:      req.SessionID,
 		ChatHistory:    req.ChatHistory,
 	}
@@ -137,9 +144,12 @@ func (a *n8nWorkflowAdapter) InvokeStream(ctx context.Context, req *InvokeReques
 }
 
 func (a *n8nWorkflowAdapter) InvokeStreamReader(ctx context.Context, req *InvokeRequest) (StreamReader, error) {
+	// Prepend context data to message if present
+	message := contextformat.PrependContextToMessage(req.ContextData, req.Message)
+
 	n8nReq := &n8n.InvokeRequest{
 		ConversationID: req.ConversationID,
-		Message:        req.Message,
+		Message:        message,
 		SessionID:      req.SessionID,
 		ChatHistory:    req.ChatHistory,
 	}
@@ -234,9 +244,12 @@ type foundryWorkflowAdapter struct {
 }
 
 func (a *foundryWorkflowAdapter) Invoke(ctx context.Context, req *InvokeRequest) (*InvokeResponse, error) {
+	// Prepend context data to message if present
+	message := contextformat.PrependContextToMessage(req.ContextData, req.Message)
+
 	foundryReq := &foundry.InvokeRequest{
 		ExtConversationID: req.ConversationID,
-		Message:           req.Message,
+		Message:           message,
 	}
 
 	resp, err := a.client.Invoke(ctx, foundryReq)
@@ -253,9 +266,12 @@ func (a *foundryWorkflowAdapter) Invoke(ctx context.Context, req *InvokeRequest)
 }
 
 func (a *foundryWorkflowAdapter) InvokeStream(ctx context.Context, req *InvokeRequest) (<-chan *StreamChunk, error) {
+	// Prepend context data to message if present
+	message := contextformat.PrependContextToMessage(req.ContextData, req.Message)
+
 	foundryReq := &foundry.InvokeRequest{
 		ExtConversationID: req.ConversationID,
-		Message:           req.Message,
+		Message:           message,
 	}
 
 	foundryCh, err := a.client.InvokeStream(ctx, foundryReq)
@@ -275,9 +291,12 @@ func (a *foundryWorkflowAdapter) InvokeStream(ctx context.Context, req *InvokeRe
 }
 
 func (a *foundryWorkflowAdapter) InvokeStreamReader(ctx context.Context, req *InvokeRequest) (StreamReader, error) {
+	// Prepend context data to message if present
+	message := contextformat.PrependContextToMessage(req.ContextData, req.Message)
+
 	foundryReq := &foundry.InvokeRequest{
 		ExtConversationID: req.ConversationID,
-		Message:           req.Message,
+		Message:           message,
 	}
 
 	reader, err := a.client.InvokeStreamReader(ctx, foundryReq)

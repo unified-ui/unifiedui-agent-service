@@ -169,7 +169,8 @@ type MessageContent struct {
 
 // InvokeConfig represents configuration options for agent invocation.
 type InvokeConfig struct {
-	ChatHistoryMessageCount int `json:"chatHistoryMessageCount,omitempty"`
+	ChatHistoryMessageCount int               `json:"chatHistoryMessageCount,omitempty"`
+	ContextData             map[string]string `json:"contextData,omitempty"`
 }
 
 // SendMessageRequest represents the request body for sending a message.
@@ -340,7 +341,7 @@ func (h *MessagesHandler) SendMessage(c *gin.Context) {
 
 	// Handle streaming response
 	foundryAPIKey := c.GetHeader("X-Microsoft-Foundry-API-Key")
-	h.handleStreamingResponse(c, tenantCtx, agentClients, agentConfig, userMessage, assistantMessage, chatHistory, req.ExtConversationID, foundryAPIKey)
+	h.handleStreamingResponse(c, tenantCtx, agentClients, agentConfig, userMessage, assistantMessage, chatHistory, req.ExtConversationID, foundryAPIKey, req.InvokeConfig.ContextData)
 }
 
 // handleStreamingResponse handles SSE streaming for message responses.
@@ -354,6 +355,7 @@ func (h *MessagesHandler) handleStreamingResponse(
 	chatHistory []models.ChatHistoryEntry,
 	extConversationID string,
 	foundryAPIKey string,
+	contextData map[string]string,
 ) {
 	ctx := c.Request.Context()
 
@@ -378,6 +380,7 @@ func (h *MessagesHandler) handleStreamingResponse(
 		Message:        userMessage.Content,
 		SessionID:      userMessage.ConversationID,
 		ChatHistory:    chatHistory,
+		ContextData:    contextData,
 	}
 
 	// Get stream reader from workflow client

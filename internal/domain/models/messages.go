@@ -44,7 +44,8 @@ type MessageRequestContent struct {
 
 // MessageInvokeConfig represents configuration for agent invocation.
 type MessageInvokeConfig struct {
-	ChatHistoryMessageCount int `json:"chatHistoryMessageCount,omitempty" bson:"chatHistoryMessageCount,omitempty"`
+	ChatHistoryMessageCount int               `json:"chatHistoryMessageCount,omitempty" bson:"chatHistoryMessageCount,omitempty"`
+	ContextData             map[string]string `json:"contextData,omitempty" bson:"contextData,omitempty"`
 }
 
 // AssistantMetadata holds metadata about an assistant response.

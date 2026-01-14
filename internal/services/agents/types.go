@@ -51,6 +51,10 @@ type InvokeRequest struct {
 	// ChatHistory contains the previous messages in the conversation
 	// This is used when UseUnifiedChatHistory is enabled
 	ChatHistory []models.ChatHistoryEntry
+
+	// ContextData contains additional context metadata from query parameters
+	// Format: key-value pairs that will be converted to TOML and prepended to the message
+	ContextData map[string]string
 }
 
 // InvokeResponse represents the response from an agent invocation.
