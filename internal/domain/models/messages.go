@@ -56,6 +56,9 @@ type AssistantMetadata struct {
 	LatencyMs    int64  `json:"latencyMs,omitempty" bson:"latencyMs,omitempty"`
 	ExecutionID  string `json:"executionId,omitempty" bson:"executionId,omitempty"`
 	AgentType    string `json:"agentType,omitempty" bson:"agentType,omitempty"`
+	// ExtMessageID is the external message ID from the backend (e.g., Foundry message ID).
+	// This allows mapping between chat messages and trace nodes.
+	ExtMessageID string `json:"extMessageId,omitempty" bson:"extMessageId,omitempty"`
 }
 
 // StatusTrace represents a trace entry during message processing.

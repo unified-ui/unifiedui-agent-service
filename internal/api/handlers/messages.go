@@ -483,6 +483,9 @@ func (h *MessagesHandler) handleDefaultStreaming(
 	// Store assistant message
 	if err := h.docDBClient.Messages().Add(ctx, assistantMessage); err != nil {
 		// Log error but don't fail - message was already sent to client
+	} else {
+		// Send MESSAGE_COMPLETE with full message data (including metadata for trace mapping)
+		writer.WriteMessageComplete(assistantMessage)
 	}
 
 	return executionID
@@ -596,16 +599,22 @@ func (h *MessagesHandler) handleFoundryStreaming(
 
 	// Save the final message (always save the last one)
 	currentMessage.SetSuccess(currentContent)
-	h.saveAssistantMessageWithMetadata(ctx, currentMessage, agentConfig, startTime)
+	savedMsg := h.saveAssistantMessageWithMetadata(ctx, currentMessage, agentConfig, startTime)
+
+	// Send MESSAGE_COMPLETE with full message data (including extMessageId for trace mapping)
+	if savedMsg != nil {
+		writer.WriteMessageComplete(savedMsg)
+	}
 }
 
 // saveAssistantMessageWithMetadata saves an assistant message with timing metadata.
+// Returns the saved message for sending MESSAGE_COMPLETE event.
 func (h *MessagesHandler) saveAssistantMessageWithMetadata(
 	ctx context.Context,
 	msg *models.Message,
 	agentConfig *platform.AgentConfig,
 	startTime time.Time,
-) {
+) *models.Message {
 	latencyMs := time.Since(startTime).Milliseconds()
 
 	if msg.Metadata == nil {
@@ -616,7 +625,9 @@ func (h *MessagesHandler) saveAssistantMessageWithMetadata(
 
 	if err := h.docDBClient.Messages().Add(ctx, msg); err != nil {
 		// Log error but don't fail - message was already sent to client
+		return nil
 	}
+	return msg
 }
 
 // extractFoundryMetadata extracts Foundry-specific metadata into AssistantMetadata.
@@ -625,6 +636,8 @@ func (h *MessagesHandler) extractFoundryMetadata(metadata map[string]interface{}
 
 	if messageID, ok := metadata["message_id"].(string); ok {
 		result.ExecutionID = messageID
+		// Also set ExtMessageID for message-to-trace mapping
+		result.ExtMessageID = messageID
 	}
 
 	return result
@@ -639,6 +652,12 @@ func (h *MessagesHandler) mergeFoundryMetadata(msg *models.Message, metadata map
 	// Extract execution ID
 	if responseID, ok := metadata["response_id"].(string); ok && msg.Metadata.ExecutionID == "" {
 		msg.Metadata.ExecutionID = responseID
+	}
+
+	// Extract external message ID for message-to-trace mapping
+	// This is the Foundry message ID that matches TraceNode.referenceId
+	if messageID, ok := metadata["message_id"].(string); ok && msg.Metadata.ExtMessageID == "" {
+		msg.Metadata.ExtMessageID = messageID
 	}
 
 	// Extract model if available

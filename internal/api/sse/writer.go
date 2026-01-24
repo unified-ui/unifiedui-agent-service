@@ -35,6 +35,8 @@ const (
 	StreamTypeError StreamMessageType = "ERROR"
 	// StreamTypeNewMessage indicates a new message starts in the stream (for Foundry multi-message responses).
 	StreamTypeNewMessage StreamMessageType = "STREAM_NEW_MESSAGE"
+	// StreamTypeMessageComplete indicates a complete message with all metadata (sent after STREAM_END).
+	StreamTypeMessageComplete StreamMessageType = "MESSAGE_COMPLETE"
 )
 
 // StreamMessage represents a unified stream message format.
@@ -127,6 +129,17 @@ func (w *Writer) WriteStreamEnd() error {
 	return w.WriteJSON(EventMessage, &StreamMessage{
 		Type:   StreamTypeEnd,
 		Config: map[string]interface{}{},
+	})
+}
+
+// WriteMessageComplete writes the MESSAGE_COMPLETE message with full message data.
+// This is sent after STREAM_END to provide the frontend with complete message metadata.
+func (w *Writer) WriteMessageComplete(message interface{}) error {
+	return w.WriteJSON(EventMessage, &StreamMessage{
+		Type: StreamTypeMessageComplete,
+		Config: map[string]interface{}{
+			"message": message,
+		},
 	})
 }
 
