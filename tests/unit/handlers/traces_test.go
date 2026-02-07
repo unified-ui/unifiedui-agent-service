@@ -13,6 +13,7 @@ import (
 
 	"github.com/unifiedui/agent-service/internal/api/dto"
 	"github.com/unifiedui/agent-service/internal/api/handlers"
+	"github.com/unifiedui/agent-service/internal/core/docdb"
 	"github.com/unifiedui/agent-service/internal/domain/models"
 	"github.com/unifiedui/agent-service/internal/services/platform"
 	"github.com/unifiedui/agent-service/internal/services/traceimport"
@@ -446,6 +447,7 @@ func TestTracesHandler_ListAutonomousAgentTraces_Success(t *testing.T) {
 
 	// ListAutonomousAgentTraces does NOT call ValidateAutonomousAgent - it just lists traces
 	mockDocDB.GetTracesCollection().On("List", mock.Anything, mock.Anything).Return(traces, nil)
+	mockDocDB.GetTracesCollection().On("Count", mock.Anything, mock.Anything).Return(int64(3), nil)
 
 	handler := createTestTracesHandler(mockDocDB, mockPlatform)
 
@@ -464,6 +466,169 @@ func TestTracesHandler_ListAutonomousAgentTraces_Success(t *testing.T) {
 	testutils.ParseJSONResponse(t, w, &response)
 
 	assert.Len(t, response.Traces, 3)
+	assert.Equal(t, int64(3), response.Total)
+
+	mockDocDB.GetTracesCollection().AssertExpectations(t)
+}
+
+func TestTracesHandler_GetAutonomousAgentTraces_Success(t *testing.T) {
+	// Setup
+	mockDocDB := mocks.NewMockDocDBClient()
+	mockPlatform := &mocks.MockPlatformClient{}
+
+	traces := testutils.NewTestTraces(2)
+	for _, trace := range traces {
+		trace.ContextType = models.TraceContextAutonomousAgent
+		trace.AutonomousAgentID = "auto-agent-123"
+		trace.ApplicationID = ""
+		trace.ConversationID = ""
+	}
+
+	mockDocDB.GetTracesCollection().On("List", mock.Anything, mock.Anything).Return(traces, nil)
+	mockDocDB.GetTracesCollection().On("Count", mock.Anything, mock.Anything).Return(int64(2), nil)
+
+	handler := createTestTracesHandler(mockDocDB, mockPlatform)
+
+	router := testutils.SetupTestRouter()
+	router.GET("/tenants/:tenantId/autonomous-agents/:agentId/traces", handler.GetAutonomousAgentTraces)
+
+	// Execute
+	headers := map[string]string{"Authorization": "Bearer test-token"}
+	path := "/tenants/" + testutils.TestTenantID + "/autonomous-agents/auto-agent-123/traces?skip=0&limit=10"
+	w := testutils.PerformRequest(router, "GET", path, nil, headers)
+
+	// Assert
+	testutils.AssertStatusCode(t, http.StatusOK, w)
+
+	var response dto.ListTracesResponse
+	testutils.ParseJSONResponse(t, w, &response)
+
+	assert.Len(t, response.Traces, 2)
+	assert.Equal(t, int64(2), response.Total)
+
+	mockDocDB.GetTracesCollection().AssertExpectations(t)
+}
+
+func TestTracesHandler_GetAutonomousAgentTraces_WithDateFilter(t *testing.T) {
+	// Setup
+	mockDocDB := mocks.NewMockDocDBClient()
+	mockPlatform := &mocks.MockPlatformClient{}
+
+	traces := testutils.NewTestTraces(1)
+	for _, trace := range traces {
+		trace.ContextType = models.TraceContextAutonomousAgent
+		trace.AutonomousAgentID = "auto-agent-123"
+	}
+
+	mockDocDB.GetTracesCollection().On("List", mock.Anything, mock.Anything).Return(traces, nil)
+	mockDocDB.GetTracesCollection().On("Count", mock.Anything, mock.Anything).Return(int64(1), nil)
+
+	handler := createTestTracesHandler(mockDocDB, mockPlatform)
+
+	router := testutils.SetupTestRouter()
+	router.GET("/tenants/:tenantId/autonomous-agents/:agentId/traces", handler.GetAutonomousAgentTraces)
+
+	// Execute with date filters
+	headers := map[string]string{"Authorization": "Bearer test-token"}
+	path := "/tenants/" + testutils.TestTenantID + "/autonomous-agents/auto-agent-123/traces?created_after=2025-01-01T00:00:00Z&created_before=2026-12-31T23:59:59Z"
+	w := testutils.PerformRequest(router, "GET", path, nil, headers)
+
+	// Assert
+	testutils.AssertStatusCode(t, http.StatusOK, w)
+
+	var response dto.ListTracesResponse
+	testutils.ParseJSONResponse(t, w, &response)
+
+	assert.Len(t, response.Traces, 1)
+	assert.Equal(t, int64(1), response.Total)
+
+	mockDocDB.GetTracesCollection().AssertExpectations(t)
+}
+
+func TestTracesHandler_GetAutonomousAgentTraces_InvalidDateFilter(t *testing.T) {
+	// Setup
+	mockDocDB := mocks.NewMockDocDBClient()
+	mockPlatform := &mocks.MockPlatformClient{}
+
+	handler := createTestTracesHandler(mockDocDB, mockPlatform)
+
+	router := testutils.SetupTestRouter()
+	router.GET("/tenants/:tenantId/autonomous-agents/:agentId/traces", handler.GetAutonomousAgentTraces)
+
+	// Execute with invalid date
+	headers := map[string]string{"Authorization": "Bearer test-token"}
+	path := "/tenants/" + testutils.TestTenantID + "/autonomous-agents/auto-agent-123/traces?created_after=not-a-date"
+	w := testutils.PerformRequest(router, "GET", path, nil, headers)
+
+	// Assert
+	testutils.AssertStatusCode(t, http.StatusBadRequest, w)
+}
+
+func TestTracesHandler_GetAutonomousAgentTraces_WithExpand(t *testing.T) {
+	// Setup
+	mockDocDB := mocks.NewMockDocDBClient()
+	mockPlatform := &mocks.MockPlatformClient{}
+
+	traces := testutils.NewTestTraces(1)
+	for _, trace := range traces {
+		trace.ContextType = models.TraceContextAutonomousAgent
+		trace.AutonomousAgentID = "auto-agent-123"
+	}
+
+	mockDocDB.GetTracesCollection().On("List", mock.Anything, mock.MatchedBy(func(opts *docdb.ListTracesOptions) bool {
+		return opts.Expand == true
+	})).Return(traces, nil)
+	mockDocDB.GetTracesCollection().On("Count", mock.Anything, mock.Anything).Return(int64(1), nil)
+
+	handler := createTestTracesHandler(mockDocDB, mockPlatform)
+
+	router := testutils.SetupTestRouter()
+	router.GET("/tenants/:tenantId/autonomous-agents/:agentId/traces", handler.GetAutonomousAgentTraces)
+
+	// Execute with expand=true
+	headers := map[string]string{"Authorization": "Bearer test-token"}
+	path := "/tenants/" + testutils.TestTenantID + "/autonomous-agents/auto-agent-123/traces?expand=true"
+	w := testutils.PerformRequest(router, "GET", path, nil, headers)
+
+	// Assert
+	testutils.AssertStatusCode(t, http.StatusOK, w)
+
+	var response dto.ListTracesResponse
+	testutils.ParseJSONResponse(t, w, &response)
+
+	assert.Len(t, response.Traces, 1)
+
+	mockDocDB.GetTracesCollection().AssertExpectations(t)
+}
+
+func TestTracesHandler_GetAutonomousAgentTraces_WithSortByUpdatedAt(t *testing.T) {
+	// Setup
+	mockDocDB := mocks.NewMockDocDBClient()
+	mockPlatform := &mocks.MockPlatformClient{}
+
+	traces := testutils.NewTestTraces(1)
+	for _, trace := range traces {
+		trace.ContextType = models.TraceContextAutonomousAgent
+		trace.AutonomousAgentID = "auto-agent-123"
+	}
+
+	mockDocDB.GetTracesCollection().On("List", mock.Anything, mock.MatchedBy(func(opts *docdb.ListTracesOptions) bool {
+		return opts.SortBy == docdb.SortFieldUpdatedAt && opts.OrderBy == docdb.SortOrderAsc
+	})).Return(traces, nil)
+	mockDocDB.GetTracesCollection().On("Count", mock.Anything, mock.Anything).Return(int64(1), nil)
+
+	handler := createTestTracesHandler(mockDocDB, mockPlatform)
+
+	router := testutils.SetupTestRouter()
+	router.GET("/tenants/:tenantId/autonomous-agents/:agentId/traces", handler.GetAutonomousAgentTraces)
+
+	// Execute with order_by=updated_at and order=asc
+	headers := map[string]string{"Authorization": "Bearer test-token"}
+	path := "/tenants/" + testutils.TestTenantID + "/autonomous-agents/auto-agent-123/traces?order_by=updated_at&order=asc"
+	w := testutils.PerformRequest(router, "GET", path, nil, headers)
+
+	// Assert
+	testutils.AssertStatusCode(t, http.StatusOK, w)
 
 	mockDocDB.GetTracesCollection().AssertExpectations(t)
 }

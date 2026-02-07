@@ -141,6 +141,7 @@ type TraceResponse struct {
 // ListTracesResponse represents the response for listing traces.
 type ListTracesResponse struct {
 	Traces []*TraceResponse `json:"traces"`
+	Total  int64            `json:"total"`
 }
 
 // CreateTraceResponse represents the response for creating a trace.

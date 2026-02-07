@@ -188,6 +188,18 @@ func (c *TracesCollection) List(ctx context.Context, opts *docdb.ListTracesOptio
 	return traces, nil
 }
 
+// Count returns the total number of traces matching the filter options.
+func (c *TracesCollection) Count(ctx context.Context, opts *docdb.ListTracesOptions) (int64, error) {
+	filter := c.buildFilter(opts)
+
+	count, err := c.collection.CountDocuments(ctx, filter)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count traces: %w", err)
+	}
+
+	return count, nil
+}
+
 // Update replaces an existing trace completely.
 func (c *TracesCollection) Update(ctx context.Context, trace *models.Trace) error {
 	trace.UpdatedAt = time.Now().UTC()
@@ -384,6 +396,18 @@ func (c *TracesCollection) buildFilter(opts *docdb.ListTracesOptions) bson.M {
 		filter["contextType"] = opts.ContextType
 	}
 
+	// Date range filtering
+	if opts.CreatedAfter != nil || opts.CreatedBefore != nil {
+		dateFilter := bson.M{}
+		if opts.CreatedAfter != nil {
+			dateFilter["$gte"] = *opts.CreatedAfter
+		}
+		if opts.CreatedBefore != nil {
+			dateFilter["$lte"] = *opts.CreatedBefore
+		}
+		filter["createdAt"] = dateFilter
+	}
+
 	return filter
 }
 
@@ -402,12 +426,26 @@ func (c *TracesCollection) buildFindOptions(opts *docdb.ListTracesOptions) *opti
 		findOpts.SetSkip(opts.Skip)
 	}
 
-	// Default to descending order by createdAt
+	// Determine sort field
+	sortField := "createdAt"
+	if opts.SortBy == docdb.SortFieldUpdatedAt {
+		sortField = "updatedAt"
+	}
+
+	// Default to descending order
 	sortOrder := -1
 	if opts.OrderBy == docdb.SortOrderAsc {
 		sortOrder = 1
 	}
-	findOpts.SetSort(bson.D{{Key: "createdAt", Value: sortOrder}})
+	findOpts.SetSort(bson.D{{Key: sortField, Value: sortOrder}})
+
+	// Projection: exclude nodes and logs when expand=false
+	if !opts.Expand {
+		findOpts.SetProjection(bson.M{
+			"nodes": 0,
+			"logs":  0,
+		})
+	}
 
 	return findOpts
 }

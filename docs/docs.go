@@ -284,7 +284,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retrieves a list of traces for autonomous agents with pagination",
+                "description": "Retrieves a list of traces for autonomous agents with pagination, sorting, and filtering",
                 "consumes": [
                     "application/json"
                 ],
@@ -317,7 +317,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "description": "Number of results to skip",
+                        "description": "Number of results to skip (default: 0)",
                         "name": "skip",
                         "in": "query"
                     },
@@ -325,6 +325,30 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Sort order: asc or desc (default: desc)",
                         "name": "order",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort field: created_at or updated_at (default: created_at)",
+                        "name": "order_by",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter: traces created after this ISO 8601 timestamp",
+                        "name": "created_after",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter: traces created before this ISO 8601 timestamp",
+                        "name": "created_before",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include nodes and logs in response (default: false)",
+                        "name": "expand",
                         "in": "query"
                     }
                 ],
@@ -363,7 +387,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retrieves all traces for a specific autonomous agent",
+                "description": "Retrieves traces for a specific autonomous agent with pagination, sorting, and filtering",
                 "consumes": [
                     "application/json"
                 ],
@@ -388,6 +412,48 @@ const docTemplate = `{
                         "name": "agentId",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum number of results (default: 20, max: 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of results to skip (default: 0)",
+                        "name": "skip",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort order: asc or desc (default: desc)",
+                        "name": "order",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort field: created_at or updated_at (default: created_at)",
+                        "name": "order_by",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter: traces created after this ISO 8601 timestamp",
+                        "name": "created_after",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter: traces created before this ISO 8601 timestamp",
+                        "name": "created_before",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include nodes and logs in response (default: false)",
+                        "name": "expand",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -395,6 +461,12 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/dto.ListTracesResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "401": {
@@ -1314,6 +1386,9 @@ const docTemplate = `{
         "dto.ListTracesResponse": {
             "type": "object",
             "properties": {
+                "total": {
+                    "type": "integer"
+                },
                 "traces": {
                     "type": "array",
                     "items": {
@@ -1604,6 +1679,12 @@ const docTemplate = `{
             "properties": {
                 "chatHistoryMessageCount": {
                     "type": "integer"
+                },
+                "contextData": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -1718,6 +1799,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "executionId": {
+                    "type": "string"
+                },
+                "extMessageId": {
+                    "description": "ExtMessageID is the external message ID from the backend (e.g., Foundry message ID).\nThis allows mapping between chat messages and trace nodes.",
                     "type": "string"
                 },
                 "latencyMs": {

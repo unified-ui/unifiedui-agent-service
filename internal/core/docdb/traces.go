@@ -3,8 +3,19 @@ package docdb
 
 import (
 	"context"
+	"time"
 
 	"github.com/unifiedui/agent-service/internal/domain/models"
+)
+
+// SortField represents the field to sort by.
+type SortField string
+
+const (
+	// SortFieldCreatedAt sorts by createdAt.
+	SortFieldCreatedAt SortField = "createdAt"
+	// SortFieldUpdatedAt sorts by updatedAt.
+	SortFieldUpdatedAt SortField = "updatedAt"
 )
 
 // ListTracesOptions contains options for listing traces.
@@ -16,7 +27,11 @@ type ListTracesOptions struct {
 	ContextType       models.TraceContextType // Optional: filter by context type
 	Limit             int64
 	Skip              int64
-	OrderBy           SortOrder // Order by createdAt
+	OrderBy           SortOrder // Sort direction (asc/desc)
+	SortBy            SortField // Field to sort by (createdAt/updatedAt)
+	CreatedAfter      *time.Time
+	CreatedBefore     *time.Time
+	Expand            bool // If false, exclude nodes and logs from results
 }
 
 // TracesCollection defines the interface for trace collection operations.
@@ -48,6 +63,9 @@ type TracesCollection interface {
 
 	// List retrieves traces with pagination and filtering.
 	List(ctx context.Context, opts *ListTracesOptions) ([]*models.Trace, error)
+
+	// Count returns the total number of traces matching the filter options.
+	Count(ctx context.Context, opts *ListTracesOptions) (int64, error)
 
 	// Update replaces an existing trace completely.
 	Update(ctx context.Context, trace *models.Trace) error

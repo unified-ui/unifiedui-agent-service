@@ -382,13 +382,21 @@ func (h *TracesHandler) RefreshConversationTrace(c *gin.Context) {
 
 // GetAutonomousAgentTraces handles GET /tenants/{tenantId}/autonomous-agents/{agentId}/traces
 // @Summary List traces for an autonomous agent
-// @Description Retrieves all traces for a specific autonomous agent
+// @Description Retrieves traces for a specific autonomous agent with pagination, sorting, and filtering
 // @Tags Traces
 // @Accept json
 // @Produce json
 // @Param tenantId path string true "Tenant ID"
 // @Param agentId path string true "Autonomous Agent ID"
+// @Param limit query int false "Maximum number of results (default: 20, max: 100)"
+// @Param skip query int false "Number of results to skip (default: 0)"
+// @Param order query string false "Sort order: asc or desc (default: desc)"
+// @Param order_by query string false "Sort field: created_at or updated_at (default: created_at)"
+// @Param created_after query string false "Filter: traces created after this ISO 8601 timestamp"
+// @Param created_before query string false "Filter: traces created before this ISO 8601 timestamp"
+// @Param expand query bool false "Include nodes and logs in response (default: false)"
 // @Success 200 {object} dto.ListTracesResponse
+// @Failure 400 {object} dto.ErrorResponse "Bad request"
 // @Failure 401 {object} dto.ErrorResponse "Unauthorized"
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Security BearerAuth
@@ -398,14 +406,30 @@ func (h *TracesHandler) GetAutonomousAgentTraces(c *gin.Context) {
 	tenantID := c.Param("tenantId")
 	agentID := c.Param("agentId")
 
-	traces, err := h.docDBClient.Traces().ListByAutonomousAgent(ctx, tenantID, agentID)
+	opts, err := h.parseListTracesQueryParams(c)
 	if err != nil {
-		middleware.HandleError(c, errors.NewInternalError("failed to list traces", err))
+		middleware.HandleError(c, err)
+		return
+	}
+	opts.TenantID = tenantID
+	opts.AutonomousAgentID = agentID
+	opts.ContextType = models.TraceContextAutonomousAgent
+
+	traces, err2 := h.docDBClient.Traces().List(ctx, opts)
+	if err2 != nil {
+		middleware.HandleError(c, errors.NewInternalError("failed to list traces", err2))
+		return
+	}
+
+	total, err2 := h.docDBClient.Traces().Count(ctx, opts)
+	if err2 != nil {
+		middleware.HandleError(c, errors.NewInternalError("failed to count traces", err2))
 		return
 	}
 
 	c.JSON(http.StatusOK, dto.ListTracesResponse{
 		Traces: dto.TracesToResponse(traces),
+		Total:  total,
 	})
 }
 
@@ -480,15 +504,19 @@ func (h *TracesHandler) RefreshAutonomousAgentTrace(c *gin.Context) {
 
 // ListAutonomousAgentTraces handles GET /tenants/{tenantId}/autonomous-agents/traces
 // @Summary List traces for autonomous agents
-// @Description Retrieves a list of traces for autonomous agents with pagination
+// @Description Retrieves a list of traces for autonomous agents with pagination, sorting, and filtering
 // @Tags Traces
 // @Accept json
 // @Produce json
 // @Param tenantId path string true "Tenant ID"
 // @Param autonomousAgentId query string false "Filter by autonomous agent ID"
 // @Param limit query int false "Maximum number of results (default: 20, max: 100)"
-// @Param skip query int false "Number of results to skip"
+// @Param skip query int false "Number of results to skip (default: 0)"
 // @Param order query string false "Sort order: asc or desc (default: desc)"
+// @Param order_by query string false "Sort field: created_at or updated_at (default: created_at)"
+// @Param created_after query string false "Filter: traces created after this ISO 8601 timestamp"
+// @Param created_before query string false "Filter: traces created before this ISO 8601 timestamp"
+// @Param expand query bool false "Include nodes and logs in response (default: false)"
 // @Success 200 {object} dto.ListTracesResponse
 // @Failure 400 {object} dto.ErrorResponse "Bad request"
 // @Failure 401 {object} dto.ErrorResponse "Unauthorized"
@@ -499,48 +527,35 @@ func (h *TracesHandler) ListAutonomousAgentTraces(c *gin.Context) {
 	ctx := c.Request.Context()
 	tenantID := c.Param("tenantId")
 
-	// Parse query parameters
-	autonomousAgentID := c.Query("autonomousAgentId")
-	limitStr := c.DefaultQuery("limit", "20")
-	skipStr := c.DefaultQuery("skip", "0")
-	order := c.DefaultQuery("order", "desc")
-
-	limit, err := strconv.ParseInt(limitStr, 10, 64)
-	if err != nil || limit < 1 {
-		limit = 20
-	}
-	if limit > 100 {
-		limit = 100
-	}
-
-	skip, err := strconv.ParseInt(skipStr, 10, 64)
-	if err != nil || skip < 0 {
-		skip = 0
-	}
-
-	sortOrder := docdb.SortOrderDesc
-	if order == "asc" {
-		sortOrder = docdb.SortOrderAsc
-	}
-
-	// Build list options
-	opts := &docdb.ListTracesOptions{
-		TenantID:          tenantID,
-		AutonomousAgentID: autonomousAgentID,
-		ContextType:       models.TraceContextAutonomousAgent,
-		Limit:             limit,
-		Skip:              skip,
-		OrderBy:           sortOrder,
-	}
-
-	traces, err := h.docDBClient.Traces().List(ctx, opts)
+	opts, err := h.parseListTracesQueryParams(c)
 	if err != nil {
-		middleware.HandleError(c, errors.NewInternalError("failed to list traces", err))
+		middleware.HandleError(c, err)
+		return
+	}
+	opts.TenantID = tenantID
+	opts.ContextType = models.TraceContextAutonomousAgent
+
+	// Optional filter by specific autonomous agent ID
+	autonomousAgentID := c.Query("autonomousAgentId")
+	if autonomousAgentID != "" {
+		opts.AutonomousAgentID = autonomousAgentID
+	}
+
+	traces, err2 := h.docDBClient.Traces().List(ctx, opts)
+	if err2 != nil {
+		middleware.HandleError(c, errors.NewInternalError("failed to list traces", err2))
+		return
+	}
+
+	total, err2 := h.docDBClient.Traces().Count(ctx, opts)
+	if err2 != nil {
+		middleware.HandleError(c, errors.NewInternalError("failed to count traces", err2))
 		return
 	}
 
 	c.JSON(http.StatusOK, dto.ListTracesResponse{
 		Traces: dto.TracesToResponse(traces),
+		Total:  total,
 	})
 }
 
@@ -615,6 +630,68 @@ func (h *TracesHandler) DeleteTrace(c *gin.Context) {
 }
 
 // --- Helper Methods ---
+
+// parseListTracesQueryParams parses common query parameters for trace listing endpoints.
+func (h *TracesHandler) parseListTracesQueryParams(c *gin.Context) (*docdb.ListTracesOptions, *errors.DomainError) {
+	limitStr := c.DefaultQuery("limit", "20")
+	skipStr := c.DefaultQuery("skip", "0")
+	order := c.DefaultQuery("order", "desc")
+	orderByParam := c.DefaultQuery("order_by", "created_at")
+	createdAfterStr := c.Query("created_after")
+	createdBeforeStr := c.Query("created_before")
+	expandStr := c.DefaultQuery("expand", "false")
+
+	limit, err := strconv.ParseInt(limitStr, 10, 64)
+	if err != nil || limit < 1 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	skip, err := strconv.ParseInt(skipStr, 10, 64)
+	if err != nil || skip < 0 {
+		skip = 0
+	}
+
+	sortOrder := docdb.SortOrderDesc
+	if order == "asc" {
+		sortOrder = docdb.SortOrderAsc
+	}
+
+	sortField := docdb.SortFieldCreatedAt
+	if orderByParam == "updated_at" {
+		sortField = docdb.SortFieldUpdatedAt
+	}
+
+	expand := expandStr == "true"
+
+	opts := &docdb.ListTracesOptions{
+		Limit:   limit,
+		Skip:    skip,
+		OrderBy: sortOrder,
+		SortBy:  sortField,
+		Expand:  expand,
+	}
+
+	// Parse date filters
+	if createdAfterStr != "" {
+		t, err := time.Parse(time.RFC3339, createdAfterStr)
+		if err != nil {
+			return nil, errors.NewValidationError("invalid created_after format", "must be ISO 8601 / RFC 3339")
+		}
+		opts.CreatedAfter = &t
+	}
+	if createdBeforeStr != "" {
+		t, err := time.Parse(time.RFC3339, createdBeforeStr)
+		if err != nil {
+			return nil, errors.NewValidationError("invalid created_before format", "must be ISO 8601 / RFC 3339")
+		}
+		opts.CreatedBefore = &t
+	}
+
+	return opts, nil
+}
 
 // getUserID retrieves the user ID from the platform service.
 // The identity/me endpoint doesn't require tenantId.

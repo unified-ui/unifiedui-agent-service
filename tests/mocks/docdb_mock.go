@@ -260,6 +260,12 @@ func (m *MockTracesCollection) List(ctx context.Context, opts *docdb.ListTracesO
 	return args.Get(0).([]*models.Trace), args.Error(1)
 }
 
+// Count counts traces matching the filter options.
+func (m *MockTracesCollection) Count(ctx context.Context, opts *docdb.ListTracesOptions) (int64, error) {
+	args := m.Called(ctx, opts)
+	return args.Get(0).(int64), args.Error(1)
+}
+
 // Update updates a trace.
 func (m *MockTracesCollection) Update(ctx context.Context, trace *models.Trace) error {
 	args := m.Called(ctx, trace)
