@@ -76,6 +76,47 @@ func GetAutonomousAgentAPIKey(c *gin.Context) string {
 	return ""
 }
 
+// AuthenticateFlexible returns a gin middleware that accepts EITHER a Bearer token OR
+// an X-Unified-UI-Autonomous-Agent-API-Key header. This enables endpoints like POST /traces
+// to serve both user-initiated requests (Bearer) and external agent requests (API key).
+// The handler is responsible for checking which auth type was provided and validating accordingly.
+func (m *AuthMiddleware) AuthenticateFlexible() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authHeader := c.GetHeader("Authorization")
+		apiKey := c.GetHeader("X-Unified-UI-Autonomous-Agent-API-Key")
+
+		if authHeader == "" && apiKey == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"code":    "UNAUTHORIZED",
+				"message": "missing authentication: provide either Authorization header or X-Unified-UI-Autonomous-Agent-API-Key header",
+			})
+			return
+		}
+
+		// Try Bearer token first
+		if authHeader != "" {
+			parts := strings.SplitN(authHeader, " ", 2)
+			if len(parts) == 2 && strings.EqualFold(parts[0], "bearer") && parts[1] != "" {
+				c.Set("auth_token", parts[1])
+				c.Next()
+				return
+			}
+		}
+
+		// Fall back to API key
+		if apiKey != "" {
+			c.Set("autonomous_agent_api_key", apiKey)
+			c.Next()
+			return
+		}
+
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+			"code":    "UNAUTHORIZED",
+			"message": "invalid authentication credentials",
+		})
+	}
+}
+
 // AuthenticateAutonomousAgentAPIKey returns a gin middleware that validates the autonomous agent API key.
 // It extracts the X-Unified-UI-Autonomous-Agent-API-Key header and stores it in the context.
 // Unlike Bearer token auth, this API key will be validated against the platform service's

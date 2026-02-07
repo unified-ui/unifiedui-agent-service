@@ -43,6 +43,10 @@ type Client interface {
 	// This uses X-Unified-UI-Autonomous-Agent-API-Key header for authentication (NOT Bearer token).
 	// apiKey is the autonomous agent's API key that will be validated against primary/secondary keys.
 	GetAutonomousAgentConfig(ctx context.Context, tenantID, autonomousAgentID, apiKey string) (*AutonomousAgentConfigResponse, error)
+
+	// ValidateAutonomousAgentAPIKey validates the API key against the platform service
+	// without loading the full configuration or credential secrets.
+	ValidateAutonomousAgentAPIKey(ctx context.Context, tenantID, autonomousAgentID, apiKey string) error
 }
 
 // client implements the Client interface.
@@ -472,4 +476,49 @@ func (c *client) GetAutonomousAgentConfig(ctx context.Context, tenantID, autonom
 	}
 
 	return &config, nil
+}
+
+// ValidateAutonomousAgentAPIKey validates the API key against the platform service
+// without loading the full configuration or credential secrets.
+func (c *client) ValidateAutonomousAgentAPIKey(ctx context.Context, tenantID, autonomousAgentID, apiKey string) error {
+	if c.baseURL == "" {
+		return nil
+	}
+
+	if apiKey == "" {
+		return fmt.Errorf("API key not provided")
+	}
+
+	url := fmt.Sprintf("%s/api/v1/platform-service/tenants/%s/autonomous-agents/%s/validate-api-key", c.baseURL, tenantID, autonomousAgentID)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("X-Unified-UI-Autonomous-Agent-API-Key", apiKey)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to call platform service: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized {
+		return fmt.Errorf("unauthorized: invalid API key")
+	}
+	if resp.StatusCode == http.StatusForbidden {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("forbidden: %s", string(body))
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		return fmt.Errorf("not_found: autonomous agent not found")
+	}
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("platform service returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	return nil
 }

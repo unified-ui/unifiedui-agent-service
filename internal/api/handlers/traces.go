@@ -44,23 +44,23 @@ func (h *TracesHandler) GetImportService() *traceimport.ImportService {
 
 // CreateTrace handles POST /tenants/{tenantId}/traces
 // @Summary Create a new trace
-// @Description Creates a new trace for a conversation or autonomous agent
+// @Description Creates a new trace for a conversation or autonomous agent. Uses Bearer token for conversation context, API key for autonomous agent context.
 // @Tags Traces
 // @Accept json
 // @Produce json
 // @Param tenantId path string true "Tenant ID"
 // @Param request body dto.CreateTraceRequest true "Trace creation request"
+// @Param Authorization header string false "Bearer token (required for conversation traces)"
+// @Param X-Unified-UI-Autonomous-Agent-API-Key header string false "API key (required for autonomous agent traces)"
 // @Success 201 {object} dto.CreateTraceResponse
 // @Failure 400 {object} dto.ErrorResponse "Bad request - validation error"
 // @Failure 401 {object} dto.ErrorResponse "Unauthorized"
 // @Failure 404 {object} dto.ErrorResponse "Application, Conversation, or AutonomousAgent not found"
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
-// @Security BearerAuth
 // @Router /api/v1/agent-service/tenants/{tenantId}/traces [post]
 func (h *TracesHandler) CreateTrace(c *gin.Context) {
 	ctx := c.Request.Context()
 	tenantID := c.Param("tenantId")
-	authToken := middleware.GetToken(c)
 
 	// Parse request body
 	var req dto.CreateTraceRequest
@@ -89,15 +89,23 @@ func (h *TracesHandler) CreateTrace(c *gin.Context) {
 		return
 	}
 
-	// Get user info from platform service for created_by
-	userID, err := h.getUserID(ctx, authToken)
-	if err != nil {
-		middleware.HandleError(c, errors.NewInternalError("failed to get user info", err))
-		return
-	}
+	var userID string
 
-	// Validate context with platform service
 	if hasConversationContext {
+		// Conversation context: require Bearer token
+		authToken := middleware.GetToken(c)
+		if authToken == "" {
+			middleware.HandleError(c, errors.NewUnauthorizedError("bearer token required for conversation traces"))
+			return
+		}
+
+		uid, err := h.getUserID(ctx, authToken)
+		if err != nil {
+			middleware.HandleError(c, errors.NewInternalError("failed to get user info", err))
+			return
+		}
+		userID = uid
+
 		if err := h.validateConversationContext(ctx, tenantID, req.ApplicationID, req.ConversationID, authToken); err != nil {
 			middleware.HandleError(c, err)
 			return
@@ -117,10 +125,18 @@ func (h *TracesHandler) CreateTrace(c *gin.Context) {
 			return
 		}
 	} else {
-		if err := h.validateAutonomousAgentContext(ctx, tenantID, req.AutonomousAgentID, authToken); err != nil {
-			middleware.HandleError(c, err)
+		// Autonomous agent context: require API key
+		apiKey := middleware.GetAutonomousAgentAPIKey(c)
+		if apiKey == "" {
+			middleware.HandleError(c, errors.NewUnauthorizedError("X-Unified-UI-Autonomous-Agent-API-Key header required for autonomous agent traces"))
 			return
 		}
+
+		if domainErr := h.resolveUserIDFromAPIKey(ctx, tenantID, req.AutonomousAgentID, apiKey); domainErr != nil {
+			middleware.HandleError(c, domainErr)
+			return
+		}
+		userID = "autonomous-agent-" + req.AutonomousAgentID
 	}
 
 	// Generate ID if not provided
@@ -177,25 +193,25 @@ func (h *TracesHandler) CreateTrace(c *gin.Context) {
 
 // AddNodes handles POST /tenants/{tenantId}/traces/{traceId}/nodes
 // @Summary Add nodes to a trace
-// @Description Appends nodes to an existing trace
+// @Description Appends nodes to an existing trace. Uses Bearer token for conversation traces, API key for autonomous agent traces.
 // @Tags Traces
 // @Accept json
 // @Produce json
 // @Param tenantId path string true "Tenant ID"
 // @Param traceId path string true "Trace ID"
 // @Param request body dto.AddNodesRequest true "Nodes to add"
+// @Param Authorization header string false "Bearer token (required for conversation traces)"
+// @Param X-Unified-UI-Autonomous-Agent-API-Key header string false "API key (required for autonomous agent traces)"
 // @Success 200 {object} map[string]string "Success"
 // @Failure 400 {object} dto.ErrorResponse "Bad request"
 // @Failure 401 {object} dto.ErrorResponse "Unauthorized"
 // @Failure 404 {object} dto.ErrorResponse "Trace not found"
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
-// @Security BearerAuth
 // @Router /api/v1/agent-service/tenants/{tenantId}/traces/{traceId}/nodes [post]
 func (h *TracesHandler) AddNodes(c *gin.Context) {
 	ctx := c.Request.Context()
 	tenantID := c.Param("tenantId")
 	traceID := c.Param("traceId")
-	authToken := middleware.GetToken(c)
 
 	// Parse request body
 	var req dto.AddNodesRequest
@@ -215,10 +231,10 @@ func (h *TracesHandler) AddNodes(c *gin.Context) {
 		return
 	}
 
-	// Get user info for updated_by
-	userID, err := h.getUserID(ctx, authToken)
-	if err != nil {
-		middleware.HandleError(c, errors.NewInternalError("failed to get user info", err))
+	// Resolve user ID based on auth type and trace context
+	userID, domainErr := h.resolveUserIDForTrace(ctx, c, tenantID, trace)
+	if domainErr != nil {
+		middleware.HandleError(c, domainErr)
 		return
 	}
 
@@ -236,19 +252,20 @@ func (h *TracesHandler) AddNodes(c *gin.Context) {
 
 // AddLogs handles POST /tenants/{tenantId}/traces/{traceId}/logs
 // @Summary Add logs to a trace
-// @Description Appends logs to an existing trace
+// @Description Appends logs to an existing trace. Accepts Bearer token or API key authentication.
 // @Tags Traces
 // @Accept json
 // @Produce json
 // @Param tenantId path string true "Tenant ID"
 // @Param traceId path string true "Trace ID"
 // @Param request body dto.AddLogsRequest true "Logs to add"
+// @Param Authorization header string false "Bearer token"
+// @Param X-Unified-UI-Autonomous-Agent-API-Key header string false "API key"
 // @Success 200 {object} map[string]string "Success"
 // @Failure 400 {object} dto.ErrorResponse "Bad request"
 // @Failure 401 {object} dto.ErrorResponse "Unauthorized"
 // @Failure 404 {object} dto.ErrorResponse "Trace not found"
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
-// @Security BearerAuth
 // @Router /api/v1/agent-service/tenants/{tenantId}/traces/{traceId}/logs [post]
 func (h *TracesHandler) AddLogs(c *gin.Context) {
 	ctx := c.Request.Context()
@@ -758,6 +775,58 @@ func (h *TracesHandler) validateAutonomousAgentContext(ctx context.Context, tena
 	}
 
 	return nil
+}
+
+// resolveUserIDFromAPIKey validates the API key against the platform service and returns
+// the autonomous agent user ID. This calls ValidateAutonomousAgentAPIKey which validates
+// the API key against the stored primary/secondary keys without loading credential secrets.
+func (h *TracesHandler) resolveUserIDFromAPIKey(ctx context.Context, tenantID, agentID, apiKey string) *errors.DomainError {
+	if h.platformClient == nil {
+		return nil
+	}
+
+	err := h.platformClient.ValidateAutonomousAgentAPIKey(ctx, tenantID, agentID, apiKey)
+	if err != nil {
+		errStr := err.Error()
+		if strings.HasPrefix(errStr, "unauthorized") {
+			return errors.NewUnauthorizedError("invalid API key")
+		}
+		if strings.HasPrefix(errStr, "not_found") {
+			return errors.NewNotFoundError("autonomous agent", agentID)
+		}
+		return errors.NewInternalError("failed to validate autonomous agent API key", err)
+	}
+
+	return nil
+}
+
+// resolveUserIDForTrace determines the user ID based on the auth type and the trace's context.
+// For Bearer token auth, it resolves the user via GetMe.
+// For API key auth, it validates the key against the trace's autonomous agent.
+func (h *TracesHandler) resolveUserIDForTrace(ctx context.Context, c *gin.Context, tenantID string, trace *models.Trace) (string, *errors.DomainError) {
+	authToken := middleware.GetToken(c)
+	apiKey := middleware.GetAutonomousAgentAPIKey(c)
+
+	if authToken != "" {
+		uid, err := h.getUserID(ctx, authToken)
+		if err != nil {
+			return "", errors.NewInternalError("failed to get user info", err)
+		}
+		return uid, nil
+	}
+
+	if apiKey != "" {
+		if trace.ContextType != models.TraceContextAutonomousAgent || trace.AutonomousAgentID == "" {
+			return "", errors.NewForbiddenError("API key authentication is only allowed for autonomous agent traces")
+		}
+
+		if domainErr := h.resolveUserIDFromAPIKey(ctx, tenantID, trace.AutonomousAgentID, apiKey); domainErr != nil {
+			return "", domainErr
+		}
+		return "autonomous-agent-" + trace.AutonomousAgentID, nil
+	}
+
+	return "", errors.NewUnauthorizedError("no valid authentication provided")
 }
 
 // ImportConversationTrace handles PUT /tenants/{tenantId}/conversations/{conversationId}/traces/import/refresh

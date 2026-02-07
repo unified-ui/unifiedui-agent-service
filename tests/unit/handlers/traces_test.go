@@ -39,6 +39,22 @@ func autonomousAgentAPIKeyMiddleware() gin.HandlerFunc {
 	}
 }
 
+// flexibleAuthTestMiddleware is a test middleware that simulates AuthenticateFlexible.
+// It extracts either Bearer token or API key from headers and sets the context values.
+func flexibleAuthTestMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authHeader := c.GetHeader("Authorization")
+		if authHeader != "" && len(authHeader) > 7 {
+			c.Set("auth_token", authHeader[7:])
+		}
+		apiKey := c.GetHeader("X-Unified-UI-Autonomous-Agent-API-Key")
+		if apiKey != "" {
+			c.Set("autonomous_agent_api_key", apiKey)
+		}
+		c.Next()
+	}
+}
+
 func TestTracesHandler_CreateTrace_Conversation_Success(t *testing.T) {
 	// Setup
 	mockDocDB := mocks.NewMockDocDBClient()
@@ -76,6 +92,7 @@ func TestTracesHandler_CreateTrace_Conversation_Success(t *testing.T) {
 	handler := createTestTracesHandler(mockDocDB, mockPlatform)
 
 	router := testutils.SetupTestRouter()
+	router.Use(flexibleAuthTestMiddleware())
 	router.POST("/tenants/:tenantId/traces", handler.CreateTrace)
 
 	// Execute
@@ -105,9 +122,8 @@ func TestTracesHandler_CreateTrace_AutonomousAgent_Success(t *testing.T) {
 		ReferenceName:     "Scheduled Agent Run",
 	}
 
-	// Mock platform client responses
-	mockPlatform.On("GetMe", mock.Anything, mock.Anything).Return(&platform.UserInfo{ID: testutils.TestUserID}, nil)
-	mockPlatform.On("ValidateAutonomousAgent", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	// Mock platform client responses - API key auth validates via ValidateAutonomousAgentAPIKey
+	mockPlatform.On("ValidateAutonomousAgentAPIKey", mock.Anything, testutils.TestTenantID, "auto-agent-123", "test-api-key").Return(nil)
 
 	// Mock traces collection
 	mockDocDB.GetTracesCollection().On("Create", mock.Anything, mock.Anything).Return(nil)
@@ -115,10 +131,11 @@ func TestTracesHandler_CreateTrace_AutonomousAgent_Success(t *testing.T) {
 	handler := createTestTracesHandler(mockDocDB, mockPlatform)
 
 	router := testutils.SetupTestRouter()
+	router.Use(flexibleAuthTestMiddleware())
 	router.POST("/tenants/:tenantId/traces", handler.CreateTrace)
 
-	// Execute
-	headers := map[string]string{"Authorization": "Bearer test-token"}
+	// Execute - use API key for autonomous agent traces
+	headers := map[string]string{"X-Unified-UI-Autonomous-Agent-API-Key": "test-api-key"}
 	w := testutils.PerformRequest(router, "POST", "/tenants/"+testutils.TestTenantID+"/traces", createReq, headers)
 
 	// Assert
@@ -205,6 +222,7 @@ func TestTracesHandler_CreateTrace_ConversationAlreadyExists_Conflict(t *testing
 	handler := createTestTracesHandler(mockDocDB, mockPlatform)
 
 	router := testutils.SetupTestRouter()
+	router.Use(flexibleAuthTestMiddleware())
 	router.POST("/tenants/:tenantId/traces", handler.CreateTrace)
 
 	// Execute
@@ -250,6 +268,7 @@ func TestTracesHandler_AddNodes_Success(t *testing.T) {
 	handler := createTestTracesHandler(mockDocDB, mockPlatform)
 
 	router := testutils.SetupTestRouter()
+	router.Use(flexibleAuthTestMiddleware())
 	router.POST("/tenants/:tenantId/traces/:traceId/nodes", handler.AddNodes)
 
 	// Execute

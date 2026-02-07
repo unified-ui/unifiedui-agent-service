@@ -44,16 +44,9 @@ func Setup(r *gin.Engine, cfg *Config) {
 			// --- Traces CRUD Routes ---
 			traces := tenants.Group("/traces")
 			{
-				// Create a new trace
-				traces.POST("", cfg.TracesHandler.CreateTrace)
-
 				// Get, delete trace by ID
 				traces.GET("/:traceId", cfg.TracesHandler.GetTrace)
 				traces.DELETE("/:traceId", cfg.TracesHandler.DeleteTrace)
-
-				// Add nodes/logs to existing trace
-				traces.POST("/:traceId/nodes", cfg.TracesHandler.AddNodes)
-				traces.POST("/:traceId/logs", cfg.TracesHandler.AddLogs)
 			}
 
 			// --- Conversation Traces Routes ---
@@ -92,6 +85,23 @@ func Setup(r *gin.Engine, cfg *Config) {
 				agentImportRoutes.PUT("/traces/import", cfg.TracesHandler.ImportAutonomousAgentTrace)
 				// Refresh imported trace for an autonomous agent
 				agentImportRoutes.PUT("/traces/:traceId/import/refresh", cfg.TracesHandler.RefreshAutonomousAgentImportTrace)
+			}
+		}
+
+		// --- Flexible Auth Routes (Bearer OR API Key) ---
+		// These routes accept either Bearer token (for user/conversation context) or
+		// X-Unified-UI-Autonomous-Agent-API-Key (for autonomous agent context).
+		// The handler determines which auth type is required based on request content.
+		flexibleAuth := v1.Group("/tenants/:tenantId")
+		flexibleAuth.Use(cfg.AuthMiddleware.AuthenticateFlexible())
+		{
+			flexibleTraces := flexibleAuth.Group("/traces")
+			{
+				// Create a new trace (Bearer for conversation, API key for agent)
+				flexibleTraces.POST("", cfg.TracesHandler.CreateTrace)
+				// Add nodes/logs to existing trace
+				flexibleTraces.POST("/:traceId/nodes", cfg.TracesHandler.AddNodes)
+				flexibleTraces.POST("/:traceId/logs", cfg.TracesHandler.AddLogs)
 			}
 		}
 	}
