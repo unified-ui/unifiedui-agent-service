@@ -753,30 +753,6 @@ func (h *TracesHandler) validateConversationContext(ctx context.Context, tenantI
 	return nil
 }
 
-// validateAutonomousAgentContext validates that the autonomous agent exists.
-func (h *TracesHandler) validateAutonomousAgentContext(ctx context.Context, tenantID, autonomousAgentID, authToken string) *errors.DomainError {
-	if h.platformClient == nil {
-		// Skip validation if platform client is not configured
-		return nil
-	}
-
-	if err := h.platformClient.ValidateAutonomousAgent(ctx, tenantID, autonomousAgentID, authToken); err != nil {
-		errStr := err.Error()
-		if len(errStr) > 12 && errStr[:12] == "unauthorized" {
-			return errors.NewUnauthorizedError("invalid or expired token")
-		}
-		if len(errStr) > 9 && errStr[:9] == "forbidden" {
-			return errors.NewForbiddenError("access denied to autonomous agent")
-		}
-		if len(errStr) > 9 && errStr[:9] == "not_found" {
-			return errors.NewNotFoundError("autonomous agent", autonomousAgentID)
-		}
-		return errors.NewInternalError("failed to validate autonomous agent", err)
-	}
-
-	return nil
-}
-
 // resolveUserIDFromAPIKey validates the API key against the platform service and returns
 // the autonomous agent user ID. This calls ValidateAutonomousAgentAPIKey which validates
 // the API key against the stored primary/secondary keys without loading credential secrets.
