@@ -125,18 +125,34 @@ func (h *TracesHandler) CreateTrace(c *gin.Context) {
 			return
 		}
 	} else {
-		// Autonomous agent context: require API key
+		// Autonomous agent context: require Bearer token or API key
+		authToken := middleware.GetToken(c)
 		apiKey := middleware.GetAutonomousAgentAPIKey(c)
-		if apiKey == "" {
-			middleware.HandleError(c, errors.NewUnauthorizedError("X-Unified-UI-Autonomous-Agent-API-Key header required for autonomous agent traces"))
-			return
-		}
 
-		if domainErr := h.resolveUserIDFromAPIKey(ctx, tenantID, req.AutonomousAgentID, apiKey); domainErr != nil {
-			middleware.HandleError(c, domainErr)
+		if authToken != "" {
+			// Bearer token auth: validate access to autonomous agent via platform
+			if domainErr := h.resolveAutonomousAgentFromBearer(ctx, tenantID, req.AutonomousAgentID, authToken); domainErr != nil {
+				middleware.HandleError(c, domainErr)
+				return
+			}
+
+			uid, err := h.getUserID(ctx, authToken)
+			if err != nil {
+				middleware.HandleError(c, errors.NewInternalError("failed to get user info", err))
+				return
+			}
+			userID = uid
+		} else if apiKey != "" {
+			// API key auth: validate via platform (platform checks allow_api_keys)
+			if domainErr := h.resolveUserIDFromAPIKey(ctx, tenantID, req.AutonomousAgentID, apiKey); domainErr != nil {
+				middleware.HandleError(c, domainErr)
+				return
+			}
+			userID = "autonomous-agent-" + req.AutonomousAgentID
+		} else {
+			middleware.HandleError(c, errors.NewUnauthorizedError("Bearer token or X-Unified-UI-Autonomous-Agent-API-Key header required for autonomous agent traces"))
 			return
 		}
-		userID = "autonomous-agent-" + req.AutonomousAgentID
 	}
 
 	// Generate ID if not provided
@@ -748,6 +764,32 @@ func (h *TracesHandler) validateConversationContext(ctx context.Context, tenantI
 			return errors.NewNotFoundError("conversation", conversationID)
 		}
 		return errors.NewInternalError("failed to validate conversation", err)
+	}
+
+	return nil
+}
+
+// resolveAutonomousAgentFromBearer validates Bearer token access to an autonomous agent
+// via the platform service. This is used when creating traces with autonomous agent context
+// using a service principal Bearer token instead of an API key.
+func (h *TracesHandler) resolveAutonomousAgentFromBearer(ctx context.Context, tenantID, agentID, authToken string) *errors.DomainError {
+	if h.platformClient == nil {
+		return nil
+	}
+
+	err := h.platformClient.ValidateAutonomousAgent(ctx, tenantID, agentID, authToken)
+	if err != nil {
+		errStr := err.Error()
+		if strings.HasPrefix(errStr, "unauthorized") {
+			return errors.NewUnauthorizedError("unauthorized access to autonomous agent")
+		}
+		if strings.HasPrefix(errStr, "forbidden") {
+			return errors.NewForbiddenError("no permission to access autonomous agent")
+		}
+		if strings.HasPrefix(errStr, "not_found") {
+			return errors.NewNotFoundError("autonomous agent", agentID)
+		}
+		return errors.NewInternalError("failed to validate autonomous agent access", err)
 	}
 
 	return nil
