@@ -14,6 +14,7 @@
 ```
 tests/
 ├── mocks/                              # testify mocks for all interfaces
+│   ├── ai_service_mock.go              # MockAIService
 │   ├── cache_mock.go                   # MockCacheClient
 │   ├── docdb_mock.go                   # MockDocDBClient + MockTracesCollection + MockMessagesCollection
 │   ├── encryption_mock.go              # MockEncryptor
@@ -254,6 +255,10 @@ Each handler test file has a helper to create the handler with mocks:
 ```go
 func createTestTracesHandler(mockDocDB *mocks.MockDocDBClient, mockPlatform *mocks.MockPlatformClient) *handlers.TracesHandler {
     return handlers.NewTracesHandler(mockDocDB, mockPlatform, nil)
+}
+
+func createTestMessagesHandler(mockDocDB *mocks.MockDocDBClient, mockPlatform *mocks.MockPlatformClient, mockSession *mocks.MockSessionService, mockAI *mocks.MockAIService) *handlers.MessagesHandler {
+    return handlers.NewMessagesHandler(mockDocDB, mockPlatform, nil, mockSession, nil, mockAI)
 }
 ```
 

@@ -49,6 +49,7 @@ import (
 	hashicorpvault "github.com/unifiedui/agent-service/internal/infrastructure/vault/hashicorp"
 	"github.com/unifiedui/agent-service/internal/pkg/encryption"
 	"github.com/unifiedui/agent-service/internal/services/agents"
+	"github.com/unifiedui/agent-service/internal/services/ai"
 	"github.com/unifiedui/agent-service/internal/services/platform"
 	"github.com/unifiedui/agent-service/internal/services/session"
 	"github.com/unifiedui/agent-service/internal/services/traceimport"
@@ -289,7 +290,12 @@ func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb
 
 	// Create handlers
 	healthHandler := handlers.NewHealthHandler(cacheClient, docDBClient)
-	messagesHandler := handlers.NewMessagesHandler(docDBClient, platformClient, agentFactory, sessionService, importService)
+
+	// Create AI service and handler
+	aiService := ai.NewService(platformClient)
+	aiHandler := handlers.NewAIHandler(aiService, platformClient)
+
+	messagesHandler := handlers.NewMessagesHandler(docDBClient, platformClient, agentFactory, sessionService, importService, aiService)
 	tracesHandler := handlers.NewTracesHandler(docDBClient, platformClient, importService)
 	dataHandler := handlers.NewDataHandler(docDBClient)
 
@@ -299,6 +305,7 @@ func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb
 		MessagesHandler: messagesHandler,
 		TracesHandler:   tracesHandler,
 		DataHandler:     dataHandler,
+		AIHandler:       aiHandler,
 		AuthMiddleware:  authMw,
 		ServiceKeyMw:    serviceKeyMw,
 	}

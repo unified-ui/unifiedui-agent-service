@@ -14,6 +14,7 @@ type Config struct {
 	MessagesHandler *handlers.MessagesHandler
 	TracesHandler   *handlers.TracesHandler
 	DataHandler     *handlers.DataHandler
+	AIHandler       *handlers.AIHandler
 	AuthMiddleware  *middleware.AuthMiddleware
 	ServiceKeyMw    *middleware.ServiceKeyMiddleware
 }
@@ -65,6 +66,18 @@ func Setup(r *gin.Engine, cfg *Config) {
 			// --- Autonomous Agent Routes ---
 			// List all autonomous agent traces
 			tenants.GET("/autonomous-agents/traces", cfg.TracesHandler.ListAutonomousAgentTraces)
+
+			// --- AI Feature Routes ---
+			if cfg.AIHandler != nil {
+				aiRoutes := tenants.Group("/ai")
+				{
+					aiRoutes.POST("/generate-description", cfg.AIHandler.GenerateDescription)
+					aiRoutes.POST("/analyze-trace", cfg.AIHandler.AnalyzeTrace)
+					aiRoutes.POST("/summarize-trace", cfg.AIHandler.SummarizeTrace)
+					aiRoutes.POST("/test-model", cfg.AIHandler.TestModel)
+					aiRoutes.GET("/capabilities", cfg.AIHandler.GetCapabilities)
+				}
+			}
 
 			// Specific autonomous agent routes
 			agents := tenants.Group("/autonomous-agents/:agentId")

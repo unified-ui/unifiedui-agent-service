@@ -37,6 +37,8 @@ const (
 	StreamTypeNewMessage StreamMessageType = "STREAM_NEW_MESSAGE"
 	// StreamTypeMessageComplete indicates a complete message with all metadata (sent after STREAM_END).
 	StreamTypeMessageComplete StreamMessageType = "MESSAGE_COMPLETE"
+	// StreamTypeTitleGeneration indicates an AI-generated conversation title.
+	StreamTypeTitleGeneration StreamMessageType = "TITLE_GENERATION"
 )
 
 // StreamMessage represents a unified stream message format.
@@ -140,6 +142,14 @@ func (w *Writer) WriteMessageComplete(message interface{}) error {
 		Config: map[string]interface{}{
 			"message": message,
 		},
+	})
+}
+
+// WriteTitleGeneration writes a TITLE_GENERATION message with the AI-generated title.
+func (w *Writer) WriteTitleGeneration(title string) error {
+	return w.WriteJSON(EventMessage, &StreamMessage{
+		Type:    StreamTypeTitleGeneration,
+		Content: title,
 	})
 }
 

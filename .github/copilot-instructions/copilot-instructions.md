@@ -8,7 +8,7 @@ applyTo: '**'
 
 **unified-ui** is a multi-tenant integration platform for AI agent systems. This agent service is a high-performance Go/Gin microservice that serves as a unified abstraction layer between a single frontend and heterogeneous AI agent backends (N8N, Microsoft Foundry, Copilot, LangChain/Custom REST).
 
-**Tech Stack**: Go 1.21+ · Gin · MongoDB/CosmosDB · Redis · Azure KeyVault / HashiCorp Vault / DotEnv · SSE Streaming · swaggo/swag · testify
+**Tech Stack**: Go 1.24+ · Gin · MongoDB/CosmosDB · Redis · Azure KeyVault / HashiCorp Vault / DotEnv · SSE Streaming · swaggo/swag · testify
 
 ---
 
@@ -77,6 +77,7 @@ Read the relevant instruction file **before** working in that area.
 - **Errors**: `internal/domain/errors/errors.go` → `DomainError` types
 - **Core interfaces**: `internal/core/` (cache, vault, docdb)
 - **Platform client**: `internal/services/platform/client.go` → `Client` interface
+- **AI service**: `internal/services/ai/service.go` → `Service` interface
 - **Swagger UI**: `http://localhost:8085/docs/index.html`
 
 ---

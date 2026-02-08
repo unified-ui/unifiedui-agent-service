@@ -87,5 +87,26 @@ func (m *MockPlatformClient) ValidateAutonomousAgentAPIKey(ctx context.Context, 
 	return args.Error(0)
 }
 
+// GetAIModelsByPurpose mocks the GetAIModelsByPurpose method.
+func (m *MockPlatformClient) GetAIModelsByPurpose(ctx context.Context, tenantID, purposeGroup, modelType string) ([]platform.AIModelWithSecretResponse, error) {
+	args := m.Called(ctx, tenantID, purposeGroup, modelType)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]platform.AIModelWithSecretResponse), args.Error(1)
+}
+
+// GetCredentialSecret mocks the GetCredentialSecret method.
+func (m *MockPlatformClient) GetCredentialSecret(ctx context.Context, tenantID, credentialID, authToken string) (string, error) {
+	args := m.Called(ctx, tenantID, credentialID, authToken)
+	return args.String(0), args.Error(1)
+}
+
+// UpdateConversationTitle mocks the UpdateConversationTitle method.
+func (m *MockPlatformClient) UpdateConversationTitle(ctx context.Context, tenantID, conversationID, title, authToken string) error {
+	args := m.Called(ctx, tenantID, conversationID, title, authToken)
+	return args.Error(0)
+}
+
 // Ensure MockPlatformClient implements platform.Client interface.
 var _ platform.Client = (*MockPlatformClient)(nil)

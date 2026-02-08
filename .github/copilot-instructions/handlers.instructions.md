@@ -157,7 +157,9 @@ type CreateTraceRequest struct {
 |------|----------|----------|
 | `health.go` | Health | Health, Ready, Live |
 | `messages.go` | Messages | GetMessages, SendMessage |
-| `traces.go` | Traces | CreateTrace, GetTrace, DeleteTrace, AddNodes, AddLogs, GetConversationTraces, RefreshConversationTrace, ImportConversationTrace, ListAutonomousAgentTraces, GetAutonomousAgentTraces, RefreshAutonomousAgentTrace, ImportAutonomousAgentTrace |
+| `traces.go` | Traces | CreateTrace, GetTrace, DeleteTrace, AddNodes, AddLogs, GetConversationTraces, RefreshConversationTrace, ImportConversationTrace, ListAutonomousAgentTraces, GetAutonomousAgentTraces, RefreshAutonomousAgentTrace, ImportAutonomousAgentTrace, RefreshAutonomousAgentImportTrace |
+| `ai.go` | AI | GenerateDescription, AnalyzeTrace, SummarizeTrace, TestModel, GetCapabilities |
+| `data.go` | Data | DeleteConversationData, DeleteAutonomousAgentData |
 
 ---
 
@@ -169,6 +171,9 @@ Extract reusable logic into private methods on the handler struct:
 func (h *TracesHandler) getUserID(ctx context.Context, authToken string) (string, error) { ... }
 func (h *TracesHandler) resolveUserIDForTrace(ctx context.Context, c *gin.Context, tenantID string, trace *models.Trace) (string, *errors.DomainError) { ... }
 func (h *TracesHandler) parseListTracesQueryParams(c *gin.Context) (*docdb.ListTracesOptions, *errors.DomainError) { ... }
+func (h *MessagesHandler) streamTitleGeneration(ctx context.Context, writer *sse.Writer, tenantID, conversationID, userMessage, assistantResponse, authToken string) { ... }
 ```
+
+The `streamTitleGeneration` helper generates a conversation title via AI service after the first message, streams it as `TITLE_GENERATION` SSE events, and persists it to the platform service asynchronously.
 
 Keep handler methods focused. If a handler exceeds ~80 lines, extract helpers.

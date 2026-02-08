@@ -237,6 +237,9 @@ type Client interface {
     ValidateAutonomousAgent(ctx context.Context, tenantID, autonomousAgentID, authToken string) error
     GetAutonomousAgentConfig(ctx context.Context, tenantID, autonomousAgentID, apiKey string) (*AutonomousAgentConfigResponse, error)
     ValidateAutonomousAgentAPIKey(ctx context.Context, tenantID, autonomousAgentID, apiKey string) error
+    GetAIModelsByPurpose(ctx context.Context, tenantID, purposeGroup, modelType string) ([]AIModelWithSecretResponse, error)
+    GetCredentialSecret(ctx context.Context, tenantID, credentialID, authToken string) (string, error)
+    UpdateConversationTitle(ctx context.Context, tenantID, conversationID, title, authToken string) error
 }
 ```
 
@@ -250,6 +253,50 @@ Platform service errors are forwarded 1:1 to the client.
 
 ---
 
+## AI Service
+
+`internal/services/ai/service.go` — AI capabilities using tenant-configured LLM models.
+
+### Interface
+
+```go
+type Service interface {
+    GenerateTitle(ctx context.Context, tenantID, userMessage, assistantResponse string) (string, error)
+    GenerateDescription(ctx context.Context, tenantID, entityType, entityName, existingDescription string, entityContext map[string]interface{}) (string, error)
+    AnalyzeTrace(ctx context.Context, tenantID string, request AnalyzeTraceInput) (string, error)
+    SummarizeTrace(ctx context.Context, tenantID string, request SummarizeTraceInput) (string, error)
+    TestModel(ctx context.Context, provider string, config map[string]interface{}, credentialSecret map[string]interface{}) (*TestModelResult, error)
+    GetCapabilities(ctx context.Context, tenantID string) (*Capabilities, error)
+}
+```
+
+### LLM Provider Factory
+
+`NewLLMClient(provider, config, credentialSecret)` creates provider-specific clients:
+
+| Provider | Constant |
+|----------|----------|
+| Azure OpenAI | `AZURE_OPENAI` |
+| OpenAI | `OPENAI` |
+| Anthropic | `ANTHROPIC` |
+| Google GenAI | `GOOGLE_GENAI` |
+| Ollama | `OLLAMA` |
+| Mistral | `MISTRAL` |
+| Groq | `GROQ` |
+
+### Model Resolution
+
+AI service fetches models from platform service via `GetAIModelsByPurpose(tenantID, purposeGroup, modelType)`. Each purpose group (e.g., `CONVERSATION_TITLE_GENERATION`) maps to specific tenant-configured models.
+
+### Title Generation Flow
+
+1. After first message in a conversation, `MessagesHandler.streamTitleGeneration()` is called
+2. AI service calls `GenerateTitle()` with user message + assistant response
+3. Generated title is streamed via `TITLE_GENERATION` SSE events
+4. Platform service `UpdateConversationTitle()` persists the title asynchronously
+
+---
+
 ## SSE Streaming
 
 `internal/api/sse/writer.go` — Server-Sent Events for real-time chat responses.
@@ -260,6 +307,7 @@ Platform service errors are forwarded 1:1 to the client.
 writer, err := sse.NewWriter(c.Writer)  // Sets SSE headers + gets Flusher
 writer.WriteEvent(sse.EventMessage, data)
 writer.WriteStreamMessage(sse.StreamTypeTextStream, "chunk text")
+writer.WriteTitleGeneration("Generated Title")
 writer.WriteDone()
 ```
 
@@ -281,6 +329,7 @@ writer.WriteDone()
 | `STREAM_NEW_MESSAGE` | New message in multi-message response |
 | `MESSAGE_COMPLETE` | Complete message with metadata |
 | `STREAM_END` | Stream ends |
+| `TITLE_GENERATION` | AI-generated conversation title (streamed after first message) |
 | `ERROR` | Error in stream |
 
 ---

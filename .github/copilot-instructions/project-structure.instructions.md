@@ -14,6 +14,8 @@ unified-ui-agent-service/
 │   │   │   ├── responses.go            # Response DTOs (message endpoints)
 │   │   │   └── traces.go               # Trace-specific DTOs + conversion helpers
 │   │   ├── handlers/
+│   │   │   ├── ai.go               # AI endpoint handlers (generate description, analyze/summarize trace, test model, capabilities)
+│   │   │   ├── data.go             # Data cleanup handlers (delete conversation/agent data)
 │   │   │   ├── health.go               # Health, Ready, Live handlers
 │   │   │   ├── messages.go             # GetMessages, SendMessage handlers
 │   │   │   └── traces.go               # All trace CRUD + import handlers
@@ -79,8 +81,15 @@ unified-ui-agent-service/
 │       │   ├── types.go               # AgentClients, WorkflowClient interface
 │       │   ├── foundry/               # Microsoft Foundry agent implementation
 │       │   └── n8n/                   # N8N webhook agent implementation
+│       ├── ai/
+│       │   ├── service.go             # AI Service interface (GenerateTitle, GenerateDescription, AnalyzeTrace, etc.)
+│       │   ├── ai_service.go          # AI Service implementation
+│       │   ├── providers.go           # LLMClient factory (Azure OpenAI, OpenAI, Anthropic, etc.)
+│       │   ├── prompts.go             # Prompt templates for AI features
+│       │   └── toml.go                # TOML config parsing for AI models
 │       ├── platform/
 │       │   ├── client.go              # Platform Client interface + HTTP implementation
+│       │   ├── ai_models.go           # AI model-related platform API calls
 │       │   └── models.go             # Platform DTOs (AgentConfig, UserInfo, etc.)
 │       ├── session/
 │       │   └── service.go            # Session Service (cache + encrypt session data)
@@ -94,6 +103,7 @@ unified-ui-agent-service/
 │           └── n8n/                   # N8N trace importer + transformer
 ├── tests/
 │   ├── mocks/
+│   │   ├── ai_service_mock.go        # MockAIService
 │   │   ├── cache_mock.go             # MockCacheClient
 │   │   ├── docdb_mock.go             # MockDocDBClient + MockTracesCollection + MockMessagesCollection
 │   │   ├── encryption_mock.go        # MockEncryptor

@@ -24,6 +24,10 @@ func Setup(r *gin.Engine, cfg *Config) {
     // Group 4: Bearer OR API key (flexible)
     flexibleAuth := base.Group("")
     flexibleAuth.Use(cfg.AuthMiddleware.AuthenticateFlexible())
+    
+    // Group 5: Service key auth (S2S only)
+    serviceKey := base.Group("")
+    serviceKey.Use(cfg.ServiceKeyMw.Authenticate())
 }
 ```
 
@@ -37,6 +41,7 @@ func Setup(r *gin.Engine, cfg *Config) {
 | `protected` | `Authenticate()` | All user-facing endpoints (messages, conversation traces) |
 | `agentImport` | `AuthenticateAutonomousAgentAPIKey()` | External agent callbacks (API key in header) |
 | `flexibleAuth` | `AuthenticateFlexible()` | Endpoints usable by both users and agents (create trace, add nodes/logs) |
+| `serviceKey` | `ServiceKeyMw.Authenticate()` | Internal S2S endpoints (data cleanup by platform service) |
 
 ---
 
@@ -61,15 +66,27 @@ POST   /tenants/{tenantId}/traces/{traceId}/logs
 # Conversation traces (Bearer auth)
 GET /tenants/{tenantId}/conversations/{conversationId}/traces
 PUT /tenants/{tenantId}/conversations/{conversationId}/traces
+PUT /tenants/{tenantId}/conversations/{conversationId}/traces/import/refresh
+
+# AI endpoints (Bearer auth)
+POST /tenants/{tenantId}/ai/generate-description
+POST /tenants/{tenantId}/ai/analyze-trace
+POST /tenants/{tenantId}/ai/summarize-trace
+POST /tenants/{tenantId}/ai/test-model
+GET  /tenants/{tenantId}/ai/capabilities
 
 # Autonomous agent traces (Bearer auth)
 GET /tenants/{tenantId}/autonomous-agents/traces
 GET /tenants/{tenantId}/autonomous-agents/{agentId}/traces
 PUT /tenants/{tenantId}/autonomous-agents/{agentId}/traces
 
-# Trace import endpoints (specific auth per handler)
-PUT /tenants/{tenantId}/conversations/{conversationId}/traces/import/refresh
-PUT /tenants/{tenantId}/autonomous-agents/{agentId}/traces/import/refresh
+# Trace import endpoints (API key auth)
+PUT /tenants/{tenantId}/autonomous-agents/{agentId}/traces/import
+PUT /tenants/{tenantId}/autonomous-agents/{agentId}/traces/{traceId}/import/refresh
+
+# Data cleanup endpoints (Service key auth)
+DELETE /tenants/{tenantId}/conversations/{conversationId}/data
+DELETE /tenants/{tenantId}/autonomous-agents/{agentId}/data
 ```
 
 ---
@@ -130,10 +147,13 @@ if token != "" {
 
 ```go
 type Config struct {
-    TracesHandler   *handlers.TracesHandler
-    MessagesHandler *handlers.MessagesHandler
     HealthHandler   *handlers.HealthHandler
+    MessagesHandler *handlers.MessagesHandler
+    TracesHandler   *handlers.TracesHandler
+    DataHandler     *handlers.DataHandler
+    AIHandler       *handlers.AIHandler
     AuthMiddleware  *middleware.AuthMiddleware
+    ServiceKeyMw    *middleware.ServiceKeyMiddleware
 }
 ```
 

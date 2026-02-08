@@ -2,6 +2,7 @@
 package platform
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -47,6 +48,18 @@ type Client interface {
 	// ValidateAutonomousAgentAPIKey validates the API key against the platform service
 	// without loading the full configuration or credential secrets.
 	ValidateAutonomousAgentAPIKey(ctx context.Context, tenantID, autonomousAgentID, apiKey string) error
+
+	// GetAIModelsByPurpose retrieves active AI models for a given purpose group from the platform service.
+	// Uses X-Service-Key for service-to-service authentication. Optionally filters by model type.
+	GetAIModelsByPurpose(ctx context.Context, tenantID, purposeGroup, modelType string) ([]AIModelWithSecretResponse, error)
+
+	// GetCredentialSecret retrieves the decrypted credential secret from the platform service.
+	// Uses the user's Bearer token for authentication.
+	GetCredentialSecret(ctx context.Context, tenantID, credentialID, authToken string) (string, error)
+
+	// UpdateConversationTitle updates the title (name) of a conversation via the platform service.
+	// Uses the user's Bearer token for authentication.
+	UpdateConversationTitle(ctx context.Context, tenantID, conversationID, title, authToken string) error
 }
 
 // client implements the Client interface.
@@ -515,6 +528,149 @@ func (c *client) ValidateAutonomousAgentAPIKey(ctx context.Context, tenantID, au
 	if resp.StatusCode == http.StatusNotFound {
 		return fmt.Errorf("not_found: autonomous agent not found")
 	}
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("platform service returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
+// GetAIModelsByPurpose retrieves active AI models for a given purpose group.
+// Uses X-Service-Key for service-to-service authentication.
+func (c *client) GetAIModelsByPurpose(ctx context.Context, tenantID, purposeGroup, modelType string) ([]AIModelWithSecretResponse, error) {
+	if c.baseURL == "" {
+		return nil, fmt.Errorf("platform service URL not configured")
+	}
+
+	if c.serviceKey == "" {
+		return nil, fmt.Errorf("service key not configured")
+	}
+
+	url := fmt.Sprintf("%s/api/v1/platform-service/tenants/%s/ai-models/by-purpose/%s", c.baseURL, tenantID, purposeGroup)
+	if modelType != "" {
+		url += "?model_type=" + modelType
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("X-Service-Key", c.serviceKey)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to call platform service: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("platform service returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var models []AIModelWithSecretResponse
+	if err := json.Unmarshal(body, &models); err != nil {
+		return nil, fmt.Errorf("failed to parse AI models response: %w", err)
+	}
+
+	return models, nil
+}
+
+// GetCredentialSecret retrieves the decrypted credential secret from the platform service.
+// Uses the user's Bearer token for authentication (forwarded from the incoming request).
+func (c *client) GetCredentialSecret(ctx context.Context, tenantID, credentialID, authToken string) (string, error) {
+	if c.baseURL == "" {
+		return "", fmt.Errorf("platform service URL not configured")
+	}
+
+	if authToken == "" {
+		return "", fmt.Errorf("auth token not provided")
+	}
+
+	url := fmt.Sprintf("%s/api/v1/platform-service/tenants/%s/credentials/%s/secret", c.baseURL, tenantID, credentialID)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	if c.serviceKey != "" {
+		req.Header.Set("X-Service-Key", c.serviceKey)
+	}
+	req.Header.Set("Authorization", "Bearer "+authToken)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to call platform service: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	if resp.StatusCode == http.StatusNotFound {
+		return "", fmt.Errorf("not_found: credential not found")
+	}
+	if resp.StatusCode == http.StatusForbidden {
+		return "", fmt.Errorf("forbidden: insufficient permissions for credential secret")
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("platform service returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var secretResp CredentialSecretResponse
+	if err := json.Unmarshal(body, &secretResp); err != nil {
+		return "", fmt.Errorf("failed to parse credential secret response: %w", err)
+	}
+
+	return secretResp.SecretValue, nil
+}
+
+// UpdateConversationTitle updates the title (name) of a conversation via the platform service.
+func (c *client) UpdateConversationTitle(ctx context.Context, tenantID, conversationID, title, authToken string) error {
+	if c.baseURL == "" {
+		return fmt.Errorf("platform service URL not configured")
+	}
+
+	if authToken == "" {
+		return fmt.Errorf("auth token not provided")
+	}
+
+	url := fmt.Sprintf("%s/api/v1/platform-service/tenants/%s/conversations/%s", c.baseURL, tenantID, conversationID)
+
+	payload, err := json.Marshal(map[string]string{"name": title})
+	if err != nil {
+		return fmt.Errorf("failed to marshal request body: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPatch, url, bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	if c.serviceKey != "" {
+		req.Header.Set("X-Service-Key", c.serviceKey)
+	}
+	req.Header.Set("Authorization", "Bearer "+authToken)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to call platform service: %w", err)
+	}
+	defer resp.Body.Close()
+
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("platform service returned status %d: %s", resp.StatusCode, string(body))

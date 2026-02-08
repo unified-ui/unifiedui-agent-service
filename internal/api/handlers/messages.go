@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 
 	"github.com/unifiedui/agent-service/internal/api/middleware"
 	"github.com/unifiedui/agent-service/internal/api/sse"
@@ -16,6 +17,7 @@ import (
 	"github.com/unifiedui/agent-service/internal/domain/errors"
 	"github.com/unifiedui/agent-service/internal/domain/models"
 	"github.com/unifiedui/agent-service/internal/services/agents"
+	"github.com/unifiedui/agent-service/internal/services/ai"
 	"github.com/unifiedui/agent-service/internal/services/platform"
 	"github.com/unifiedui/agent-service/internal/services/session"
 	"github.com/unifiedui/agent-service/internal/services/traceimport"
@@ -35,6 +37,7 @@ type MessagesHandler struct {
 	agentFactory   *agents.Factory
 	sessionService session.Service
 	importService  *traceimport.ImportService
+	aiService      ai.Service
 }
 
 // NewMessagesHandler creates a new MessagesHandler.
@@ -44,6 +47,7 @@ func NewMessagesHandler(
 	agentFactory *agents.Factory,
 	sessionService session.Service,
 	importService *traceimport.ImportService,
+	aiService ai.Service,
 ) *MessagesHandler {
 	return &MessagesHandler{
 		docDBClient:    docDBClient,
@@ -51,6 +55,7 @@ func NewMessagesHandler(
 		agentFactory:   agentFactory,
 		sessionService: sessionService,
 		importService:  importService,
+		aiService:      aiService,
 	}
 }
 
@@ -341,7 +346,9 @@ func (h *MessagesHandler) SendMessage(c *gin.Context) {
 
 	// Handle streaming response
 	foundryAPIKey := c.GetHeader("X-Microsoft-Foundry-API-Key")
-	h.handleStreamingResponse(c, tenantCtx, agentClients, agentConfig, userMessage, assistantMessage, chatHistory, req.ExtConversationID, foundryAPIKey, req.InvokeConfig.ContextData)
+	authToken := middleware.GetToken(c)
+	isFirstMessage := len(chatHistory) == 0
+	h.handleStreamingResponse(c, tenantCtx, agentClients, agentConfig, userMessage, assistantMessage, chatHistory, req.ExtConversationID, foundryAPIKey, req.InvokeConfig.ContextData, authToken, isFirstMessage)
 }
 
 // handleStreamingResponse handles SSE streaming for message responses.
@@ -356,6 +363,8 @@ func (h *MessagesHandler) handleStreamingResponse(
 	extConversationID string,
 	foundryAPIKey string,
 	contextData map[string]string,
+	authToken string,
+	isFirstMessage bool,
 ) {
 	ctx := c.Request.Context()
 
@@ -414,6 +423,11 @@ func (h *MessagesHandler) handleStreamingResponse(
 		if h.importService != nil && agentConfig.Type == platform.AgentTypeN8N {
 			h.enqueueN8NTraceImport(tenantCtx, agentConfig, userMessage, executionID)
 		}
+	}
+
+	// Generate and stream AI title for first message in conversation
+	if isFirstMessage && h.aiService != nil {
+		h.streamTitleGeneration(ctx, writer, tenantCtx.TenantID, userMessage.ConversationID, userMessage.Content, assistantMessage.Content, authToken)
 	}
 }
 
@@ -877,6 +891,27 @@ func extractBaseURL(fullURL string) string {
 	}
 
 	return fullURL[:slashIdx]
+}
+
+// streamTitleGeneration generates an AI title and sends it via SSE, then persists it asynchronously.
+func (h *MessagesHandler) streamTitleGeneration(ctx context.Context, writer *sse.Writer, tenantID, conversationID, userContent, assistantContent, authToken string) {
+	title, err := h.aiService.GenerateTitle(ctx, tenantID, userContent, assistantContent)
+	if err != nil {
+		log.Warn().Err(err).Str("conversation_id", conversationID).Msg("failed to generate AI title")
+		return
+	}
+
+	writer.WriteTitleGeneration(title)
+
+	if authToken != "" {
+		go func() {
+			persistCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+			if err := h.platformClient.UpdateConversationTitle(persistCtx, tenantID, conversationID, title, authToken); err != nil {
+				log.Warn().Err(err).Str("conversation_id", conversationID).Msg("failed to persist conversation title")
+			}
+		}()
+	}
 }
 
 // generateMessageID generates a unique message ID.
