@@ -90,10 +90,11 @@ func Setup(r *gin.Engine, cfg *Config) {
 			}
 		}
 
-		// --- Autonomous Agent Import Routes (API Key Auth) ---
-		// These routes use X-Unified-UI-Autonomous-Agent-API-Key header instead of Bearer token
+		// --- Autonomous Agent Import Routes (Bearer OR API Key Auth) ---
+		// These routes accept either Bearer token (with WRITE permission) or
+		// X-Unified-UI-Autonomous-Agent-API-Key header for authentication.
 		agentImport := v1.Group("/tenants/:tenantId")
-		agentImport.Use(cfg.AuthMiddleware.AuthenticateAutonomousAgentAPIKey())
+		agentImport.Use(cfg.AuthMiddleware.AuthenticateFlexible())
 		{
 			agentImportRoutes := agentImport.Group("/autonomous-agents/:agentId")
 			{

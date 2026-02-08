@@ -81,6 +81,15 @@ func (m *MockPlatformClient) GetAutonomousAgentConfig(ctx context.Context, tenan
 	return args.Get(0).(*platform.AutonomousAgentConfigResponse), args.Error(1)
 }
 
+// GetAutonomousAgentConfigWithBearer mocks the GetAutonomousAgentConfigWithBearer method.
+func (m *MockPlatformClient) GetAutonomousAgentConfigWithBearer(ctx context.Context, tenantID, autonomousAgentID, authToken string) (*platform.AutonomousAgentConfigResponse, error) {
+	args := m.Called(ctx, tenantID, autonomousAgentID, authToken)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*platform.AutonomousAgentConfigResponse), args.Error(1)
+}
+
 // ValidateAutonomousAgentAPIKey mocks the ValidateAutonomousAgentAPIKey method.
 func (m *MockPlatformClient) ValidateAutonomousAgentAPIKey(ctx context.Context, tenantID, autonomousAgentID, apiKey string) error {
 	args := m.Called(ctx, tenantID, autonomousAgentID, apiKey)

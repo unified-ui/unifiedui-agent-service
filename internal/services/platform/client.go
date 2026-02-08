@@ -45,6 +45,11 @@ type Client interface {
 	// apiKey is the autonomous agent's API key that will be validated against primary/secondary keys.
 	GetAutonomousAgentConfig(ctx context.Context, tenantID, autonomousAgentID, apiKey string) (*AutonomousAgentConfigResponse, error)
 
+	// GetAutonomousAgentConfigWithBearer retrieves the autonomous agent configuration using Bearer token.
+	// This uses Authorization: Bearer + X-Service-Key headers for authentication.
+	// The user must have WRITE or ADMIN permission on the autonomous agent.
+	GetAutonomousAgentConfigWithBearer(ctx context.Context, tenantID, autonomousAgentID, authToken string) (*AutonomousAgentConfigResponse, error)
+
 	// ValidateAutonomousAgentAPIKey validates the API key against the platform service
 	// without loading the full configuration or credential secrets.
 	ValidateAutonomousAgentAPIKey(ctx context.Context, tenantID, autonomousAgentID, apiKey string) error
@@ -483,6 +488,63 @@ func (c *client) GetAutonomousAgentConfig(ctx context.Context, tenantID, autonom
 	}
 
 	// Parse response
+	var config AutonomousAgentConfigResponse
+	if err := json.Unmarshal(body, &config); err != nil {
+		return nil, fmt.Errorf("failed to parse autonomous agent config response: %w", err)
+	}
+
+	return &config, nil
+}
+
+// GetAutonomousAgentConfigWithBearer retrieves the autonomous agent configuration using Bearer token.
+// This uses Authorization: Bearer + X-Service-Key headers for authentication.
+// The user must have WRITE or ADMIN permission on the autonomous agent.
+func (c *client) GetAutonomousAgentConfigWithBearer(ctx context.Context, tenantID, autonomousAgentID, authToken string) (*AutonomousAgentConfigResponse, error) {
+	if c.baseURL == "" {
+		return nil, fmt.Errorf("platform service URL not configured")
+	}
+
+	if authToken == "" {
+		return nil, fmt.Errorf("auth token not provided")
+	}
+
+	url := fmt.Sprintf("%s/api/v1/platform-service/tenants/%s/autonomous-agents/%s/config/bearer", c.baseURL, tenantID, autonomousAgentID)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	if c.serviceKey != "" {
+		req.Header.Set("X-Service-Key", c.serviceKey)
+	}
+	req.Header.Set("Authorization", "Bearer "+authToken)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to call platform service: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	if resp.StatusCode == http.StatusUnauthorized {
+		return nil, fmt.Errorf("unauthorized: %s", string(body))
+	}
+	if resp.StatusCode == http.StatusForbidden {
+		return nil, fmt.Errorf("forbidden: %s", string(body))
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, fmt.Errorf("not_found: autonomous agent not found")
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("platform service returned status %d: %s", resp.StatusCode, string(body))
+	}
+
 	var config AutonomousAgentConfigResponse
 	if err := json.Unmarshal(body, &config); err != nil {
 		return nil, fmt.Errorf("failed to parse autonomous agent config response: %w", err)

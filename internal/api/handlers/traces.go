@@ -1024,42 +1024,81 @@ func (h *TracesHandler) buildN8NConfig(
 // @Produce json
 // @Param tenantId path string true "Tenant ID"
 // @Param agentId path string true "Autonomous Agent ID"
-// @Param X-Unified-UI-Autonomous-Agent-API-Key header string true "Autonomous Agent API Key"
+// @Param Authorization header string false "Bearer token (requires WRITE permission on autonomous agent)"
+// @Param X-Unified-UI-Autonomous-Agent-API-Key header string false "Autonomous Agent API Key"
 // @Param request body dto.AutonomousAgentImportTraceRequest true "Import request"
 // @Success 200 {object} dto.ImportTraceResponse "Trace updated"
 // @Success 201 {object} dto.ImportTraceResponse "Trace created"
 // @Failure 400 {object} dto.ErrorResponse "Bad request - validation error"
-// @Failure 401 {object} dto.ErrorResponse "Unauthorized - invalid API key"
+// @Failure 401 {object} dto.ErrorResponse "Unauthorized - invalid credentials"
+// @Failure 403 {object} dto.ErrorResponse "Forbidden - insufficient permissions"
 // @Failure 404 {object} dto.ErrorResponse "Autonomous agent not found"
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
+// @Security BearerAuth
 // @Security ApiKeyAuth
 // @Router /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/traces/import [put]
 func (h *TracesHandler) ImportAutonomousAgentTrace(c *gin.Context) {
 	ctx := c.Request.Context()
 	tenantID := c.Param("tenantId")
 	agentID := c.Param("agentId")
+	authToken := middleware.GetToken(c)
 	apiKey := middleware.GetAutonomousAgentAPIKey(c)
 
-	// Parse request body
 	var req dto.AutonomousAgentImportTraceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		middleware.HandleError(c, errors.NewValidationError("invalid request body", err.Error()))
 		return
 	}
 
-	// Get autonomous agent config from platform service (validates API key)
-	agentConfig, err := h.platformClient.GetAutonomousAgentConfig(ctx, tenantID, agentID, apiKey)
-	if err != nil {
-		errStr := err.Error()
-		if strings.HasPrefix(errStr, "unauthorized") {
-			middleware.HandleError(c, errors.NewUnauthorizedError("invalid API key"))
+	var agentConfig *platform.AutonomousAgentConfigResponse
+	var userID string
+
+	if authToken != "" {
+		config, err := h.platformClient.GetAutonomousAgentConfigWithBearer(ctx, tenantID, agentID, authToken)
+		if err != nil {
+			errStr := err.Error()
+			if strings.HasPrefix(errStr, "unauthorized") {
+				middleware.HandleError(c, errors.NewUnauthorizedError("unauthorized access to autonomous agent"))
+				return
+			}
+			if strings.HasPrefix(errStr, "forbidden") {
+				middleware.HandleError(c, errors.NewForbiddenError("no WRITE permission on autonomous agent"))
+				return
+			}
+			if strings.HasPrefix(errStr, "not_found") {
+				middleware.HandleError(c, errors.NewNotFoundError("autonomous agent", agentID))
+				return
+			}
+			middleware.HandleError(c, errors.NewInternalError("failed to get autonomous agent config", err))
 			return
 		}
-		if strings.HasPrefix(errStr, "not_found") {
-			middleware.HandleError(c, errors.NewNotFoundError("autonomous agent", agentID))
+		agentConfig = config
+
+		uid, err := h.getUserID(ctx, authToken)
+		if err != nil {
+			middleware.HandleError(c, errors.NewInternalError("failed to get user info", err))
 			return
 		}
-		middleware.HandleError(c, errors.NewInternalError("failed to get autonomous agent config", err))
+		userID = uid
+	} else if apiKey != "" {
+		config, err := h.platformClient.GetAutonomousAgentConfig(ctx, tenantID, agentID, apiKey)
+		if err != nil {
+			errStr := err.Error()
+			if strings.HasPrefix(errStr, "unauthorized") {
+				middleware.HandleError(c, errors.NewUnauthorizedError("invalid API key"))
+				return
+			}
+			if strings.HasPrefix(errStr, "not_found") {
+				middleware.HandleError(c, errors.NewNotFoundError("autonomous agent", agentID))
+				return
+			}
+			middleware.HandleError(c, errors.NewInternalError("failed to get autonomous agent config", err))
+			return
+		}
+		agentConfig = config
+		userID = "autonomous-agent-" + agentID
+	} else {
+		middleware.HandleError(c, errors.NewUnauthorizedError("Bearer token or X-Unified-UI-Autonomous-Agent-API-Key header required"))
 		return
 	}
 
@@ -1098,7 +1137,7 @@ func (h *TracesHandler) ImportAutonomousAgentTrace(c *gin.Context) {
 	importReq := &traceimport.ImportRequest{
 		TenantID:          tenantID,
 		AutonomousAgentID: agentID,
-		UserID:            "autonomous-agent-" + agentID, // Special user ID for autonomous agents
+		UserID:            userID,
 		BackendConfig:     backendConfig,
 	}
 
@@ -1135,12 +1174,15 @@ func (h *TracesHandler) ImportAutonomousAgentTrace(c *gin.Context) {
 // @Param tenantId path string true "Tenant ID"
 // @Param agentId path string true "Autonomous Agent ID"
 // @Param traceId path string true "Trace ID"
-// @Param X-Unified-UI-Autonomous-Agent-API-Key header string true "Autonomous Agent API Key"
+// @Param Authorization header string false "Bearer token (requires WRITE permission on autonomous agent)"
+// @Param X-Unified-UI-Autonomous-Agent-API-Key header string false "Autonomous Agent API Key"
 // @Success 200 {object} dto.ImportTraceResponse
 // @Failure 400 {object} dto.ErrorResponse "Bad request - trace has no reference ID"
-// @Failure 401 {object} dto.ErrorResponse "Unauthorized - invalid API key"
+// @Failure 401 {object} dto.ErrorResponse "Unauthorized - invalid credentials"
+// @Failure 403 {object} dto.ErrorResponse "Forbidden - insufficient permissions"
 // @Failure 404 {object} dto.ErrorResponse "Trace or autonomous agent not found"
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
+// @Security BearerAuth
 // @Security ApiKeyAuth
 // @Router /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/traces/{traceId}/import/refresh [put]
 func (h *TracesHandler) RefreshAutonomousAgentImportTrace(c *gin.Context) {
@@ -1148,21 +1190,58 @@ func (h *TracesHandler) RefreshAutonomousAgentImportTrace(c *gin.Context) {
 	tenantID := c.Param("tenantId")
 	agentID := c.Param("agentId")
 	traceID := c.Param("traceId")
+	authToken := middleware.GetToken(c)
 	apiKey := middleware.GetAutonomousAgentAPIKey(c)
 
-	// Get autonomous agent config from platform service (validates API key)
-	agentConfig, err := h.platformClient.GetAutonomousAgentConfig(ctx, tenantID, agentID, apiKey)
-	if err != nil {
-		errStr := err.Error()
-		if strings.HasPrefix(errStr, "unauthorized") {
-			middleware.HandleError(c, errors.NewUnauthorizedError("invalid API key"))
+	var agentConfig *platform.AutonomousAgentConfigResponse
+	var userID string
+
+	if authToken != "" {
+		config, err := h.platformClient.GetAutonomousAgentConfigWithBearer(ctx, tenantID, agentID, authToken)
+		if err != nil {
+			errStr := err.Error()
+			if strings.HasPrefix(errStr, "unauthorized") {
+				middleware.HandleError(c, errors.NewUnauthorizedError("unauthorized access to autonomous agent"))
+				return
+			}
+			if strings.HasPrefix(errStr, "forbidden") {
+				middleware.HandleError(c, errors.NewForbiddenError("no WRITE permission on autonomous agent"))
+				return
+			}
+			if strings.HasPrefix(errStr, "not_found") {
+				middleware.HandleError(c, errors.NewNotFoundError("autonomous agent", agentID))
+				return
+			}
+			middleware.HandleError(c, errors.NewInternalError("failed to get autonomous agent config", err))
 			return
 		}
-		if strings.HasPrefix(errStr, "not_found") {
-			middleware.HandleError(c, errors.NewNotFoundError("autonomous agent", agentID))
+		agentConfig = config
+
+		uid, err := h.getUserID(ctx, authToken)
+		if err != nil {
+			middleware.HandleError(c, errors.NewInternalError("failed to get user info", err))
 			return
 		}
-		middleware.HandleError(c, errors.NewInternalError("failed to get autonomous agent config", err))
+		userID = uid
+	} else if apiKey != "" {
+		config, err := h.platformClient.GetAutonomousAgentConfig(ctx, tenantID, agentID, apiKey)
+		if err != nil {
+			errStr := err.Error()
+			if strings.HasPrefix(errStr, "unauthorized") {
+				middleware.HandleError(c, errors.NewUnauthorizedError("invalid API key"))
+				return
+			}
+			if strings.HasPrefix(errStr, "not_found") {
+				middleware.HandleError(c, errors.NewNotFoundError("autonomous agent", agentID))
+				return
+			}
+			middleware.HandleError(c, errors.NewInternalError("failed to get autonomous agent config", err))
+			return
+		}
+		agentConfig = config
+		userID = "autonomous-agent-" + agentID
+	} else {
+		middleware.HandleError(c, errors.NewUnauthorizedError("Bearer token or X-Unified-UI-Autonomous-Agent-API-Key header required"))
 		return
 	}
 
@@ -1215,7 +1294,7 @@ func (h *TracesHandler) RefreshAutonomousAgentImportTrace(c *gin.Context) {
 	// Create import request
 	importReq := &traceimport.ImportRequest{
 		TenantID:      tenantID,
-		UserID:        "autonomous-agent-" + agentID,
+		UserID:        userID,
 		BackendConfig: backendConfig,
 	}
 
