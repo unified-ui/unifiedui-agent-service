@@ -56,6 +56,25 @@ type TestModelResponse struct {
 	ResponseTimeMs int64  `json:"response_time_ms"`
 }
 
+// TraceChatMessage represents a single message in the trace chat history.
+type TraceChatMessage struct {
+	Role    string `json:"role" binding:"required,oneof=user assistant"`
+	Content string `json:"content" binding:"required"`
+}
+
+// TraceChatRequest represents the request for trace chat.
+type TraceChatRequest struct {
+	Trace        string             `json:"trace" binding:"required"`
+	SelectedNode string             `json:"selected_node"`
+	Message      string             `json:"message" binding:"required"`
+	History      []TraceChatMessage `json:"history"`
+}
+
+// TraceChatResponse represents the response for trace chat.
+type TraceChatResponse struct {
+	Reply string `json:"reply"`
+}
+
 // AICapabilitiesResponse represents the available AI capabilities for a tenant.
 type AICapabilitiesResponse struct {
 	TitleGeneration       bool `json:"title_generation"`

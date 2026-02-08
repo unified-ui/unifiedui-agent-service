@@ -38,6 +38,12 @@ func (m *MockAIService) SummarizeTrace(ctx context.Context, tenantID string, req
 	return args.String(0), args.Error(1)
 }
 
+// TraceChat mocks the TraceChat method.
+func (m *MockAIService) TraceChat(ctx context.Context, tenantID string, request ai.TraceChatInput) (string, error) {
+	args := m.Called(ctx, tenantID, request)
+	return args.String(0), args.Error(1)
+}
+
 // TestModel mocks the TestModel method.
 func (m *MockAIService) TestModel(ctx context.Context, provider string, config map[string]interface{}, credentialSecret map[string]interface{}) (*ai.TestModelResult, error) {
 	args := m.Called(ctx, provider, config, credentialSecret)

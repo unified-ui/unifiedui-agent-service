@@ -74,6 +74,7 @@ func Setup(r *gin.Engine, cfg *Config) {
 					aiRoutes.POST("/generate-description", cfg.AIHandler.GenerateDescription)
 					aiRoutes.POST("/analyze-trace", cfg.AIHandler.AnalyzeTrace)
 					aiRoutes.POST("/summarize-trace", cfg.AIHandler.SummarizeTrace)
+					aiRoutes.POST("/trace-chat", cfg.AIHandler.TraceChat)
 					aiRoutes.POST("/test-model", cfg.AIHandler.TestModel)
 					aiRoutes.GET("/capabilities", cfg.AIHandler.GetCapabilities)
 				}

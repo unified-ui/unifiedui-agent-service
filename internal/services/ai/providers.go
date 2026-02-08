@@ -9,6 +9,8 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 // httpLLMClient is a base for HTTP-based LLM providers.
@@ -446,7 +448,9 @@ func parseOpenAIResponse(data []byte, latencyMs int64) (*ChatCompletionResult, e
 		Choices []struct {
 			Message struct {
 				Content string `json:"content"`
+				Refusal string `json:"refusal"`
 			} `json:"message"`
+			FinishReason string `json:"finish_reason"`
 		} `json:"choices"`
 		Model string `json:"model"`
 		Usage struct {
@@ -460,11 +464,34 @@ func parseOpenAIResponse(data []byte, latencyMs int64) (*ChatCompletionResult, e
 	}
 
 	if len(resp.Choices) == 0 {
+		rawPreview := string(data)
+		if len(rawPreview) > 500 {
+			rawPreview = rawPreview[:500]
+		}
+		log.Warn().Str("rawResponse", rawPreview).Msg("LLM returned no choices")
 		return nil, fmt.Errorf("no choices in response")
 	}
 
+	content := resp.Choices[0].Message.Content
+	finishReason := resp.Choices[0].FinishReason
+	refusal := resp.Choices[0].Message.Refusal
+
+	if content == "" {
+		rawPreview := string(data)
+		if len(rawPreview) > 500 {
+			rawPreview = rawPreview[:500]
+		}
+		log.Warn().
+			Str("finishReason", finishReason).
+			Str("refusal", refusal).
+			Int("promptTokens", resp.Usage.PromptTokens).
+			Int("completionTokens", resp.Usage.CompletionTokens).
+			Str("rawResponse", rawPreview).
+			Msg("LLM returned empty content")
+	}
+
 	return &ChatCompletionResult{
-		Content:      resp.Choices[0].Message.Content,
+		Content:      content,
 		Model:        resp.Model,
 		LatencyMs:    latencyMs,
 		TokensInput:  resp.Usage.PromptTokens,

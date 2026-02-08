@@ -247,3 +247,54 @@ func (h *AIHandler) GetCapabilities(c *gin.Context) {
 		Summarization:         capabilities.Summarization,
 	})
 }
+
+// TraceChat handles POST /tenants/{tenantId}/ai/trace-chat
+// @Summary Chat about a trace using AI
+// @Description Handles conversational questions about a trace, maintaining chat history for context
+// @Tags AI
+// @Accept json
+// @Produce json
+// @Param tenantId path string true "Tenant ID"
+// @Param request body dto.TraceChatRequest true "Trace chat request"
+// @Success 200 {object} dto.TraceChatResponse
+// @Failure 400 {object} dto.ErrorResponse "Bad request - validation error"
+// @Failure 401 {object} dto.ErrorResponse "Unauthorized"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error"
+// @Router /api/v1/agent-service/tenants/{tenantId}/ai/trace-chat [post]
+// @Security BearerAuth
+func (h *AIHandler) TraceChat(c *gin.Context) {
+	tenantID := c.Param("tenantId")
+
+	var req dto.TraceChatRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.HandleError(c, domainerrors.NewValidationError("invalid request body", err.Error()))
+		return
+	}
+
+	history := make([]ai.ChatMessage, len(req.History))
+	for i, msg := range req.History {
+		history[i] = ai.ChatMessage{
+			Role:    msg.Role,
+			Content: msg.Content,
+		}
+	}
+
+	reply, err := h.aiService.TraceChat(
+		c.Request.Context(),
+		tenantID,
+		ai.TraceChatInput{
+			Trace:        req.Trace,
+			SelectedNode: req.SelectedNode,
+			Message:      req.Message,
+			History:      history,
+		},
+	)
+	if err != nil {
+		middleware.HandleError(c, domainerrors.NewInternalError("failed to process trace chat", err))
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.TraceChatResponse{
+		Reply: reply,
+	})
+}

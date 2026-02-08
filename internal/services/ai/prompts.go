@@ -41,10 +41,19 @@ For "long": Detailed analysis of every node, data flow, performance, and recomme
 
 Format in Markdown.
 
-Trace nodes (TOML):
+The trace is represented as a hierarchical tree. Indentation indicates parent-child relationships.
+
+Trace nodes:
 %s`
 
 const testModelPrompt = "Reply with exactly: OK"
+
+const traceChatSystemPrompt = `You are a trace analysis assistant. You have access to the full execution trace of an AI agent workflow provided as JSON. Answer the user's questions about the trace clearly and concisely. Use Markdown formatting.
+
+The trace JSON includes root-level metadata (context type, reference info, logs, timestamps) and a hierarchical "nodes" array representing the execution tree.
+
+Trace (JSON):
+%s%s`
 
 // BuildTitleGenerationMessages builds the messages for title generation.
 func BuildTitleGenerationMessages(userMessage, assistantResponse string) []ChatMessage {
@@ -101,4 +110,27 @@ func BuildTestModelMessages() []ChatMessage {
 	return []ChatMessage{
 		{Role: "user", Content: testModelPrompt},
 	}
+}
+
+// BuildTraceChatMessages builds the messages for trace chat conversation.
+func BuildTraceChatMessages(traceJSON string, selectedNodeJSON string, history []ChatMessage, userMessage string) []ChatMessage {
+	selectedNodeSection := ""
+	if selectedNodeJSON != "" {
+		selectedNodeSection = fmt.Sprintf("\n\nCurrently selected/focused node (JSON):\n%s", selectedNodeJSON)
+	}
+
+	systemContent := fmt.Sprintf(traceChatSystemPrompt, traceJSON, selectedNodeSection)
+
+	messages := []ChatMessage{
+		{Role: "system", Content: systemContent},
+	}
+
+	messages = append(messages, history...)
+
+	messages = append(messages, ChatMessage{
+		Role:    "user",
+		Content: userMessage,
+	})
+
+	return messages
 }

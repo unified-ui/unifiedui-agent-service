@@ -797,3 +797,152 @@ func TestAIHandler_GetCapabilities_ServiceError(t *testing.T) {
 
 	mockAI.AssertExpectations(t)
 }
+
+// --- TraceChat Tests ---
+
+func TestAIHandler_TraceChat_Success(t *testing.T) {
+	mockAI := new(mocks.MockAIService)
+	mockPlatform := new(mocks.MockPlatformClient)
+
+	mockAI.On("TraceChat",
+		mock.Anything, testTenantID, mock.MatchedBy(func(req ai.TraceChatInput) bool {
+			return req.Message == "Why did this trace fail?" && req.Trace != ""
+		}),
+	).Return("The trace failed because the HTTP node returned a 500 error.", nil)
+
+	handler := handlers.NewAIHandler(mockAI, mockPlatform)
+	router := testutils.SetupTestRouter()
+	router.POST("/tenants/:tenantId/ai/trace-chat", handler.TraceChat)
+
+	body := dto.TraceChatRequest{
+		Trace:   `{"id":"trace-123","contextType":"conversation","nodes":[{"name":"Agent","type":"agent","status":"completed"},{"name":"HTTP Request","type":"http","status":"failed"}]}`,
+		Message: "Why did this trace fail?",
+	}
+
+	w := testutils.PerformRequest(router, "POST",
+		fmt.Sprintf("/tenants/%s/ai/trace-chat", testTenantID),
+		body, nil)
+
+	testutils.AssertStatusCode(t, http.StatusOK, w)
+
+	var resp dto.TraceChatResponse
+	testutils.ParseJSONResponse(t, w, &resp)
+	assert.Contains(t, resp.Reply, "500 error")
+
+	mockAI.AssertExpectations(t)
+}
+
+func TestAIHandler_TraceChat_WithHistory(t *testing.T) {
+	mockAI := new(mocks.MockAIService)
+	mockPlatform := new(mocks.MockPlatformClient)
+
+	mockAI.On("TraceChat",
+		mock.Anything, testTenantID, mock.MatchedBy(func(req ai.TraceChatInput) bool {
+			return req.Message == "How can I fix it?" && len(req.History) == 2
+		}),
+	).Return("You can fix it by checking the endpoint URL.", nil)
+
+	handler := handlers.NewAIHandler(mockAI, mockPlatform)
+	router := testutils.SetupTestRouter()
+	router.POST("/tenants/:tenantId/ai/trace-chat", handler.TraceChat)
+
+	body := dto.TraceChatRequest{
+		Trace:   `{"id":"trace-123","nodes":[{"name":"Agent","status":"failed"}]}`,
+		Message: "How can I fix it?",
+		History: []dto.TraceChatMessage{
+			{Role: "user", Content: "Why did this fail?"},
+			{Role: "assistant", Content: "The HTTP node returned a 500 error."},
+		},
+	}
+
+	w := testutils.PerformRequest(router, "POST",
+		fmt.Sprintf("/tenants/%s/ai/trace-chat", testTenantID),
+		body, nil)
+
+	testutils.AssertStatusCode(t, http.StatusOK, w)
+
+	var resp dto.TraceChatResponse
+	testutils.ParseJSONResponse(t, w, &resp)
+	assert.Contains(t, resp.Reply, "endpoint URL")
+
+	mockAI.AssertExpectations(t)
+}
+
+func TestAIHandler_TraceChat_MissingMessage(t *testing.T) {
+	mockAI := new(mocks.MockAIService)
+	mockPlatform := new(mocks.MockPlatformClient)
+
+	handler := handlers.NewAIHandler(mockAI, mockPlatform)
+	router := testutils.SetupTestRouter()
+	router.POST("/tenants/:tenantId/ai/trace-chat", handler.TraceChat)
+
+	body := map[string]interface{}{
+		"trace": `{"id":"trace-123"}`,
+	}
+
+	w := testutils.PerformRequest(router, "POST",
+		fmt.Sprintf("/tenants/%s/ai/trace-chat", testTenantID),
+		body, nil)
+
+	testutils.AssertStatusCode(t, http.StatusBadRequest, w)
+}
+
+func TestAIHandler_TraceChat_MissingTrace(t *testing.T) {
+	mockAI := new(mocks.MockAIService)
+	mockPlatform := new(mocks.MockPlatformClient)
+
+	handler := handlers.NewAIHandler(mockAI, mockPlatform)
+	router := testutils.SetupTestRouter()
+	router.POST("/tenants/:tenantId/ai/trace-chat", handler.TraceChat)
+
+	body := map[string]interface{}{
+		"message": "Why did this fail?",
+	}
+
+	w := testutils.PerformRequest(router, "POST",
+		fmt.Sprintf("/tenants/%s/ai/trace-chat", testTenantID),
+		body, nil)
+
+	testutils.AssertStatusCode(t, http.StatusBadRequest, w)
+}
+
+func TestAIHandler_TraceChat_ServiceError(t *testing.T) {
+	mockAI := new(mocks.MockAIService)
+	mockPlatform := new(mocks.MockPlatformClient)
+
+	mockAI.On("TraceChat",
+		mock.Anything, testTenantID, mock.Anything,
+	).Return("", fmt.Errorf("LLM call failed"))
+
+	handler := handlers.NewAIHandler(mockAI, mockPlatform)
+	router := testutils.SetupTestRouter()
+	router.POST("/tenants/:tenantId/ai/trace-chat", handler.TraceChat)
+
+	body := dto.TraceChatRequest{
+		Trace:   `{"id":"trace-1","nodes":[{"name":"Agent"}]}`,
+		Message: "What happened?",
+	}
+
+	w := testutils.PerformRequest(router, "POST",
+		fmt.Sprintf("/tenants/%s/ai/trace-chat", testTenantID),
+		body, nil)
+
+	testutils.AssertStatusCode(t, http.StatusInternalServerError, w)
+
+	mockAI.AssertExpectations(t)
+}
+
+func TestAIHandler_TraceChat_EmptyBody(t *testing.T) {
+	mockAI := new(mocks.MockAIService)
+	mockPlatform := new(mocks.MockPlatformClient)
+
+	handler := handlers.NewAIHandler(mockAI, mockPlatform)
+	router := testutils.SetupTestRouter()
+	router.POST("/tenants/:tenantId/ai/trace-chat", handler.TraceChat)
+
+	w := testutils.PerformRequest(router, "POST",
+		fmt.Sprintf("/tenants/%s/ai/trace-chat", testTenantID),
+		nil, nil)
+
+	testutils.AssertStatusCode(t, http.StatusBadRequest, w)
+}

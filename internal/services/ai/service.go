@@ -41,6 +41,9 @@ type Service interface {
 	// SummarizeTrace summarizes trace nodes at the specified detail level.
 	SummarizeTrace(ctx context.Context, tenantID string, request SummarizeTraceInput) (string, error)
 
+	// TraceChat handles a conversational chat about a trace.
+	TraceChat(ctx context.Context, tenantID string, request TraceChatInput) (string, error)
+
 	// TestModel tests an LLM model configuration by sending a simple ping.
 	TestModel(ctx context.Context, provider string, config map[string]interface{}, credentialSecret map[string]interface{}) (*TestModelResult, error)
 
@@ -64,6 +67,14 @@ type SummarizeTraceInput struct {
 	TraceID     string                   `json:"trace_id"`
 	DetailLevel string                   `json:"detail_level"`
 	Nodes       []map[string]interface{} `json:"nodes"`
+}
+
+// TraceChatInput holds the input for trace chat.
+type TraceChatInput struct {
+	Trace        string        `json:"trace"`
+	SelectedNode string        `json:"selected_node"`
+	Message      string        `json:"message"`
+	History      []ChatMessage `json:"history"`
 }
 
 // TestModelResult holds the result of a model test.

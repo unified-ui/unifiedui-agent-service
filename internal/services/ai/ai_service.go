@@ -95,14 +95,59 @@ func (s *aiService) SummarizeTrace(ctx context.Context, tenantID string, request
 		return "", fmt.Errorf("failed to get LLM client: %w", err)
 	}
 
-	nodesTOML := SliceToTOML(request.Nodes, "nodes")
+	nodesText := NodesToHierarchicalText(request.Nodes)
 
-	messages := BuildTraceSummarizeMessages(request.DetailLevel, nodesTOML)
+	messages := BuildTraceSummarizeMessages(request.DetailLevel, nodesText)
 
 	result, err := llmClient.ChatCompletion(ctx, messages)
 	if err != nil {
 		return "", fmt.Errorf("LLM call failed: %w", err)
 	}
+
+	return result.Content, nil
+}
+
+// TraceChat handles a conversational chat about a trace.
+func (s *aiService) TraceChat(ctx context.Context, tenantID string, request TraceChatInput) (string, error) {
+	llmClient, err := s.getLLMClientForPurpose(ctx, tenantID, "TRACE_ANALYSIS", "LLM_MODEL")
+	if err != nil {
+		return "", fmt.Errorf("failed to get LLM client: %w", err)
+	}
+
+	messages := BuildTraceChatMessages(request.Trace, request.SelectedNode, request.History, request.Message)
+
+	totalChars := 0
+	for _, m := range messages {
+		totalChars += len(m.Content)
+	}
+	log.Info().
+		Str("tenantID", tenantID).
+		Int("messageCount", len(messages)).
+		Int("totalChars", totalChars).
+		Int("traceLen", len(request.Trace)).
+		Int("selectedNodeLen", len(request.SelectedNode)).
+		Int("historyLen", len(request.History)).
+		Msg("trace chat LLM request")
+
+	result, err := llmClient.ChatCompletion(ctx, messages)
+	if err != nil {
+		return "", fmt.Errorf("LLM call failed: %w", err)
+	}
+
+	if result.Content == "" {
+		log.Warn().Str("tenantID", tenantID).Msg("trace chat LLM returned empty content, likely content filter")
+		return "⚠️ The AI response was blocked by a content filter. Please try rephrasing your question — for example, ask for a summary or about a specific aspect of the trace.", nil
+	}
+
+	preview := result.Content
+	if len(preview) > 30 {
+		preview = preview[:30]
+	}
+	log.Info().
+		Str("tenantID", tenantID).
+		Str("preview", preview).
+		Int("contentLen", len(result.Content)).
+		Msg("trace chat LLM response")
 
 	return result.Content, nil
 }
