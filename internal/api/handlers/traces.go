@@ -1016,7 +1016,7 @@ func (h *TracesHandler) buildN8NConfig(
 
 // --- Autonomous Agent Import Handlers ---
 
-// ImportAutonomousAgentTrace handles PUT /autonomous-agents/{agentId}/traces/import
+// ImportAutonomousAgentTrace handles PUT /tenants/{tenantId}/autonomous-agents/{agentId}/traces/import
 // @Summary Import or update traces for an autonomous agent (upsert by executionId)
 // @Description Imports traces from an external system (N8N, etc.) for an autonomous agent. If a trace with the same executionId already exists, it will be updated; otherwise a new trace is created.
 // @Tags Traces
@@ -1033,7 +1033,7 @@ func (h *TracesHandler) buildN8NConfig(
 // @Failure 404 {object} dto.ErrorResponse "Autonomous agent not found"
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Security ApiKeyAuth
-// @Router /api/v1/agent-service/autonomous-agents/{agentId}/traces/import [put]
+// @Router /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/traces/import [put]
 func (h *TracesHandler) ImportAutonomousAgentTrace(c *gin.Context) {
 	ctx := c.Request.Context()
 	tenantID := c.Param("tenantId")
@@ -1126,7 +1126,7 @@ func (h *TracesHandler) ImportAutonomousAgentTrace(c *gin.Context) {
 	})
 }
 
-// RefreshAutonomousAgentImportTrace handles PUT /autonomous-agents/{agentId}/traces/{traceId}/import/refresh
+// RefreshAutonomousAgentImportTrace handles PUT /tenants/{tenantId}/autonomous-agents/{agentId}/traces/{traceId}/import/refresh
 // @Summary Refresh an imported trace for an autonomous agent
 // @Description Re-imports traces from the external system using the existing trace's reference ID
 // @Tags Traces
@@ -1142,7 +1142,7 @@ func (h *TracesHandler) ImportAutonomousAgentTrace(c *gin.Context) {
 // @Failure 404 {object} dto.ErrorResponse "Trace or autonomous agent not found"
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Security ApiKeyAuth
-// @Router /api/v1/agent-service/autonomous-agents/{agentId}/traces/{traceId}/import/refresh [put]
+// @Router /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/traces/{traceId}/import/refresh [put]
 func (h *TracesHandler) RefreshAutonomousAgentImportTrace(c *gin.Context) {
 	ctx := c.Request.Context()
 	tenantID := c.Param("tenantId")

@@ -13,7 +13,9 @@ type Config struct {
 	HealthHandler   *handlers.HealthHandler
 	MessagesHandler *handlers.MessagesHandler
 	TracesHandler   *handlers.TracesHandler
+	DataHandler     *handlers.DataHandler
 	AuthMiddleware  *middleware.AuthMiddleware
+	ServiceKeyMw    *middleware.ServiceKeyMiddleware
 }
 
 // Setup configures all routes on the Gin engine.
@@ -102,6 +104,16 @@ func Setup(r *gin.Engine, cfg *Config) {
 				// Add nodes/logs to existing trace
 				flexibleTraces.POST("/:traceId/nodes", cfg.TracesHandler.AddNodes)
 				flexibleTraces.POST("/:traceId/logs", cfg.TracesHandler.AddLogs)
+			}
+		}
+
+		// --- Service Key Auth Routes (internal service-to-service) ---
+		if cfg.ServiceKeyMw != nil && cfg.DataHandler != nil {
+			serviceAuth := v1.Group("/tenants/:tenantId")
+			serviceAuth.Use(cfg.ServiceKeyMw.AuthenticateServiceKey())
+			{
+				serviceAuth.DELETE("/conversations/:conversationId/data", cfg.DataHandler.DeleteConversationData)
+				serviceAuth.DELETE("/autonomous-agents/:agentId/data", cfg.DataHandler.DeleteAutonomousAgentData)
 			}
 		}
 	}

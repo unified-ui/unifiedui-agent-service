@@ -17,6 +17,7 @@ type Config struct {
 	DocDB    DocDBConfig
 	Vault    VaultConfig
 	Platform PlatformConfig
+	AppVault AppVaultConfig
 	Log      LogConfig
 }
 
@@ -66,6 +67,12 @@ type PlatformConfig struct {
 	ServiceKey string // X_AGENT_SERVICE_KEY for service-to-service authentication
 }
 
+// AppVaultConfig holds app vault key name configuration.
+type AppVaultConfig struct {
+	PlatformServiceKey string // Key name in vault for validating incoming platform requests
+	AgentToPlatformKey string // Key name in vault for outgoing requests to platform
+}
+
 // LogConfig holds logging configuration.
 type LogConfig struct {
 	Level  string
@@ -108,6 +115,10 @@ func Load() (*Config, error) {
 			ConfigPath: getEnv("PLATFORM_CONFIG_PATH", "poc/n8n/config.json"),
 			Timeout:    time.Duration(getEnvAsInt("PLATFORM_SERVICE_TIMEOUT_SECONDS", 30)) * time.Second,
 			ServiceKey: getEnv("X_AGENT_SERVICE_KEY", ""),
+		},
+		AppVault: AppVaultConfig{
+			PlatformServiceKey: getEnv("APP_VAULT_PLATFORM_SERVICE_KEY", "platform-to-agent-service-key"),
+			AgentToPlatformKey: getEnv("APP_VAULT_AGENT_TO_PLATFORM_KEY", "agent-to-platform-service-key"),
 		},
 		Log: LogConfig{
 			Level:  getEnv("LOG_LEVEL", "info"),

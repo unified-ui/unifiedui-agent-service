@@ -254,6 +254,7 @@ func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb
 	loggingMw := middleware.NewLoggingMiddleware()
 	errorMw := middleware.NewErrorMiddleware()
 	authMw := middleware.NewAuthMiddleware(cfg.Platform.URL)
+	serviceKeyMw := middleware.NewServiceKeyMiddleware(vaultClient, cfg.AppVault)
 
 	// Create platform client
 	platformClient := platform.NewClient(&platform.ClientConfig{
@@ -270,13 +271,16 @@ func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb
 	healthHandler := handlers.NewHealthHandler(cacheClient, docDBClient)
 	messagesHandler := handlers.NewMessagesHandler(docDBClient, platformClient, agentFactory, sessionService, importService)
 	tracesHandler := handlers.NewTracesHandler(docDBClient, platformClient, importService)
+	dataHandler := handlers.NewDataHandler(docDBClient)
 
 	// Setup routes
 	routesCfg := &routes.Config{
 		HealthHandler:   healthHandler,
 		MessagesHandler: messagesHandler,
 		TracesHandler:   tracesHandler,
+		DataHandler:     dataHandler,
 		AuthMiddleware:  authMw,
+		ServiceKeyMw:    serviceKeyMw,
 	}
 
 	routes.SetupWithMiddleware(router, routesCfg, loggingMw, errorMw)

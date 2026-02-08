@@ -428,122 +428,6 @@ info:
   title: UnifiedUI Chat Service API
   version: "1.0"
 paths:
-  /api/v1/agent-service/autonomous-agents/{agentId}/traces/{traceId}/import/refresh:
-    put:
-      consumes:
-      - application/json
-      description: Re-imports traces from the external system using the existing trace's
-        reference ID
-      parameters:
-      - description: Tenant ID
-        in: path
-        name: tenantId
-        required: true
-        type: string
-      - description: Autonomous Agent ID
-        in: path
-        name: agentId
-        required: true
-        type: string
-      - description: Trace ID
-        in: path
-        name: traceId
-        required: true
-        type: string
-      - description: Autonomous Agent API Key
-        in: header
-        name: X-Unified-UI-Autonomous-Agent-API-Key
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/dto.ImportTraceResponse'
-        "400":
-          description: Bad request - trace has no reference ID
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "401":
-          description: Unauthorized - invalid API key
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "404":
-          description: Trace or autonomous agent not found
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-      security:
-      - ApiKeyAuth: []
-      summary: Refresh an imported trace for an autonomous agent
-      tags:
-      - Traces
-  /api/v1/agent-service/autonomous-agents/{agentId}/traces/import:
-    put:
-      consumes:
-      - application/json
-      description: Imports traces from an external system (N8N, etc.) for an autonomous
-        agent. If a trace with the same executionId already exists, it will be updated;
-        otherwise a new trace is created.
-      parameters:
-      - description: Tenant ID
-        in: path
-        name: tenantId
-        required: true
-        type: string
-      - description: Autonomous Agent ID
-        in: path
-        name: agentId
-        required: true
-        type: string
-      - description: Autonomous Agent API Key
-        in: header
-        name: X-Unified-UI-Autonomous-Agent-API-Key
-        required: true
-        type: string
-      - description: Import request
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/dto.AutonomousAgentImportTraceRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Trace updated
-          schema:
-            $ref: '#/definitions/dto.ImportTraceResponse'
-        "201":
-          description: Trace created
-          schema:
-            $ref: '#/definitions/dto.ImportTraceResponse'
-        "400":
-          description: Bad request - validation error
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "401":
-          description: Unauthorized - invalid API key
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "404":
-          description: Autonomous agent not found
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-      security:
-      - ApiKeyAuth: []
-      summary: Import or update traces for an autonomous agent (upsert by executionId)
-      tags:
-      - Traces
   /api/v1/agent-service/health:
     get:
       description: Returns the overall health status and component statuses
@@ -597,6 +481,46 @@ paths:
       summary: Readiness check
       tags:
       - Health
+  /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/data:
+    delete:
+      description: Deletes all traces associated with an autonomous agent. Requires
+        X-Service-Key authentication.
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Autonomous Agent ID
+        in: path
+        name: agentId
+        required: true
+        type: string
+      - description: Service-to-service authentication key
+        in: header
+        name: X-Service-Key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Delete all data for an autonomous agent
+      tags:
+      - Data
   /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/traces:
     get:
       consumes:
@@ -713,6 +637,122 @@ paths:
       security:
       - BearerAuth: []
       summary: Refresh trace for an autonomous agent
+      tags:
+      - Traces
+  /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/traces/{traceId}/import/refresh:
+    put:
+      consumes:
+      - application/json
+      description: Re-imports traces from the external system using the existing trace's
+        reference ID
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Autonomous Agent ID
+        in: path
+        name: agentId
+        required: true
+        type: string
+      - description: Trace ID
+        in: path
+        name: traceId
+        required: true
+        type: string
+      - description: Autonomous Agent API Key
+        in: header
+        name: X-Unified-UI-Autonomous-Agent-API-Key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ImportTraceResponse'
+        "400":
+          description: Bad request - trace has no reference ID
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized - invalid API key
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Trace or autonomous agent not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Refresh an imported trace for an autonomous agent
+      tags:
+      - Traces
+  /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/traces/import:
+    put:
+      consumes:
+      - application/json
+      description: Imports traces from an external system (N8N, etc.) for an autonomous
+        agent. If a trace with the same executionId already exists, it will be updated;
+        otherwise a new trace is created.
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Autonomous Agent ID
+        in: path
+        name: agentId
+        required: true
+        type: string
+      - description: Autonomous Agent API Key
+        in: header
+        name: X-Unified-UI-Autonomous-Agent-API-Key
+        required: true
+        type: string
+      - description: Import request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.AutonomousAgentImportTraceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Trace updated
+          schema:
+            $ref: '#/definitions/dto.ImportTraceResponse'
+        "201":
+          description: Trace created
+          schema:
+            $ref: '#/definitions/dto.ImportTraceResponse'
+        "400":
+          description: Bad request - validation error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized - invalid API key
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Autonomous agent not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Import or update traces for an autonomous agent (upsert by executionId)
       tags:
       - Traces
   /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/traces:
@@ -882,6 +922,46 @@ paths:
       summary: Send a message
       tags:
       - Messages
+  /api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/data:
+    delete:
+      description: Deletes all messages and traces associated with a conversation.
+        Requires X-Service-Key authentication.
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Conversation ID
+        in: path
+        name: conversationId
+        required: true
+        type: string
+      - description: Service-to-service authentication key
+        in: header
+        name: X-Service-Key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Delete all data for a conversation
+      tags:
+      - Data
   /api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/traces:
     get:
       consumes:
@@ -1020,7 +1100,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Creates a new trace for a conversation or autonomous agent
+      description: Creates a new trace for a conversation or autonomous agent. Uses
+        Bearer token for conversation context, API key for autonomous agent context.
       parameters:
       - description: Tenant ID
         in: path
@@ -1033,6 +1114,14 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/dto.CreateTraceRequest'
+      - description: Bearer token (required for conversation traces)
+        in: header
+        name: Authorization
+        type: string
+      - description: API key (required for autonomous agent traces)
+        in: header
+        name: X-Unified-UI-Autonomous-Agent-API-Key
+        type: string
       produces:
       - application/json
       responses:
@@ -1056,8 +1145,6 @@ paths:
           description: Internal server error
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
-      security:
-      - BearerAuth: []
       summary: Create a new trace
       tags:
       - Traces
@@ -1142,7 +1229,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Appends logs to an existing trace
+      description: Appends logs to an existing trace. Accepts Bearer token or API
+        key authentication.
       parameters:
       - description: Tenant ID
         in: path
@@ -1160,6 +1248,14 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/dto.AddLogsRequest'
+      - description: Bearer token
+        in: header
+        name: Authorization
+        type: string
+      - description: API key
+        in: header
+        name: X-Unified-UI-Autonomous-Agent-API-Key
+        type: string
       produces:
       - application/json
       responses:
@@ -1185,8 +1281,6 @@ paths:
           description: Internal server error
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
-      security:
-      - BearerAuth: []
       summary: Add logs to a trace
       tags:
       - Traces
@@ -1194,7 +1288,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Appends nodes to an existing trace
+      description: Appends nodes to an existing trace. Uses Bearer token for conversation
+        traces, API key for autonomous agent traces.
       parameters:
       - description: Tenant ID
         in: path
@@ -1212,6 +1307,14 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/dto.AddNodesRequest'
+      - description: Bearer token (required for conversation traces)
+        in: header
+        name: Authorization
+        type: string
+      - description: API key (required for autonomous agent traces)
+        in: header
+        name: X-Unified-UI-Autonomous-Agent-API-Key
+        type: string
       produces:
       - application/json
       responses:
@@ -1237,8 +1340,6 @@ paths:
           description: Internal server error
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
-      security:
-      - BearerAuth: []
       summary: Add nodes to a trace
       tags:
       - Traces

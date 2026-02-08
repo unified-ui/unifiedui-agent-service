@@ -24,178 +24,6 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/api/v1/agent-service/autonomous-agents/{agentId}/traces/import": {
-            "put": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Imports traces from an external system (N8N, etc.) for an autonomous agent. If a trace with the same executionId already exists, it will be updated; otherwise a new trace is created.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Traces"
-                ],
-                "summary": "Import or update traces for an autonomous agent (upsert by executionId)",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Tenant ID",
-                        "name": "tenantId",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Autonomous Agent ID",
-                        "name": "agentId",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Autonomous Agent API Key",
-                        "name": "X-Unified-UI-Autonomous-Agent-API-Key",
-                        "in": "header",
-                        "required": true
-                    },
-                    {
-                        "description": "Import request",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/dto.AutonomousAgentImportTraceRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Trace updated",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ImportTraceResponse"
-                        }
-                    },
-                    "201": {
-                        "description": "Trace created",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ImportTraceResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad request - validation error",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized - invalid API key",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Autonomous agent not found",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/agent-service/autonomous-agents/{agentId}/traces/{traceId}/import/refresh": {
-            "put": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Re-imports traces from the external system using the existing trace's reference ID",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Traces"
-                ],
-                "summary": "Refresh an imported trace for an autonomous agent",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Tenant ID",
-                        "name": "tenantId",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Autonomous Agent ID",
-                        "name": "agentId",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Trace ID",
-                        "name": "traceId",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Autonomous Agent API Key",
-                        "name": "X-Unified-UI-Autonomous-Agent-API-Key",
-                        "in": "header",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ImportTraceResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad request - trace has no reference ID",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized - invalid API key",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Trace or autonomous agent not found",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/api/v1/agent-service/health": {
             "get": {
                 "description": "Returns the overall health status and component statuses",
@@ -367,6 +195,64 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/data": {
+            "delete": {
+                "description": "Deletes all traces associated with an autonomous agent. Requires X-Service-Key authentication.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Data"
+                ],
+                "summary": "Delete all data for an autonomous agent",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Tenant ID",
+                        "name": "tenantId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Autonomous Agent ID",
+                        "name": "agentId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Service-to-service authentication key",
+                        "name": "X-Service-Key",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
@@ -559,6 +445,178 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/traces/import": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Imports traces from an external system (N8N, etc.) for an autonomous agent. If a trace with the same executionId already exists, it will be updated; otherwise a new trace is created.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Traces"
+                ],
+                "summary": "Import or update traces for an autonomous agent (upsert by executionId)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Tenant ID",
+                        "name": "tenantId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Autonomous Agent ID",
+                        "name": "agentId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Autonomous Agent API Key",
+                        "name": "X-Unified-UI-Autonomous-Agent-API-Key",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Import request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.AutonomousAgentImportTraceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Trace updated",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ImportTraceResponse"
+                        }
+                    },
+                    "201": {
+                        "description": "Trace created",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ImportTraceResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request - validation error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - invalid API key",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Autonomous agent not found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/traces/{traceId}/import/refresh": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Re-imports traces from the external system using the existing trace's reference ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Traces"
+                ],
+                "summary": "Refresh an imported trace for an autonomous agent",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Tenant ID",
+                        "name": "tenantId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Autonomous Agent ID",
+                        "name": "agentId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Trace ID",
+                        "name": "traceId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Autonomous Agent API Key",
+                        "name": "X-Unified-UI-Autonomous-Agent-API-Key",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ImportTraceResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request - trace has no reference ID",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - invalid API key",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Trace or autonomous agent not found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/agent-service/tenants/{tenantId}/conversation/messages": {
             "get": {
                 "security": [
@@ -699,6 +757,64 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/data": {
+            "delete": {
+                "description": "Deletes all messages and traces associated with a conversation. Requires X-Service-Key authentication.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Data"
+                ],
+                "summary": "Delete all data for a conversation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Tenant ID",
+                        "name": "tenantId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Conversation ID",
+                        "name": "conversationId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Service-to-service authentication key",
+                        "name": "X-Service-Key",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
@@ -913,12 +1029,7 @@ const docTemplate = `{
         },
         "/api/v1/agent-service/tenants/{tenantId}/traces": {
             "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Creates a new trace for a conversation or autonomous agent",
+                "description": "Creates a new trace for a conversation or autonomous agent. Uses Bearer token for conversation context, API key for autonomous agent context.",
                 "consumes": [
                     "application/json"
                 ],
@@ -945,6 +1056,18 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/dto.CreateTraceRequest"
                         }
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bearer token (required for conversation traces)",
+                        "name": "Authorization",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "API key (required for autonomous agent traces)",
+                        "name": "X-Unified-UI-Autonomous-Agent-API-Key",
+                        "in": "header"
                     }
                 ],
                 "responses": {
@@ -1102,12 +1225,7 @@ const docTemplate = `{
         },
         "/api/v1/agent-service/tenants/{tenantId}/traces/{traceId}/logs": {
             "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Appends logs to an existing trace",
+                "description": "Appends logs to an existing trace. Accepts Bearer token or API key authentication.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1141,6 +1259,18 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/dto.AddLogsRequest"
                         }
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bearer token",
+                        "name": "Authorization",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "API key",
+                        "name": "X-Unified-UI-Autonomous-Agent-API-Key",
+                        "in": "header"
                     }
                 ],
                 "responses": {
@@ -1182,12 +1312,7 @@ const docTemplate = `{
         },
         "/api/v1/agent-service/tenants/{tenantId}/traces/{traceId}/nodes": {
             "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Appends nodes to an existing trace",
+                "description": "Appends nodes to an existing trace. Uses Bearer token for conversation traces, API key for autonomous agent traces.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1221,6 +1346,18 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/dto.AddNodesRequest"
                         }
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bearer token (required for conversation traces)",
+                        "name": "Authorization",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "API key (required for autonomous agent traces)",
+                        "name": "X-Unified-UI-Autonomous-Agent-API-Key",
+                        "in": "header"
                     }
                 ],
                 "responses": {
