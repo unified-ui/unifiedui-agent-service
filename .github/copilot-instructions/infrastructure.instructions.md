@@ -128,17 +128,65 @@ type Vault interface {
 | Type | Package | Use case |
 |------|---------|----------|
 | `dotenv` | `infrastructure/vault/dotenv/` | Local development (reads from .env) |
-| `azure` | `infrastructure/vault/azure/` | Production (Azure Key Vault) |
+| `azure` | `infrastructure/vault/azurekeyvault/` | Production (Azure Key Vault) |
 | `hashicorp` | `infrastructure/vault/hashicorp/` | Production (HashiCorp Vault) |
+
+### Dual Vault Architecture
+
+The system creates **two separate vault clients** in `main.go`:
+
+| Vault | Purpose | Type Config | Credentials Config |
+|-------|---------|-------------|--------------------|
+| **App Vault** | Service-to-service keys | `APP_VAULT_TYPE` (fallback: `VAULT_TYPE`) | `APP_HASHICORP_VAULT_ADDR`, `APP_HASHICORP_VAULT_TOKEN`, `APP_AZURE_KEYVAULT_URL` |
+| **Secrets Vault** | Credential secrets | `SECRETS_VAULT_TYPE` (fallback: `VAULT_TYPE`) | `SECRETS_HASHICORP_VAULT_ADDR`, `SECRETS_HASHICORP_VAULT_TOKEN`, `SECRETS_AZURE_KEYVAULT_URL` |
+
+Both can point to the same vault instance or to completely different backends/addresses.
+
+### Config Structs (`internal/config/config.go`)
+
+```go
+type VaultsConfig struct {
+    VaultType        string      // VAULT_TYPE — default fallback
+    AppVaultType     string      // APP_VAULT_TYPE
+    SecretsVaultType string      // SECRETS_VAULT_TYPE
+    App              VaultConfig // per-purpose credentials for app vault
+    Secrets          VaultConfig // per-purpose credentials for secrets vault
+    EncryptionKey    string      // SECRETS_ENCRYPTION_KEY
+}
+
+type VaultConfig struct {
+    Type             string
+    AzureKeyVaultURL string
+    HashiCorpAddr    string
+    HashiCorpToken   string
+}
+```
+
+Helper methods: `VaultsConfig.ResolvedAppVaultType()`, `VaultsConfig.ResolvedSecretsVaultType()` — return effective type with fallback.
+
+### Factory (`cmd/server/main.go`)
+
+```go
+appVaultClient, _ := createVaultClient(cfg.Vaults.ResolvedAppVaultType(), cfg.Vaults.App)
+secretsVaultClient, _ := createVaultClient(cfg.Vaults.ResolvedSecretsVaultType(), cfg.Vaults.Secrets)
+```
+
+- `appVaultClient` → used by `ServiceKeyMiddleware` and `resolveServiceKeyFromVault()`
+- `secretsVaultClient` → used by `createEncryptor()` and passed to handlers needing credential secrets
 
 ### Configuration
 
 | Env Var | Default | Purpose |
-|---------|---------|---------|
-| `VAULT_TYPE` | `dotenv` | Vault implementation |
-| `AZURE_KEYVAULT_URL` | (empty) | Azure Key Vault URL |
-| `HASHICORP_VAULT_ADDR` | (empty) | HashiCorp Vault address |
-| `HASHICORP_VAULT_TOKEN` | (empty) | HashiCorp Vault token |
+|---------|---------|--------|
+| `VAULT_TYPE` | `dotenv` | Default vault type (fallback) |
+| `APP_VAULT_TYPE` | (empty) | Override for app vault type |
+| `SECRETS_VAULT_TYPE` | (empty) | Override for secrets vault type |
+| `APP_HASHICORP_VAULT_ADDR` | (empty) | HashiCorp Vault address for app vault |
+| `APP_HASHICORP_VAULT_TOKEN` | (empty) | HashiCorp Vault token for app vault |
+| `APP_AZURE_KEYVAULT_URL` | (empty) | Azure Key Vault URL for app vault |
+| `SECRETS_HASHICORP_VAULT_ADDR` | (empty) | HashiCorp Vault address for secrets vault |
+| `SECRETS_HASHICORP_VAULT_TOKEN` | (empty) | HashiCorp Vault token for secrets vault |
+| `SECRETS_AZURE_KEYVAULT_URL` | (empty) | Azure Key Vault URL for secrets vault |
 | `SECRETS_ENCRYPTION_KEY` | (empty) | AES-256 key for credential encryption |
 
 ---

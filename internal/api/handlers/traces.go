@@ -745,7 +745,7 @@ func (h *TracesHandler) getUserID(ctx context.Context, authToken string) (string
 }
 
 // validateConversationContext validates that the application and conversation exist.
-func (h *TracesHandler) validateConversationContext(ctx context.Context, tenantID, applicationID, conversationID, authToken string) *errors.DomainError {
+func (h *TracesHandler) validateConversationContext(ctx context.Context, tenantID, _, conversationID, authToken string) *errors.DomainError {
 	if h.platformClient == nil {
 		// Skip validation if platform client is not configured
 		return nil
@@ -1002,9 +1002,9 @@ func (h *TracesHandler) buildFoundryConfig(
 
 // buildN8NConfig builds the N8N-specific backend configuration.
 func (h *TracesHandler) buildN8NConfig(
-	c *gin.Context,
-	appConfig *platform.ApplicationConfigResponse,
-	conversation *platform.ConversationResponse,
+	_ *gin.Context,
+	_ *platform.ApplicationConfigResponse,
+	_ *platform.ConversationResponse,
 ) (map[string]interface{}, error) {
 	// TODO: Implement N8N config extraction when N8N importer is added
 	// Expected keys: execution_id, workflow_id, instance_url, api_key
@@ -1287,7 +1287,7 @@ func (h *TracesHandler) buildAutonomousAgentRefreshBackendConfig(
 
 // buildN8NAutonomousAgentConfig builds the N8N-specific backend configuration for autonomous agents.
 func (h *TracesHandler) buildN8NAutonomousAgentConfig(
-	c *gin.Context,
+	_ *gin.Context,
 	agentConfig *platform.AutonomousAgentConfigResponse,
 	executionID string,
 	sessionID string,

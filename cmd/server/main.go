@@ -135,7 +135,7 @@ func main() {
 	cfg.Platform.ServiceKey = agentToPlatformKey
 
 	// Setup router
-	router := setupRouter(cfg, cacheClient, docDBClient, appVaultClient, secretsVaultClient, sessionService, importService)
+	router := setupRouter(cfg, cacheClient, docDBClient, appVaultClient, sessionService, importService)
 
 	// Create HTTP server
 	srv := &http.Server{
@@ -255,7 +255,7 @@ func createEncryptor(cfg config.VaultsConfig, vaultClient vault.Client) (encrypt
 }
 
 // setupRouter creates and configures the Gin router.
-func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb.Client, appVaultClient vault.Client, secretsVaultClient vault.Client, sessionService session.Service, importService *traceimport.ImportService) *gin.Engine {
+func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb.Client, appVaultClient vault.Client, sessionService session.Service, importService *traceimport.ImportService) *gin.Engine {
 	router := gin.New()
 
 	// Create CORS config

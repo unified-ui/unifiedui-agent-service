@@ -423,7 +423,7 @@ func (h *MessagesHandler) handleDefaultStreaming(
 	ctx context.Context,
 	writer *sse.Writer,
 	streamReader agents.StreamReader,
-	tenantCtx *middleware.TenantContext,
+	_ *middleware.TenantContext,
 	agentConfig *platform.AgentConfig,
 	userMessage *models.Message,
 	assistantMessage *models.Message,
