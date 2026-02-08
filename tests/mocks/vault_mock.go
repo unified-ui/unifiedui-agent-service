@@ -14,6 +14,11 @@ type MockVault struct {
 	mock.Mock
 }
 
+// BuildSecretURI builds a mock URI for the given key name.
+func (m *MockVault) BuildSecretURI(keyName string) string {
+	return "dotenv://" + keyName
+}
+
 // StoreSecret stores a secret in the vault.
 func (m *MockVault) StoreSecret(ctx context.Context, key string, value string, metadata map[string]string) (string, error) {
 	args := m.Called(ctx, key, value, metadata)
@@ -66,6 +71,11 @@ func NewMockVaultClient() *MockVaultClient {
 // GetVault returns the underlying vault.
 func (m *MockVaultClient) GetVault() vault.Vault {
 	return m.vault
+}
+
+// BuildSecretURI builds a mock URI for the given key name.
+func (m *MockVaultClient) BuildSecretURI(keyName string) string {
+	return m.vault.BuildSecretURI(keyName)
 }
 
 // StoreSecret stores a secret in the vault.

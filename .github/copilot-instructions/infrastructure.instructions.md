@@ -196,7 +196,7 @@ type Client interface {
 
 - **Bearer forwarding**: User's MSAL token is passed through to platform service
 - **API key validation**: Autonomous agent API key validated against platform service
-- **Service key**: `X-Service-Key` header for service-to-service auth (from `X_AGENT_SERVICE_KEY` env var)
+- **Service key**: `X-Service-Key` header for service-to-service auth (keys from app vault, resolved via `BuildSecretURI`)
 
 Platform service errors are forwarded 1:1 to the client.
 

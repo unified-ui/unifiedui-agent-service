@@ -44,7 +44,9 @@ import (
 	"github.com/unifiedui/agent-service/internal/core/vault"
 	rediscache "github.com/unifiedui/agent-service/internal/infrastructure/cache/redis"
 	"github.com/unifiedui/agent-service/internal/infrastructure/docdb/mongodb"
+	azurekeyvault "github.com/unifiedui/agent-service/internal/infrastructure/vault/azurekeyvault"
 	dotenvvault "github.com/unifiedui/agent-service/internal/infrastructure/vault/dotenv"
+	hashicorpvault "github.com/unifiedui/agent-service/internal/infrastructure/vault/hashicorp"
 	"github.com/unifiedui/agent-service/internal/pkg/encryption"
 	"github.com/unifiedui/agent-service/internal/services/agents"
 	"github.com/unifiedui/agent-service/internal/services/platform"
@@ -63,12 +65,19 @@ func main() {
 
 	ctx := context.Background()
 
-	// Initialize vault client using factory pattern
-	vaultClient, err := createVaultClient(cfg.Vault)
+	// Initialize app vault client (for service-to-service keys)
+	appVaultClient, err := createVaultClient(cfg.Vaults.ResolvedAppVaultType(), cfg.Vaults.App)
 	if err != nil {
-		log.Fatalf("failed to initialize vault client: %v", err)
+		log.Fatalf("failed to initialize app vault client: %v", err)
 	}
-	defer vaultClient.Close()
+	defer appVaultClient.Close()
+
+	// Initialize secrets vault client (for credential secrets)
+	secretsVaultClient, err := createVaultClient(cfg.Vaults.ResolvedSecretsVaultType(), cfg.Vaults.Secrets)
+	if err != nil {
+		log.Fatalf("failed to initialize secrets vault client: %v", err)
+	}
+	defer secretsVaultClient.Close()
 
 	// Initialize cache client using factory pattern
 	cacheClient, err := createCacheClient(cfg.Cache)
@@ -90,7 +99,7 @@ func main() {
 	}
 
 	// Initialize encryptor
-	encryptor, err := createEncryptor(cfg.Vault, vaultClient)
+	encryptor, err := createEncryptor(cfg.Vaults, secretsVaultClient)
 	if err != nil {
 		log.Fatalf("failed to initialize encryptor: %v", err)
 	}
@@ -118,8 +127,15 @@ func main() {
 	// Set Gin mode
 	gin.SetMode(cfg.Server.GinMode)
 
+	// Resolve agent-to-platform service key from vault (fallback to env var)
+	agentToPlatformKey := resolveServiceKeyFromVault(ctx, appVaultClient, cfg.AppVault.AgentToPlatformKey)
+	if agentToPlatformKey == "" {
+		agentToPlatformKey = cfg.Platform.ServiceKey
+	}
+	cfg.Platform.ServiceKey = agentToPlatformKey
+
 	// Setup router
-	router := setupRouter(cfg, cacheClient, docDBClient, vaultClient, sessionService, importService)
+	router := setupRouter(cfg, cacheClient, docDBClient, appVaultClient, secretsVaultClient, sessionService, importService)
 
 	// Create HTTP server
 	srv := &http.Server{
@@ -153,21 +169,25 @@ func main() {
 	log.Println("Server exited")
 }
 
-// createVaultClient creates a vault client based on the configuration.
-func createVaultClient(cfg config.VaultConfig) (vault.Client, error) {
-	vaultType := vault.Type(cfg.Type)
+// createVaultClient creates a vault client based on vault type and per-purpose configuration.
+func createVaultClient(vaultType string, cfg config.VaultConfig) (vault.Client, error) {
+	vt := vault.Type(vaultType)
 
-	switch vaultType {
+	switch vt {
 	case vault.TypeDotEnv:
 		return dotenvvault.NewClient()
 	case vault.TypeAzure:
-		// TODO: Implement Azure KeyVault client
-		return nil, nil
+		return azurekeyvault.NewClient(&azurekeyvault.VaultConfig{
+			VaultURL: cfg.AzureKeyVaultURL,
+		})
 	case vault.TypeHashiCorp:
-		// TODO: Implement HashiCorp Vault client
-		return nil, nil
+		return hashicorpvault.NewClient(&hashicorpvault.VaultConfig{
+			Address:    cfg.HashiCorpAddr,
+			Token:      cfg.HashiCorpToken,
+			MountPoint: "secret",
+		})
 	default:
-		log.Fatalf("unsupported vault type: %s", cfg.Type)
+		log.Fatalf("unsupported vault type: %s", vaultType)
 		return nil, nil
 	}
 }
@@ -214,7 +234,7 @@ func createDocDBClient(ctx context.Context, cfg config.DocDBConfig) (docdb.Clien
 }
 
 // createEncryptor creates an encryptor based on the configuration.
-func createEncryptor(cfg config.VaultConfig, vaultClient vault.Client) (encryption.Encryptor, error) {
+func createEncryptor(cfg config.VaultsConfig, vaultClient vault.Client) (encryption.Encryptor, error) {
 	// Try to get encryption key from vault/env
 	encryptionKey := cfg.EncryptionKey
 	if encryptionKey == "" {
@@ -235,7 +255,7 @@ func createEncryptor(cfg config.VaultConfig, vaultClient vault.Client) (encrypti
 }
 
 // setupRouter creates and configures the Gin router.
-func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb.Client, vaultClient vault.Client, sessionService session.Service, importService *traceimport.ImportService) *gin.Engine {
+func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb.Client, appVaultClient vault.Client, secretsVaultClient vault.Client, sessionService session.Service, importService *traceimport.ImportService) *gin.Engine {
 	router := gin.New()
 
 	// Create CORS config
@@ -254,7 +274,7 @@ func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb
 	loggingMw := middleware.NewLoggingMiddleware()
 	errorMw := middleware.NewErrorMiddleware()
 	authMw := middleware.NewAuthMiddleware(cfg.Platform.URL)
-	serviceKeyMw := middleware.NewServiceKeyMiddleware(vaultClient, cfg.AppVault)
+	serviceKeyMw := middleware.NewServiceKeyMiddleware(appVaultClient, cfg.AppVault)
 
 	// Create platform client
 	platformClient := platform.NewClient(&platform.ClientConfig{
@@ -289,4 +309,17 @@ func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb
 	router.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	return router
+}
+
+// resolveServiceKeyFromVault retrieves a service key from vault by key name.
+func resolveServiceKeyFromVault(ctx context.Context, vaultClient vault.Client, keyName string) string {
+	if keyName == "" || vaultClient == nil {
+		return ""
+	}
+	uri := vaultClient.BuildSecretURI(keyName)
+	secret, err := vaultClient.GetSecret(ctx, uri, false)
+	if err != nil || secret == "" {
+		return ""
+	}
+	return secret
 }

@@ -60,7 +60,8 @@ func (m *ServiceKeyMiddleware) AuthenticateServiceKey() gin.HandlerFunc {
 func (m *ServiceKeyMiddleware) resolveExpectedKey(ctx context.Context) (string, error) {
 	keyName := m.appVaultCfg.PlatformServiceKey
 	if keyName != "" && m.vaultClient != nil {
-		secret, err := m.vaultClient.GetSecret(ctx, "dotenv://"+keyName, false)
+		uri := m.vaultClient.BuildSecretURI(keyName)
+		secret, err := m.vaultClient.GetSecret(ctx, uri, false)
 		if err == nil && secret != "" {
 			return secret, nil
 		}

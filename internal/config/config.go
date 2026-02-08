@@ -15,7 +15,7 @@ type Config struct {
 	Server   ServerConfig
 	Cache    CacheConfig
 	DocDB    DocDBConfig
-	Vault    VaultConfig
+	Vaults   VaultsConfig
 	Platform PlatformConfig
 	AppVault AppVaultConfig
 	Log      LogConfig
@@ -50,13 +50,38 @@ type DocDBConfig struct {
 	Database string
 }
 
-// VaultConfig holds vault configuration.
+// VaultConfig holds vault configuration for a specific vault purpose.
 type VaultConfig struct {
 	Type             string
 	AzureKeyVaultURL string
 	HashiCorpAddr    string
 	HashiCorpToken   string
+}
+
+// VaultsConfig holds configuration for all vault instances.
+type VaultsConfig struct {
+	VaultType        string
+	AppVaultType     string
+	SecretsVaultType string
+	App              VaultConfig
+	Secrets          VaultConfig
 	EncryptionKey    string
+}
+
+// ResolvedAppVaultType returns the effective vault type for the app vault.
+func (v VaultsConfig) ResolvedAppVaultType() string {
+	if v.AppVaultType != "" {
+		return v.AppVaultType
+	}
+	return v.VaultType
+}
+
+// ResolvedSecretsVaultType returns the effective vault type for the secrets vault.
+func (v VaultsConfig) ResolvedSecretsVaultType() string {
+	if v.SecretsVaultType != "" {
+		return v.SecretsVaultType
+	}
+	return v.VaultType
 }
 
 // PlatformConfig holds platform service configuration.
@@ -103,12 +128,21 @@ func Load() (*Config, error) {
 			URI:      getEnv("MONGODB_URI", "mongodb://localhost:27017"),
 			Database: getEnv("MONGODB_DATABASE", "unifiedui"),
 		},
-		Vault: VaultConfig{
-			Type:             getEnv("VAULT_TYPE", "dotenv"),
-			AzureKeyVaultURL: getEnv("AZURE_KEYVAULT_URL", ""),
-			HashiCorpAddr:    getEnv("HASHICORP_VAULT_ADDR", ""),
-			HashiCorpToken:   getEnv("HASHICORP_VAULT_TOKEN", ""),
-			EncryptionKey:    getEnv("SECRETS_ENCRYPTION_KEY", ""),
+		Vaults: VaultsConfig{
+			VaultType:        getEnv("VAULT_TYPE", "dotenv"),
+			AppVaultType:     getEnv("APP_VAULT_TYPE", ""),
+			SecretsVaultType: getEnv("SECRETS_VAULT_TYPE", ""),
+			App: VaultConfig{
+				AzureKeyVaultURL: getEnv("APP_AZURE_KEYVAULT_URL", ""),
+				HashiCorpAddr:    getEnv("APP_HASHICORP_VAULT_ADDR", ""),
+				HashiCorpToken:   getEnv("APP_HASHICORP_VAULT_TOKEN", ""),
+			},
+			Secrets: VaultConfig{
+				AzureKeyVaultURL: getEnv("SECRETS_AZURE_KEYVAULT_URL", ""),
+				HashiCorpAddr:    getEnv("SECRETS_HASHICORP_VAULT_ADDR", ""),
+				HashiCorpToken:   getEnv("SECRETS_HASHICORP_VAULT_TOKEN", ""),
+			},
+			EncryptionKey: getEnv("SECRETS_ENCRYPTION_KEY", ""),
 		},
 		Platform: PlatformConfig{
 			URL:        getEnv("PLATFORM_SERVICE_URL", "http://localhost:8081"),
@@ -117,8 +151,8 @@ func Load() (*Config, error) {
 			ServiceKey: getEnv("X_AGENT_SERVICE_KEY", ""),
 		},
 		AppVault: AppVaultConfig{
-			PlatformServiceKey: getEnv("APP_VAULT_PLATFORM_SERVICE_KEY", "platform-to-agent-service-key"),
-			AgentToPlatformKey: getEnv("APP_VAULT_AGENT_TO_PLATFORM_KEY", "agent-to-platform-service-key"),
+			PlatformServiceKey: getEnv("APP_VAULT_PLATFORM_SERVICE_KEY", "PLATFORM_TO_AGENT_SERVICE_KEY"),
+			AgentToPlatformKey: getEnv("APP_VAULT_AGENT_TO_PLATFORM_KEY", "AGENT_TO_PLATFORM_SERVICE_KEY"),
 		},
 		Log: LogConfig{
 			Level:  getEnv("LOG_LEVEL", "info"),

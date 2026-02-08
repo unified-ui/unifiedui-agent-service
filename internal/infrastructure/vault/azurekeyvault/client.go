@@ -1,5 +1,4 @@
-// Package dotenv provides the dotenv vault client implementation.
-package dotenv
+package azurekeyvault
 
 import (
 	"context"
@@ -7,15 +6,20 @@ import (
 	"github.com/unifiedui/agent-service/internal/core/vault"
 )
 
-// Client implements the vault.Client interface for DotEnv.
+// Client implements the vault.Client interface for Azure Key Vault.
 type Client struct {
 	vault *Vault
 }
 
-// NewClient creates a new DotEnv vault client.
-func NewClient() (*Client, error) {
+// NewClient creates a new Azure Key Vault client.
+func NewClient(cfg *VaultConfig) (*Client, error) {
+	v, err := NewVault(cfg)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Client{
-		vault: NewVault(),
+		vault: v,
 	}, nil
 }
 
@@ -24,7 +28,7 @@ func (c *Client) GetVault() vault.Vault {
 	return c.vault
 }
 
-// BuildSecretURI builds a dotenv URI for the given key name.
+// BuildSecretURI builds an Azure Key Vault URI for the given key name.
 func (c *Client) BuildSecretURI(keyName string) string {
 	return c.vault.BuildSecretURI(keyName)
 }
@@ -36,7 +40,6 @@ func (c *Client) StoreSecret(ctx context.Context, key string, value string, meta
 
 // GetSecret retrieves a secret from the vault.
 func (c *Client) GetSecret(ctx context.Context, uri string, useCache bool) (string, error) {
-	// DotEnv vault doesn't support caching
 	return c.vault.GetSecret(ctx, uri)
 }
 

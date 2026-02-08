@@ -16,14 +16,14 @@ import (
 
 func createServiceKeyMiddleware(mockVault *mocks.MockVaultClient) *middleware.ServiceKeyMiddleware {
 	return middleware.NewServiceKeyMiddleware(mockVault, config.AppVaultConfig{
-		PlatformServiceKey: "platform-to-agent-service-key",
-		AgentToPlatformKey: "agent-to-platform-service-key",
+		PlatformServiceKey: "PLATFORM_TO_AGENT_SERVICE_KEY",
+		AgentToPlatformKey: "AGENT_TO_PLATFORM_SERVICE_KEY",
 	})
 }
 
 func TestServiceKeyMiddleware_ValidKey_Success(t *testing.T) {
 	mockVault := mocks.NewMockVaultClient()
-	mockVault.On("GetSecret", mock.Anything, "dotenv://platform-to-agent-service-key", false).Return("valid-key", nil)
+	mockVault.On("GetSecret", mock.Anything, "dotenv://PLATFORM_TO_AGENT_SERVICE_KEY", false).Return("valid-key", nil)
 
 	mw := createServiceKeyMiddleware(mockVault)
 
@@ -42,7 +42,7 @@ func TestServiceKeyMiddleware_ValidKey_Success(t *testing.T) {
 
 func TestServiceKeyMiddleware_InvalidKey_Forbidden(t *testing.T) {
 	mockVault := mocks.NewMockVaultClient()
-	mockVault.On("GetSecret", mock.Anything, "dotenv://platform-to-agent-service-key", false).Return("valid-key", nil)
+	mockVault.On("GetSecret", mock.Anything, "dotenv://PLATFORM_TO_AGENT_SERVICE_KEY", false).Return("valid-key", nil)
 
 	mw := createServiceKeyMiddleware(mockVault)
 
@@ -76,7 +76,7 @@ func TestServiceKeyMiddleware_MissingHeader_Unauthorized(t *testing.T) {
 
 func TestServiceKeyMiddleware_VaultError_InternalError(t *testing.T) {
 	mockVault := mocks.NewMockVaultClient()
-	mockVault.On("GetSecret", mock.Anything, "dotenv://platform-to-agent-service-key", false).Return("", assert.AnError)
+	mockVault.On("GetSecret", mock.Anything, "dotenv://PLATFORM_TO_AGENT_SERVICE_KEY", false).Return("", assert.AnError)
 
 	mw := createServiceKeyMiddleware(mockVault)
 

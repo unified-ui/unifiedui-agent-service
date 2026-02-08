@@ -11,6 +11,9 @@ type Client interface {
 	// GetVault returns the underlying Vault implementation.
 	GetVault() Vault
 
+	// BuildSecretURI builds a vault-specific URI for a given key name.
+	BuildSecretURI(keyName string) string
+
 	// StoreSecret stores a secret in the vault.
 	StoreSecret(ctx context.Context, key string, value string, metadata map[string]string) (string, error)
 
