@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -154,6 +155,12 @@ func (h *MessagesHandler) SendMessage(c *gin.Context) {
 	foundryAPIKey := c.GetHeader("X-Microsoft-Foundry-API-Key")
 	authToken := middleware.GetToken(c)
 	isFirstMessage := len(chatHistory) == 0
+	if agentConfig.Type == platform.AgentTypeFoundry {
+		count, err := h.docDBClient.Messages().CountByConversation(ctx, tenantCtx.TenantID, conversationID)
+		if err == nil {
+			isFirstMessage = count == 1
+		}
+	}
 	files := convertFilesToFileInputs(req.Message.Files)
 	h.handleStreamingResponse(c, tenantCtx, agentClients, agentConfig, userMessage, assistantMessage, chatHistory, req.ExtConversationID, foundryAPIKey, req.InvokeConfig.ContextData, authToken, isFirstMessage, files)
 }
@@ -435,7 +442,15 @@ func convertFilesToAttachmentMetadata(files []FileAttachment) []models.Attachmen
 
 	result := make([]models.AttachmentMetadata, len(files))
 	for i, f := range files {
-		fileSize := int64(len(f.FileData) * 3 / 4)
+		var fileSize int64
+		if f.FileData != "" {
+			fileSize = int64(len(f.FileData) * 3 / 4)
+		} else if f.ImageURL != "" {
+			idx := strings.Index(f.ImageURL, ",")
+			if idx > 0 && idx < len(f.ImageURL)-1 {
+				fileSize = int64(len(f.ImageURL[idx+1:]) * 3 / 4)
+			}
+		}
 		result[i] = models.AttachmentMetadata{
 			FileName:     f.Filename,
 			FileType:     f.MimeType,
