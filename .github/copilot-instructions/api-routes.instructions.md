@@ -55,6 +55,13 @@ func Setup(r *gin.Engine, cfg *Config) {
 # Messages
 GET  /tenants/{tenantId}/conversations/{conversationId}/messages
 POST /tenants/{tenantId}/conversations/{conversationId}/messages
+PUT  /tenants/{tenantId}/conversations/{conversationId}/messages/{messageId}
+DELETE /tenants/{tenantId}/conversations/{conversationId}/messages/{messageId}
+
+# Message Reactions
+GET    /tenants/{tenantId}/conversations/{conversationId}/messages/{messageId}/reactions
+POST   /tenants/{tenantId}/conversations/{conversationId}/messages/{messageId}/reactions
+DELETE /tenants/{tenantId}/conversations/{conversationId}/messages/{messageId}/reactions/{reactionType}
 
 # Trace CRUD (flexible auth)
 POST   /tenants/{tenantId}/traces
@@ -147,13 +154,14 @@ if token != "" {
 
 ```go
 type Config struct {
-    HealthHandler   *handlers.HealthHandler
-    MessagesHandler *handlers.MessagesHandler
-    TracesHandler   *handlers.TracesHandler
-    DataHandler     *handlers.DataHandler
-    AIHandler       *handlers.AIHandler
-    AuthMiddleware  *middleware.AuthMiddleware
-    ServiceKeyMw    *middleware.ServiceKeyMiddleware
+    HealthHandler    *handlers.HealthHandler
+    MessagesHandler  *handlers.MessagesHandler
+    ReactionsHandler *handlers.ReactionsHandler
+    TracesHandler    *handlers.TracesHandler
+    DataHandler      *handlers.DataHandler
+    AIHandler        *handlers.AIHandler
+    AuthMiddleware   *middleware.AuthMiddleware
+    ServiceKeyMw     *middleware.ServiceKeyMiddleware
 }
 ```
 

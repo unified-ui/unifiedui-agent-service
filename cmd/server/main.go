@@ -297,17 +297,19 @@ func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb
 
 	messagesHandler := handlers.NewMessagesHandler(docDBClient, platformClient, agentFactory, sessionService, importService, aiService)
 	tracesHandler := handlers.NewTracesHandler(docDBClient, platformClient, importService)
+	reactionsHandler := handlers.NewReactionsHandler(docDBClient, platformClient)
 	dataHandler := handlers.NewDataHandler(docDBClient)
 
 	// Setup routes
 	routesCfg := &routes.Config{
-		HealthHandler:   healthHandler,
-		MessagesHandler: messagesHandler,
-		TracesHandler:   tracesHandler,
-		DataHandler:     dataHandler,
-		AIHandler:       aiHandler,
-		AuthMiddleware:  authMw,
-		ServiceKeyMw:    serviceKeyMw,
+		HealthHandler:    healthHandler,
+		MessagesHandler:  messagesHandler,
+		TracesHandler:    tracesHandler,
+		ReactionsHandler: reactionsHandler,
+		DataHandler:      dataHandler,
+		AIHandler:        aiHandler,
+		AuthMiddleware:   authMw,
+		ServiceKeyMw:     serviceKeyMw,
 	}
 
 	routes.SetupWithMiddleware(router, routesCfg, loggingMw, errorMw)

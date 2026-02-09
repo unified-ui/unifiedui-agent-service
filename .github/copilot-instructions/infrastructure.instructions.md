@@ -60,6 +60,8 @@ type Client interface {
     Database() Database
     Messages() MessagesCollection
     MessagesRaw() Collection
+    Reactions() ReactionsCollection
+    ReactionsRaw() Collection
     Traces() TracesCollection
     TracesRaw() Collection
     Ping(ctx context.Context) error
@@ -78,6 +80,11 @@ type Client interface {
 
 **MessagesCollection** — message operations:
 - `Create(ctx, msg)`, `GetByConversation(ctx, tenantID, convID, opts)`
+- `Update(ctx, msg)`, `Delete(ctx, tenantID, convID, msgID)`
+
+**ReactionsCollection** — reaction operations:
+- `Add(ctx, reaction)`, `Remove(ctx, tenantID, convID, msgID, userID, reactionType)`
+- `GetByMessage(ctx, tenantID, convID, msgID)`
 
 ### Raw Collection
 

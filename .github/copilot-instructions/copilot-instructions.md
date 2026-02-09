@@ -73,7 +73,7 @@ Read the relevant instruction file **before** working in that area.
 - **Entry point**: `cmd/server/main.go`
 - **Config**: `internal/config/config.go` → `Config` struct, loaded from env vars
 - **Routes**: `internal/api/routes/routes.go` → `Setup()`
-- **Models**: `internal/domain/models/` (trace.go, message.go, session.go)
+- **Models**: `internal/domain/models/` (trace.go, message.go, session.go, reaction.go)
 - **Errors**: `internal/domain/errors/errors.go` → `DomainError` types
 - **Core interfaces**: `internal/core/` (cache, vault, docdb)
 - **Platform client**: `internal/services/platform/client.go` → `Client` interface

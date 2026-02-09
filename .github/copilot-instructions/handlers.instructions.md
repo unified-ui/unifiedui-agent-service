@@ -156,7 +156,8 @@ type CreateTraceRequest struct {
 | File | Resource | Handlers |
 |------|----------|----------|
 | `health.go` | Health | Health, Ready, Live |
-| `messages.go` | Messages | GetMessages, SendMessage |
+| `messages.go` | Messages | GetMessages, SendMessage, EditMessage, DeleteMessage |
+| `reactions.go` | Reactions | GetReactions, AddReaction, RemoveReaction |
 | `traces.go` | Traces | CreateTrace, GetTrace, DeleteTrace, AddNodes, AddLogs, GetConversationTraces, RefreshConversationTrace, ImportConversationTrace, ListAutonomousAgentTraces, GetAutonomousAgentTraces, RefreshAutonomousAgentTrace, ImportAutonomousAgentTrace, RefreshAutonomousAgentImportTrace |
 | `ai.go` | AI | GenerateDescription, AnalyzeTrace, SummarizeTrace, TestModel, GetCapabilities |
 | `data.go` | Data | DeleteConversationData, DeleteAutonomousAgentData |

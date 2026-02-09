@@ -61,6 +61,14 @@ type AssistantMetadata struct {
 	ExtMessageID string `json:"extMessageId,omitempty" bson:"extMessageId,omitempty"`
 }
 
+// AttachmentMetadata holds metadata about a file attached to a user message.
+type AttachmentMetadata struct {
+	FileName     string `json:"fileName" bson:"fileName"`
+	FileType     string `json:"fileType" bson:"fileType"`
+	FileSize     int64  `json:"fileSize" bson:"fileSize"`
+	FileCategory string `json:"fileCategory" bson:"fileCategory"`
+}
+
 // StatusTrace represents a trace entry during message processing.
 type StatusTrace struct {
 	Type      string                 `json:"type" bson:"type"`
@@ -84,9 +92,10 @@ type Message struct {
 	UpdatedAt      time.Time   `json:"updatedAt" bson:"updatedAt"`
 
 	// User message specific fields (only set when Type == MessageTypeUser)
-	UserID      string          `json:"userId,omitempty" bson:"userId,omitempty"`
-	Request     *MessageRequest `json:"request,omitempty" bson:"request,omitempty"`
-	Attachments []string        `json:"attachments,omitempty" bson:"attachments,omitempty"`
+	UserID              string               `json:"userId,omitempty" bson:"userId,omitempty"`
+	Request             *MessageRequest      `json:"request,omitempty" bson:"request,omitempty"`
+	Attachments         []string             `json:"attachments,omitempty" bson:"attachments,omitempty"`
+	AttachmentsMetadata []AttachmentMetadata `json:"attachmentsMetadata,omitempty" bson:"attachmentsMetadata,omitempty"`
 
 	// Assistant message specific fields (only set when Type == MessageTypeAssistant)
 	UserMessageID string             `json:"userMessageId,omitempty" bson:"userMessageId,omitempty"`

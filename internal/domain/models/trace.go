@@ -249,19 +249,19 @@ func (t *Trace) Validate() error {
 		return fmt.Errorf("cannot have both conversation and autonomous agent context")
 	}
 
-	// Validate based on context type
-	if t.ContextType == TraceContextConversation {
+	switch t.ContextType {
+	case TraceContextConversation:
 		if t.ApplicationID == "" {
 			return fmt.Errorf("applicationId is required for conversation context")
 		}
 		if t.ConversationID == "" {
 			return fmt.Errorf("conversationId is required for conversation context")
 		}
-	} else if t.ContextType == TraceContextAutonomousAgent {
+	case TraceContextAutonomousAgent:
 		if t.AutonomousAgentID == "" {
 			return fmt.Errorf("autonomousAgentId is required for autonomous agent context")
 		}
-	} else {
+	default:
 		return fmt.Errorf("invalid context type: %s", t.ContextType)
 	}
 

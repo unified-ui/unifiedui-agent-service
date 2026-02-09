@@ -126,6 +126,22 @@ func NewTestToolTrace() *models.Trace {
 	}
 }
 
+// NewTestReaction creates a test message reaction with default values.
+func NewTestReaction() *models.MessageReaction {
+	now := time.Now().UTC()
+	return &models.MessageReaction{
+		ID:             "reaction-test-001",
+		TenantID:       TestTenantID,
+		ConversationID: TestConversationID,
+		MessageID:      TestMessageID,
+		UserID:         TestUserID,
+		Reaction:       models.ReactionThumbsUp,
+		FeedbackText:   "",
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}
+}
+
 // timePtr returns a pointer to the given time.
 func timePtr(t time.Time) *time.Time {
 	return &t

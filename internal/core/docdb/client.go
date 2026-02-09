@@ -16,6 +16,9 @@ type Client interface {
 	// MessagesRaw returns the raw messages collection for direct operations.
 	MessagesRaw() Collection
 
+	// Reactions returns the typed reactions collection with domain methods.
+	Reactions() ReactionsCollection
+
 	// Traces returns the typed traces collection with domain methods.
 	Traces() TracesCollection
 

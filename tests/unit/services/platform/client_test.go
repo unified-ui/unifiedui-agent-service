@@ -135,7 +135,7 @@ func TestGetApplicationConfig_Unauthorized(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Nil(t, config)
-	assert.Contains(t, err.Error(), "status 401")
+	assert.Contains(t, err.Error(), "unauthorized:")
 }
 
 // TestGetApplicationConfig_Forbidden tests handling of 403 response (invalid service key).
@@ -156,7 +156,7 @@ func TestGetApplicationConfig_Forbidden(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Nil(t, config)
-	assert.Contains(t, err.Error(), "status 403")
+	assert.Contains(t, err.Error(), "forbidden:")
 }
 
 // TestGetApplicationConfig_NotFound tests handling of 404 response.
@@ -177,7 +177,7 @@ func TestGetApplicationConfig_NotFound(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Nil(t, config)
-	assert.Contains(t, err.Error(), "status 404")
+	assert.Contains(t, err.Error(), "not_found:")
 }
 
 // TestGetAgentConfig_Success tests successful agent config retrieval.

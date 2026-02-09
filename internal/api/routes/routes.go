@@ -10,13 +10,14 @@ import (
 
 // Config holds the dependencies for setting up routes.
 type Config struct {
-	HealthHandler   *handlers.HealthHandler
-	MessagesHandler *handlers.MessagesHandler
-	TracesHandler   *handlers.TracesHandler
-	DataHandler     *handlers.DataHandler
-	AIHandler       *handlers.AIHandler
-	AuthMiddleware  *middleware.AuthMiddleware
-	ServiceKeyMw    *middleware.ServiceKeyMiddleware
+	HealthHandler    *handlers.HealthHandler
+	MessagesHandler  *handlers.MessagesHandler
+	ReactionsHandler *handlers.ReactionsHandler
+	TracesHandler    *handlers.TracesHandler
+	DataHandler      *handlers.DataHandler
+	AIHandler        *handlers.AIHandler
+	AuthMiddleware   *middleware.AuthMiddleware
+	ServiceKeyMw     *middleware.ServiceKeyMiddleware
 }
 
 // Setup configures all routes on the Gin engine.
@@ -44,23 +45,37 @@ func Setup(r *gin.Engine, cfg *Config) {
 				conversation.POST("/messages", cfg.MessagesHandler.SendMessage)
 			}
 
-			// --- Traces CRUD Routes ---
-			traces := tenants.Group("/traces")
-			{
-				// Get, delete trace by ID
-				traces.GET("/:traceId", cfg.TracesHandler.GetTrace)
-				traces.DELETE("/:traceId", cfg.TracesHandler.DeleteTrace)
-			}
-
-			// --- Conversation Traces Routes ---
+			// --- Conversation-scoped routes ---
 			conversations := tenants.Group("/conversations/:conversationId")
 			{
+				// Message edit/delete
+				conversations.PUT("/messages/:messageId", cfg.MessagesHandler.EditMessage)
+				conversations.DELETE("/messages/:messageId", cfg.MessagesHandler.DeleteMessage)
+
+				// Message reactions
+				if cfg.ReactionsHandler != nil {
+					reactions := conversations.Group("/messages/:messageId/reactions")
+					{
+						reactions.POST("", cfg.ReactionsHandler.UpsertReaction)
+						reactions.DELETE("", cfg.ReactionsHandler.DeleteReaction)
+						reactions.GET("", cfg.ReactionsHandler.GetReactions)
+					}
+				}
+
 				// Get traces for conversation
 				conversations.GET("/traces", cfg.TracesHandler.GetConversationTraces)
 				// Refresh (replace) trace for conversation
 				conversations.PUT("/traces", cfg.TracesHandler.RefreshConversationTrace)
 				// Import traces from external system (Foundry, N8N)
 				conversations.PUT("/traces/import/refresh", cfg.TracesHandler.ImportConversationTrace)
+			}
+
+			// --- Traces CRUD Routes ---
+			traces := tenants.Group("/traces")
+			{
+				// Get, delete trace by ID
+				traces.GET("/:traceId", cfg.TracesHandler.GetTrace)
+				traces.DELETE("/:traceId", cfg.TracesHandler.DeleteTrace)
 			}
 
 			// --- Autonomous Agent Routes ---
