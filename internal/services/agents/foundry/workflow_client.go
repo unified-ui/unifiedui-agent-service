@@ -135,13 +135,21 @@ func (c *WorkflowClient) InvokeStream(ctx context.Context, req *InvokeRequest) (
 func (c *WorkflowClient) InvokeStreamReader(ctx context.Context, req *InvokeRequest) (StreamReader, error) {
 	url := fmt.Sprintf("%s/openai/responses?api-version=%s", c.projectEndpoint, c.apiVersion)
 
+	// Use multimodal Input if provided, otherwise use plain text Message
+	var input interface{}
+	if req.Input != nil {
+		input = req.Input
+	} else {
+		input = req.Message
+	}
+
 	payload := &FoundryRequestPayload{
 		Agent: FoundryAgentPayload{
 			Type: "agent_reference",
 			Name: c.agentName,
 		},
 		Conversation: req.ExtConversationID,
-		Input:        req.Message,
+		Input:        input,
 		Stream:       true,
 	}
 

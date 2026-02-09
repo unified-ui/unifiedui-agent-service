@@ -371,6 +371,91 @@ Supported backends: N8N, Microsoft Foundry. Copilot and Custom are defined but n
 
 ---
 
+## Agent File Upload
+
+Unified file upload for AI agents. Files are sent as Base64-encoded data and converted to backend-specific formats.
+
+### Unified FileInput (`internal/services/agents/types.go`)
+
+```go
+type FileInput struct {
+    FileName string `json:"fileName"`
+    MimeType string `json:"mimeType"`
+    FileType string `json:"fileType"` // "image", "file", "audio", "video"
+    FileData string `json:"fileData"` // Base64-encoded content
+}
+```
+
+### Backend-Specific Conversion
+
+| Backend | Package | Format |
+|---------|---------|--------|
+| **Foundry** | `agents/foundry/converter.go` | Multimodal `input` array with Data-URL |
+| **N8N** | `agents/n8n/client.go` | Extended webhook body with `files` array |
+
+### Foundry Multimodal Format
+
+Foundry uses a multimodal `input` array with typed content objects. **Critical**: `file_data` must be in Data-URL format.
+
+```go
+// FileConverter converts unified FileInput to Foundry multimodal format.
+type FileConverter struct{}
+
+func (c *FileConverter) ConvertFiles(message string, files []FileInput) (interface{}, error)
+```
+
+| FileType | Foundry Type | Data Format |
+|----------|--------------|-------------|
+| `image` | `input_image` | `image_data`: Data-URL (`data:image/png;base64,...`) |
+| `file` | `input_file` | `file_data`: Data-URL (`data:application/pdf;base64,...`) |
+| `audio` | `input_audio` | `audio_data`: Data-URL (`data:audio/mp3;base64,...`) |
+| `video` | (not supported) | — |
+
+Example Foundry multimodal request:
+
+```json
+{
+  "input": [
+    {"type": "input_text", "text": "Analyze this document"},
+    {"type": "input_file", "file_name": "report.pdf", "file_data": "data:application/pdf;base64,JVBERi0..."}
+  ]
+}
+```
+
+### N8N Extended Webhook
+
+N8N receives files in the extended webhook body alongside the message.
+
+```go
+type FileInput struct {
+    FileName string `json:"fileName"`
+    MimeType string `json:"mimeType"`
+    FileType string `json:"fileType"`
+    FileData string `json:"fileData"` // Raw Base64 (no Data-URL prefix)
+}
+```
+
+N8N request structure:
+
+```json
+{
+  "message": "Analyze this document",
+  "sessionId": "...",
+  "files": [
+    {"fileName": "report.pdf", "mimeType": "application/pdf", "fileType": "file", "fileData": "JVBERi0..."}
+  ]
+}
+```
+
+### Adding File Upload to New Backend
+
+1. Define backend-specific `FileInput` struct in backend package
+2. Implement conversion from `agents.FileInput` (see `toN8NFileInputs`, `toFoundryFileInputs` in `factory.go`)
+3. Include files in request builder (e.g., `request.WithFiles(files)`)
+4. Handle multimodal formats per backend API requirements
+
+---
+
 ## Trace Import Service
 
 `internal/services/traceimport/` — imports and transforms traces from external platforms.

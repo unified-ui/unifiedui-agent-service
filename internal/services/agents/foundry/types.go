@@ -5,6 +5,42 @@ import (
 	"time"
 )
 
+// InputType represents the type of multimodal input content.
+type InputType string
+
+const (
+	InputTypeText  InputType = "input_text"
+	InputTypeImage InputType = "input_image"
+	InputTypeFile  InputType = "input_file"
+	InputTypeAudio InputType = "input_audio"
+)
+
+// InputContent represents a content item for multimodal Foundry requests.
+type InputContent struct {
+	Type InputType `json:"type"`
+
+	// For input_text
+	Text string `json:"text,omitempty"`
+
+	// For input_image
+	ImageURL string `json:"image_url,omitempty"`
+	Detail   string `json:"detail,omitempty"`
+
+	// For input_file
+	FileData string `json:"file_data,omitempty"`
+	Filename string `json:"filename,omitempty"`
+
+	// For input_audio
+	Data   string `json:"data,omitempty"`
+	Format string `json:"format,omitempty"`
+}
+
+// InputMessage represents a message with multimodal content.
+type InputMessage struct {
+	Role    string         `json:"role"`
+	Content []InputContent `json:"content"`
+}
+
 // ChunkType represents the type of stream chunk.
 type ChunkType string
 
@@ -35,6 +71,9 @@ type InvokeRequest struct {
 
 	// AgentName is the name of the agent to invoke
 	AgentName string
+
+	// Input is the multimodal input content (nil for text-only messages)
+	Input interface{}
 }
 
 // InvokeResponse represents the response from a Foundry agent invocation.
@@ -153,7 +192,7 @@ type FoundryError struct {
 type FoundryRequestPayload struct {
 	Agent        FoundryAgentPayload `json:"agent"`
 	Conversation string              `json:"conversation,omitempty"` // Omit when empty to create new conversation
-	Input        string              `json:"input"`
+	Input        interface{}         `json:"input"`                  // string or []InputMessage for multimodal
 	Stream       bool                `json:"stream"`
 }
 

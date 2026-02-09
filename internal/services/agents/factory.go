@@ -56,9 +56,12 @@ func (f *Factory) CreateFoundryClients(config *platform.AgentConfig, apiToken st
 	}
 
 	return &AgentClients{
-		WorkflowClient: &foundryWorkflowAdapter{workflowClient},
-		APIClient:      nil, // Foundry doesn't have a separate API client
-		Config:         config,
+		WorkflowClient: &foundryWorkflowAdapter{
+			client:        workflowClient,
+			fileConverter: foundry.NewFileConverter(),
+		},
+		APIClient: nil, // Foundry doesn't have a separate API client
+		Config:    config,
 	}, nil
 }
 
@@ -81,26 +84,58 @@ func (f *Factory) createN8NClients(config *platform.AgentConfig) (*AgentClients,
 	}
 
 	return &AgentClients{
-		WorkflowClient: &n8nWorkflowAdapter{workflowClient},
-		APIClient:      &n8nAPIAdapter{apiClient},
-		Config:         config,
+		WorkflowClient: &n8nWorkflowAdapter{
+			client:        workflowClient,
+			fileConverter: n8n.NewFileConverter(),
+		},
+		APIClient: &n8nAPIAdapter{apiClient},
+		Config:    config,
 	}, nil
 }
 
 // n8nWorkflowAdapter adapts n8n.ChatWorkflowClient to agents.WorkflowClient interface.
 type n8nWorkflowAdapter struct {
-	client *n8n.ChatWorkflowClient
+	client        *n8n.ChatWorkflowClient
+	fileConverter *n8n.FileConverter
+}
+
+// toN8NFileInputs converts agents.FileInput to n8n.FileInput.
+func toN8NFileInputs(files []FileInput) []n8n.FileInput {
+	result := make([]n8n.FileInput, len(files))
+	for i, f := range files {
+		result[i] = n8n.FileInput{
+			Type:     f.Type,
+			ImageURL: f.ImageURL,
+			FileData: f.FileData,
+			Filename: f.Filename,
+			MimeType: f.MimeType,
+			Detail:   f.Detail,
+		}
+	}
+	return result
 }
 
 func (a *n8nWorkflowAdapter) Invoke(ctx context.Context, req *InvokeRequest) (*InvokeResponse, error) {
 	// Prepend context data to message if present
 	message := contextformat.PrependContextToMessage(req.ContextData, req.Message)
 
+	// Convert files if present
+	var input interface{}
+	if len(req.Files) > 0 {
+		n8nFiles := toN8NFileInputs(req.Files)
+		converted, err := a.fileConverter.ConvertFiles(message, n8nFiles)
+		if err != nil {
+			return nil, err
+		}
+		input = converted
+	}
+
 	n8nReq := &n8n.InvokeRequest{
 		ConversationID: req.ConversationID,
 		Message:        message,
 		SessionID:      req.SessionID,
 		ChatHistory:    req.ChatHistory,
+		Input:          input,
 	}
 
 	resp, err := a.client.Invoke(ctx, n8nReq)
@@ -120,11 +155,23 @@ func (a *n8nWorkflowAdapter) InvokeStream(ctx context.Context, req *InvokeReques
 	// Prepend context data to message if present
 	message := contextformat.PrependContextToMessage(req.ContextData, req.Message)
 
+	// Convert files if present
+	var input interface{}
+	if len(req.Files) > 0 {
+		n8nFiles := toN8NFileInputs(req.Files)
+		converted, err := a.fileConverter.ConvertFiles(message, n8nFiles)
+		if err != nil {
+			return nil, err
+		}
+		input = converted
+	}
+
 	n8nReq := &n8n.InvokeRequest{
 		ConversationID: req.ConversationID,
 		Message:        message,
 		SessionID:      req.SessionID,
 		ChatHistory:    req.ChatHistory,
+		Input:          input,
 	}
 
 	n8nCh, err := a.client.InvokeStream(ctx, n8nReq)
@@ -147,11 +194,23 @@ func (a *n8nWorkflowAdapter) InvokeStreamReader(ctx context.Context, req *Invoke
 	// Prepend context data to message if present
 	message := contextformat.PrependContextToMessage(req.ContextData, req.Message)
 
+	// Convert files if present
+	var input interface{}
+	if len(req.Files) > 0 {
+		n8nFiles := toN8NFileInputs(req.Files)
+		converted, err := a.fileConverter.ConvertFiles(message, n8nFiles)
+		if err != nil {
+			return nil, err
+		}
+		input = converted
+	}
+
 	n8nReq := &n8n.InvokeRequest{
 		ConversationID: req.ConversationID,
 		Message:        message,
 		SessionID:      req.SessionID,
 		ChatHistory:    req.ChatHistory,
+		Input:          input,
 	}
 
 	reader, err := a.client.InvokeStreamReader(ctx, n8nReq)
@@ -240,16 +299,45 @@ func (a *n8nAPIAdapter) Close() error {
 
 // foundryWorkflowAdapter adapts foundry.WorkflowClient to agents.WorkflowClient interface.
 type foundryWorkflowAdapter struct {
-	client *foundry.WorkflowClient
+	client        *foundry.WorkflowClient
+	fileConverter *foundry.FileConverter
+}
+
+// toFoundryFileInputs converts agents.FileInput to foundry.FileInput.
+func toFoundryFileInputs(files []FileInput) []foundry.FileInput {
+	result := make([]foundry.FileInput, len(files))
+	for i, f := range files {
+		result[i] = foundry.FileInput{
+			Type:     f.Type,
+			ImageURL: f.ImageURL,
+			FileData: f.FileData,
+			Filename: f.Filename,
+			MimeType: f.MimeType,
+			Detail:   f.Detail,
+		}
+	}
+	return result
 }
 
 func (a *foundryWorkflowAdapter) Invoke(ctx context.Context, req *InvokeRequest) (*InvokeResponse, error) {
 	// Prepend context data to message if present
 	message := contextformat.PrependContextToMessage(req.ContextData, req.Message)
 
+	// Convert files if present
+	var input interface{}
+	if len(req.Files) > 0 {
+		foundryFiles := toFoundryFileInputs(req.Files)
+		converted, err := a.fileConverter.ConvertFiles(message, foundryFiles)
+		if err != nil {
+			return nil, err
+		}
+		input = converted
+	}
+
 	foundryReq := &foundry.InvokeRequest{
 		ExtConversationID: req.ConversationID,
 		Message:           message,
+		Input:             input,
 	}
 
 	resp, err := a.client.Invoke(ctx, foundryReq)
@@ -269,9 +357,21 @@ func (a *foundryWorkflowAdapter) InvokeStream(ctx context.Context, req *InvokeRe
 	// Prepend context data to message if present
 	message := contextformat.PrependContextToMessage(req.ContextData, req.Message)
 
+	// Convert files if present
+	var input interface{}
+	if len(req.Files) > 0 {
+		foundryFiles := toFoundryFileInputs(req.Files)
+		converted, err := a.fileConverter.ConvertFiles(message, foundryFiles)
+		if err != nil {
+			return nil, err
+		}
+		input = converted
+	}
+
 	foundryReq := &foundry.InvokeRequest{
 		ExtConversationID: req.ConversationID,
 		Message:           message,
+		Input:             input,
 	}
 
 	foundryCh, err := a.client.InvokeStream(ctx, foundryReq)
@@ -294,9 +394,21 @@ func (a *foundryWorkflowAdapter) InvokeStreamReader(ctx context.Context, req *In
 	// Prepend context data to message if present
 	message := contextformat.PrependContextToMessage(req.ContextData, req.Message)
 
+	// Convert files if present
+	var input interface{}
+	if len(req.Files) > 0 {
+		foundryFiles := toFoundryFileInputs(req.Files)
+		converted, err := a.fileConverter.ConvertFiles(message, foundryFiles)
+		if err != nil {
+			return nil, err
+		}
+		input = converted
+	}
+
 	foundryReq := &foundry.InvokeRequest{
 		ExtConversationID: req.ConversationID,
 		Message:           message,
+		Input:             input,
 	}
 
 	reader, err := a.client.InvokeStreamReader(ctx, foundryReq)

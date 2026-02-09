@@ -30,6 +30,21 @@ type ChatRequest struct {
 	SessionID string `json:"sessionId,omitempty"`
 }
 
+// FileAttachment represents a file attachment for N8N chat requests.
+type FileAttachment struct {
+	Type     string `json:"type"`
+	Data     string `json:"data"`
+	Filename string `json:"filename,omitempty"`
+	MimeType string `json:"mimeType,omitempty"`
+}
+
+// ChatRequestWithFiles extends ChatRequest with file attachments.
+type ChatRequestWithFiles struct {
+	ChatInput string           `json:"chatInput"`
+	SessionID string           `json:"sessionId,omitempty"`
+	Files     []FileAttachment `json:"files,omitempty"`
+}
+
 // N8NStreamType represents the type of N8N stream event.
 type N8NStreamType string
 

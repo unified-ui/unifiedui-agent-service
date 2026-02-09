@@ -153,7 +153,8 @@ func (h *MessagesHandler) SendMessage(c *gin.Context) {
 	foundryAPIKey := c.GetHeader("X-Microsoft-Foundry-API-Key")
 	authToken := middleware.GetToken(c)
 	isFirstMessage := len(chatHistory) == 0
-	h.handleStreamingResponse(c, tenantCtx, agentClients, agentConfig, userMessage, assistantMessage, chatHistory, req.ExtConversationID, foundryAPIKey, req.InvokeConfig.ContextData, authToken, isFirstMessage)
+	files := convertFilesToFileInputs(req.Message.Files)
+	h.handleStreamingResponse(c, tenantCtx, agentClients, agentConfig, userMessage, assistantMessage, chatHistory, req.ExtConversationID, foundryAPIKey, req.InvokeConfig.ContextData, authToken, isFirstMessage, files)
 }
 
 func (h *MessagesHandler) handleStreamingResponse(
@@ -169,6 +170,7 @@ func (h *MessagesHandler) handleStreamingResponse(
 	contextData map[string]string,
 	authToken string,
 	isFirstMessage bool,
+	files []agents.FileInput,
 ) {
 	ctx := c.Request.Context()
 
@@ -189,6 +191,7 @@ func (h *MessagesHandler) handleStreamingResponse(
 		SessionID:      userMessage.ConversationID,
 		ChatHistory:    chatHistory,
 		ContextData:    contextData,
+		Files:          files,
 	}
 
 	streamReader, err := agentClients.WorkflowClient.InvokeStreamReader(ctx, invokeReq)
@@ -401,4 +404,24 @@ func (h *MessagesHandler) streamTitleGeneration(ctx context.Context, writer *sse
 			}
 		}()
 	}
+}
+
+// convertFilesToFileInputs converts FileAttachment slice to agents.FileInput slice.
+func convertFilesToFileInputs(files []FileAttachment) []agents.FileInput {
+	if len(files) == 0 {
+		return nil
+	}
+
+	result := make([]agents.FileInput, len(files))
+	for i, f := range files {
+		result[i] = agents.FileInput{
+			Type:     f.Type,
+			ImageURL: f.ImageURL,
+			FileData: f.FileData,
+			Filename: f.Filename,
+			MimeType: f.MimeType,
+			Detail:   f.Detail,
+		}
+	}
+	return result
 }

@@ -37,6 +37,27 @@ type StreamChunk struct {
 	Error error
 }
 
+// FileInput represents a unified file attachment for agent invocation.
+type FileInput struct {
+	// Type is the file type: "image", "file", or "audio"
+	Type string
+
+	// ImageURL contains image data (Data-URL or external URL) for image type
+	ImageURL string
+
+	// FileData contains Base64-encoded data for file/audio types
+	FileData string
+
+	// Filename is the original filename
+	Filename string
+
+	// MimeType is the MIME type of the file
+	MimeType string
+
+	// Detail specifies image detail level for vision models: "low", "high", "auto"
+	Detail string
+}
+
 // InvokeRequest represents a request to invoke an agent.
 type InvokeRequest struct {
 	// ConversationID is the conversation identifier
@@ -55,6 +76,9 @@ type InvokeRequest struct {
 	// ContextData contains additional context metadata from query parameters
 	// Format: key-value pairs that will be converted to TOML and prepended to the message
 	ContextData map[string]string
+
+	// Files contains file attachments to send with the message
+	Files []FileInput
 }
 
 // InvokeResponse represents the response from an agent invocation.

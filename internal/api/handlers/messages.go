@@ -83,10 +83,21 @@ type MessageResponse struct {
 	UpdatedAt      time.Time                 `json:"updatedAt"`
 }
 
+// FileAttachment represents a file attachment in the message request.
+type FileAttachment struct {
+	Type     string `json:"type" binding:"required,oneof=image file audio"`
+	ImageURL string `json:"imageUrl,omitempty"`
+	FileData string `json:"fileData,omitempty"`
+	Filename string `json:"filename,omitempty"`
+	MimeType string `json:"mimeType,omitempty"`
+	Detail   string `json:"detail,omitempty"`
+}
+
 // MessageContent represents the message content in the request.
 type MessageContent struct {
-	Content     string   `json:"content" binding:"required,min=1,max=32000"`
-	Attachments []string `json:"attachments,omitempty"`
+	Content     string           `json:"content" binding:"required,min=1,max=32000"`
+	Attachments []string         `json:"attachments,omitempty"`
+	Files       []FileAttachment `json:"files,omitempty"`
 }
 
 // InvokeConfig represents configuration options for agent invocation.

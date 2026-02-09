@@ -40,6 +40,9 @@ type InvokeRequest struct {
 	Message        string
 	SessionID      string
 	ChatHistory    []models.ChatHistoryEntry
+
+	// Input is the pre-converted request body (nil for text-only messages)
+	Input interface{}
 }
 
 // InvokeResponse represents the response from an agent invocation.
@@ -185,12 +188,31 @@ func (c *ChatWorkflowClient) InvokeStreamReader(ctx context.Context, req *Invoke
 		chatInput = BuildSimpleChatHistoryMarkdown(req.ChatHistory, req.Message, now)
 	}
 
-	chatReq := &ChatRequest{
-		ChatInput: chatInput,
-		SessionID: req.SessionID,
+	// Use pre-converted Input if provided (contains files), otherwise build ChatRequest
+	var requestBody interface{}
+	if req.Input != nil {
+		// Use pre-converted request with files
+		switch v := req.Input.(type) {
+		case *ChatRequestWithFiles:
+			// Update chatInput if chat history was applied
+			v.ChatInput = chatInput
+			v.SessionID = req.SessionID
+			requestBody = v
+		case *ChatRequest:
+			v.ChatInput = chatInput
+			v.SessionID = req.SessionID
+			requestBody = v
+		default:
+			requestBody = req.Input
+		}
+	} else {
+		requestBody = &ChatRequest{
+			ChatInput: chatInput,
+			SessionID: req.SessionID,
+		}
 	}
 
-	body, err := json.Marshal(chatReq)
+	body, err := json.Marshal(requestBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
