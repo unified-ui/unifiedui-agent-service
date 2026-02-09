@@ -68,19 +68,20 @@ type GetMessagesResponse struct {
 
 // MessageResponse represents a message in the API response.
 type MessageResponse struct {
-	ID             string                    `json:"id"`
-	Type           models.MessageType        `json:"type"`
-	ConversationID string                    `json:"conversationId"`
-	ApplicationID  string                    `json:"applicationId"`
-	Content        string                    `json:"content"`
-	UserID         string                    `json:"userId,omitempty"`
-	UserMessageID  string                    `json:"userMessageId,omitempty"`
-	Status         models.MessageStatus      `json:"status,omitempty"`
-	ErrorMessage   string                    `json:"errorMessage,omitempty"`
-	StatusTraces   []models.StatusTrace      `json:"statusTraces,omitempty"`
-	Metadata       *models.AssistantMetadata `json:"metadata,omitempty"`
-	CreatedAt      time.Time                 `json:"createdAt"`
-	UpdatedAt      time.Time                 `json:"updatedAt"`
+	ID                  string                      `json:"id"`
+	Type                models.MessageType          `json:"type"`
+	ConversationID      string                      `json:"conversationId"`
+	ApplicationID       string                      `json:"applicationId"`
+	Content             string                      `json:"content"`
+	UserID              string                      `json:"userId,omitempty"`
+	UserMessageID       string                      `json:"userMessageId,omitempty"`
+	Status              models.MessageStatus        `json:"status,omitempty"`
+	ErrorMessage        string                      `json:"errorMessage,omitempty"`
+	StatusTraces        []models.StatusTrace        `json:"statusTraces,omitempty"`
+	Metadata            *models.AssistantMetadata   `json:"metadata,omitempty"`
+	AttachmentsMetadata []models.AttachmentMetadata `json:"attachmentsMetadata,omitempty"`
+	CreatedAt           time.Time                   `json:"createdAt"`
+	UpdatedAt           time.Time                   `json:"updatedAt"`
 }
 
 // FileAttachment represents a file attachment in the message request.
@@ -183,19 +184,20 @@ func (h *MessagesHandler) GetMessages(c *gin.Context) {
 
 func (h *MessagesHandler) toMessageResponse(msg *models.Message) MessageResponse {
 	return MessageResponse{
-		ID:             msg.ID,
-		Type:           msg.Type,
-		ConversationID: msg.ConversationID,
-		ApplicationID:  msg.ApplicationID,
-		Content:        msg.Content,
-		UserID:         msg.UserID,
-		UserMessageID:  msg.UserMessageID,
-		Status:         msg.Status,
-		ErrorMessage:   msg.ErrorMessage,
-		StatusTraces:   msg.StatusTraces,
-		Metadata:       msg.Metadata,
-		CreatedAt:      msg.CreatedAt,
-		UpdatedAt:      msg.UpdatedAt,
+		ID:                  msg.ID,
+		Type:                msg.Type,
+		ConversationID:      msg.ConversationID,
+		ApplicationID:       msg.ApplicationID,
+		Content:             msg.Content,
+		UserID:              msg.UserID,
+		UserMessageID:       msg.UserMessageID,
+		Status:              msg.Status,
+		ErrorMessage:        msg.ErrorMessage,
+		StatusTraces:        msg.StatusTraces,
+		Metadata:            msg.Metadata,
+		AttachmentsMetadata: msg.AttachmentsMetadata,
+		CreatedAt:           msg.CreatedAt,
+		UpdatedAt:           msg.UpdatedAt,
 	}
 }
 

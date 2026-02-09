@@ -114,6 +114,7 @@ func (h *MessagesHandler) SendMessage(c *gin.Context) {
 		},
 	)
 	userMessage.ID = userMessageID
+	userMessage.AttachmentsMetadata = convertFilesToAttachmentMetadata(req.Message.Files)
 
 	if err := h.docDBClient.Messages().Add(ctx, userMessage); err != nil {
 		middleware.HandleError(c, errors.NewInternalError("failed to store user message", err))
@@ -421,6 +422,25 @@ func convertFilesToFileInputs(files []FileAttachment) []agents.FileInput {
 			Filename: f.Filename,
 			MimeType: f.MimeType,
 			Detail:   f.Detail,
+		}
+	}
+	return result
+}
+
+// convertFilesToAttachmentMetadata converts FileAttachment slice to AttachmentMetadata slice.
+func convertFilesToAttachmentMetadata(files []FileAttachment) []models.AttachmentMetadata {
+	if len(files) == 0 {
+		return nil
+	}
+
+	result := make([]models.AttachmentMetadata, len(files))
+	for i, f := range files {
+		fileSize := int64(len(f.FileData) * 3 / 4)
+		result[i] = models.AttachmentMetadata{
+			FileName:     f.Filename,
+			FileType:     f.MimeType,
+			FileSize:     fileSize,
+			FileCategory: f.Type,
 		}
 	}
 	return result
