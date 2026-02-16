@@ -204,9 +204,12 @@ func (h *MessagesHandler) handleStreamingResponse(
 
 	streamReader, err := agentClients.WorkflowClient.InvokeStreamReader(ctx, invokeReq)
 	if err != nil {
-		writer.WriteStreamError("STREAM_ERROR", "Failed to invoke agent", err.Error())
+		errorMsg := "Failed to invoke agent: " + err.Error()
+		writer.WriteStreamStart(assistantMessage.ID, userMessage.ConversationID)
+		writer.WriteStreamError("STREAM_ERROR", errorMsg, err.Error())
 		writer.WriteStreamEnd()
-		h.saveFailedAssistantMessage(ctx, assistantMessage, "Failed to invoke agent: "+err.Error())
+		h.saveFailedAssistantMessage(ctx, assistantMessage, errorMsg)
+		writer.WriteMessageComplete(assistantMessage)
 		return
 	}
 	defer streamReader.Close()
@@ -255,9 +258,12 @@ func (h *MessagesHandler) handleDefaultStreaming(
 			break
 		}
 		if err != nil {
-			writer.WriteStreamError("STREAM_ERROR", "Error reading stream", err.Error())
-			h.saveFailedAssistantMessage(ctx, assistantMessage, "Stream error: "+err.Error())
-			break
+			errorMsg := "Stream error: " + err.Error()
+			writer.WriteStreamError("STREAM_ERROR", errorMsg, err.Error())
+			h.saveFailedAssistantMessage(ctx, assistantMessage, errorMsg)
+			writer.WriteStreamEnd()
+			writer.WriteMessageComplete(assistantMessage)
+			return executionID
 		}
 
 		switch chunk.Type {
@@ -274,7 +280,12 @@ func (h *MessagesHandler) handleDefaultStreaming(
 			}
 		case agents.ChunkTypeError:
 			if chunk.Error != nil {
-				writer.WriteStreamError("CHUNK_ERROR", "Error in chunk", chunk.Error.Error())
+				errorMsg := chunk.Error.Error()
+				writer.WriteStreamError("CHUNK_ERROR", errorMsg, errorMsg)
+				writer.WriteStreamEnd()
+				h.saveFailedAssistantMessage(ctx, assistantMessage, errorMsg)
+				writer.WriteMessageComplete(assistantMessage)
+				return executionID
 			}
 		}
 	}
@@ -343,9 +354,12 @@ func (h *MessagesHandler) handleFoundryStreaming(
 			break
 		}
 		if err != nil {
-			writer.WriteStreamError("STREAM_ERROR", "Error reading stream", err.Error())
-			h.saveFailedAssistantMessage(ctx, currentMessage, "Stream error: "+err.Error())
-			break
+			errorMsg := "Stream error: " + err.Error()
+			writer.WriteStreamError("STREAM_ERROR", errorMsg, err.Error())
+			h.saveFailedAssistantMessage(ctx, currentMessage, errorMsg)
+			writer.WriteStreamEnd()
+			writer.WriteMessageComplete(currentMessage)
+			return
 		}
 
 		switch chunk.Type {
@@ -380,7 +394,12 @@ func (h *MessagesHandler) handleFoundryStreaming(
 
 		case agents.ChunkTypeError:
 			if chunk.Error != nil {
-				writer.WriteStreamError("CHUNK_ERROR", "Error in chunk", chunk.Error.Error())
+				errorMsg := chunk.Error.Error()
+				writer.WriteStreamError("CHUNK_ERROR", errorMsg, errorMsg)
+				writer.WriteStreamEnd()
+				h.saveFailedAssistantMessage(ctx, currentMessage, errorMsg)
+				writer.WriteMessageComplete(currentMessage)
+				return
 			}
 		}
 	}
