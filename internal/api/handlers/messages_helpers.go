@@ -26,6 +26,26 @@ func (h *MessagesHandler) saveFailedAssistantMessage(ctx context.Context, assist
 	_ = h.docDBClient.Messages().Add(ctx, assistantMessage)
 }
 
+func (h *MessagesHandler) saveCancelledAssistantMessage(
+	msg *models.Message,
+	partialContent string,
+	agentConfig *platform.AgentConfig,
+	startTime time.Time,
+) {
+	msg.SetCancelled(partialContent)
+
+	latencyMs := time.Since(startTime).Milliseconds()
+	if msg.Metadata == nil {
+		msg.Metadata = &models.AssistantMetadata{}
+	}
+	msg.Metadata.LatencyMs = latencyMs
+	msg.Metadata.AgentType = string(agentConfig.Type)
+
+	saveCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_ = h.docDBClient.Messages().Add(saveCtx, msg)
+}
+
 func (h *MessagesHandler) saveAssistantMessageWithMetadata(
 	ctx context.Context,
 	msg *models.Message,

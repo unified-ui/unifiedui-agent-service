@@ -25,6 +25,8 @@ const (
 	MessageStatusSuccess MessageStatus = "success"
 	// MessageStatusFailed indicates the message processing failed.
 	MessageStatusFailed MessageStatus = "failed"
+	// MessageStatusCancelled indicates the message generation was cancelled by the user.
+	MessageStatusCancelled MessageStatus = "cancelled"
 )
 
 // MessageRequest represents the original request that triggered a message.
@@ -175,6 +177,13 @@ func (m *Message) IsAssistantMessage() bool {
 func (m *Message) SetError(errorMessage string) {
 	m.Status = MessageStatusFailed
 	m.ErrorMessage = errorMessage
+	m.UpdatedAt = time.Now().UTC()
+}
+
+// SetCancelled sets the content and updates the status to cancelled.
+func (m *Message) SetCancelled(content string) {
+	m.Content = content
+	m.Status = MessageStatusCancelled
 	m.UpdatedAt = time.Now().UTC()
 }
 

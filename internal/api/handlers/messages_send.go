@@ -253,11 +253,25 @@ func (h *MessagesHandler) handleDefaultStreaming(
 	writer.WriteStreamStart(assistantMessage.ID, userMessage.ConversationID)
 
 	for {
+		select {
+		case <-ctx.Done():
+			streamReader.Close()
+			writer.WriteStreamEnd()
+			h.saveCancelledAssistantMessage(assistantMessage, fullContent, agentConfig, startTime)
+			return executionID
+		default:
+		}
+
 		chunk, err := streamReader.Read()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
+			if ctx.Err() != nil {
+				streamReader.Close()
+				h.saveCancelledAssistantMessage(assistantMessage, fullContent, agentConfig, startTime)
+				return executionID
+			}
 			errorMsg := "Stream error: " + err.Error()
 			writer.WriteStreamError("STREAM_ERROR", errorMsg, err.Error())
 			h.saveFailedAssistantMessage(ctx, assistantMessage, errorMsg)
@@ -349,11 +363,25 @@ func (h *MessagesHandler) handleFoundryStreaming(
 	writer.WriteStreamStart(currentMessage.ID, userMessage.ConversationID)
 
 	for {
+		select {
+		case <-ctx.Done():
+			streamReader.Close()
+			writer.WriteStreamEnd()
+			h.saveCancelledAssistantMessage(currentMessage, currentContent, agentConfig, startTime)
+			return
+		default:
+		}
+
 		chunk, err := streamReader.Read()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
+			if ctx.Err() != nil {
+				streamReader.Close()
+				h.saveCancelledAssistantMessage(currentMessage, currentContent, agentConfig, startTime)
+				return
+			}
 			errorMsg := "Stream error: " + err.Error()
 			writer.WriteStreamError("STREAM_ERROR", errorMsg, err.Error())
 			h.saveFailedAssistantMessage(ctx, currentMessage, errorMsg)
