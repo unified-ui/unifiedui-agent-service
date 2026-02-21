@@ -57,7 +57,7 @@ The **Agent Service** is the runtime layer that connects the unified-ui frontend
 
 | Category | Technology |
 |----------|------------|
-| **Language** | Go 1.21+ |
+| **Language** | Go 1.24+ |
 | **Framework** | Gin |
 | **Streaming** | SSE (Server-Sent Events) |
 | **Document DB** | MongoDB / CosmosDB |
@@ -70,9 +70,10 @@ The **Agent Service** is the runtime layer that connects the unified-ui frontend
 
 ### Prerequisites
 
-- Go 1.21+
+- Go 1.24+
 - Redis
 - MongoDB (or CosmosDB)
+- Air (optional, for hot reload)
 
 ### Installation
 
@@ -98,9 +99,12 @@ The API is available at `http://localhost:8085`
 | Command | Description |
 |---------|-------------|
 | `make run` | Start the server |
+| `make dev` | Start with hot reload (Air) |
 | `make test` | Run all tests |
 | `make test-cover` | Run tests with coverage |
-| `make lint` | Run linter |
+| `make lint` | Run golangci-lint |
+
+> **See [TOOLING.md](TOOLING.md)** for detailed tooling documentation, pre-commit hooks, and code quality guidelines.
 
 ---
 

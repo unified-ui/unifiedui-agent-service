@@ -94,6 +94,11 @@ type Capabilities struct {
 
 // NewLLMClient creates a new LLM client based on the provider configuration.
 func NewLLMClient(provider string, config map[string]interface{}, credentialSecret map[string]interface{}) (LLMClient, error) {
+	return NewLLMClientWithBaseURL(provider, config, credentialSecret, "")
+}
+
+// NewLLMClientWithBaseURL creates a new LLM client with a custom base URL for testing.
+func NewLLMClientWithBaseURL(provider string, config map[string]interface{}, credentialSecret map[string]interface{}, baseURL string) (LLMClient, error) {
 	apiKey := ""
 	if credentialSecret != nil {
 		if key, ok := credentialSecret["api_key"].(string); ok {
@@ -103,18 +108,39 @@ func NewLLMClient(provider string, config map[string]interface{}, credentialSecr
 
 	switch provider {
 	case "AZURE_OPENAI":
+		if baseURL != "" {
+			config["endpoint"] = baseURL
+		}
 		return newAzureOpenAIClient(config, apiKey)
 	case "OPENAI":
+		if baseURL != "" {
+			config["base_url"] = baseURL
+		}
 		return newOpenAIClient(config, apiKey)
 	case "ANTHROPIC":
+		if baseURL != "" {
+			return newAnthropicClientWithBaseURL(config, apiKey, baseURL)
+		}
 		return newAnthropicClient(config, apiKey)
 	case "GOOGLE_GENAI":
+		if baseURL != "" {
+			return newGoogleGenAIClientWithBaseURL(config, apiKey, baseURL)
+		}
 		return newGoogleGenAIClient(config, apiKey)
 	case "OLLAMA":
+		if baseURL != "" {
+			config["base_url"] = baseURL
+		}
 		return newOllamaClient(config)
 	case "MISTRAL":
+		if baseURL != "" {
+			return newMistralClientWithBaseURL(config, apiKey, baseURL)
+		}
 		return newMistralClient(config, apiKey)
 	case "GROQ":
+		if baseURL != "" {
+			return newGroqClientWithBaseURL(config, apiKey, baseURL)
+		}
 		return newGroqClient(config, apiKey)
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", provider)

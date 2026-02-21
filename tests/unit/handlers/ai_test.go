@@ -422,6 +422,47 @@ func TestAIHandler_SummarizeTrace_MissingNodes(t *testing.T) {
 	testutils.AssertStatusCode(t, http.StatusBadRequest, w)
 }
 
+func TestAIHandler_SummarizeTrace_ServiceError(t *testing.T) {
+	mockAI := new(mocks.MockAIService)
+	mockPlatform := new(mocks.MockPlatformClient)
+
+	mockAI.On("SummarizeTrace",
+		mock.Anything, testTenantID, mock.Anything,
+	).Return("", fmt.Errorf("LLM service unavailable"))
+
+	handler := handlers.NewAIHandler(mockAI, mockPlatform)
+	router := testutils.SetupTestRouter()
+	router.POST("/tenants/:tenantId/ai/summarize-trace", handler.SummarizeTrace)
+
+	body := dto.SummarizeTraceRequest{
+		DetailLevel: "short",
+		Nodes:       []map[string]interface{}{{"name": "Test Node"}},
+	}
+
+	w := testutils.PerformRequest(router, "POST",
+		fmt.Sprintf("/tenants/%s/ai/summarize-trace", testTenantID),
+		body, nil)
+
+	testutils.AssertStatusCode(t, http.StatusInternalServerError, w)
+
+	mockAI.AssertExpectations(t)
+}
+
+func TestAIHandler_SummarizeTrace_EmptyBody(t *testing.T) {
+	mockAI := new(mocks.MockAIService)
+	mockPlatform := new(mocks.MockPlatformClient)
+
+	handler := handlers.NewAIHandler(mockAI, mockPlatform)
+	router := testutils.SetupTestRouter()
+	router.POST("/tenants/:tenantId/ai/summarize-trace", handler.SummarizeTrace)
+
+	w := testutils.PerformRequest(router, "POST",
+		fmt.Sprintf("/tenants/%s/ai/summarize-trace", testTenantID),
+		nil, nil)
+
+	testutils.AssertStatusCode(t, http.StatusBadRequest, w)
+}
+
 // --- TestModel Tests ---
 
 func TestAIHandler_TestModel_Success(t *testing.T) {
@@ -674,6 +715,80 @@ func TestAIHandler_TestModel_EmptyBody(t *testing.T) {
 		nil, nil)
 
 	testutils.AssertStatusCode(t, http.StatusBadRequest, w)
+}
+
+func TestAIHandler_TestModel_PlainStringCredential(t *testing.T) {
+	// Tests the JSON unmarshal fallback when credential is a plain string
+	mockAI := new(mocks.MockAIService)
+	mockPlatform := new(mocks.MockPlatformClient)
+
+	// Return a plain string (not JSON) which will trigger the fallback
+	mockPlatform.On("GetCredentialSecret",
+		mock.Anything, testTenantID, "plain-cred", "",
+	).Return("plain-api-key-12345", nil)
+
+	// The handler should convert it to {"api_key": "plain-api-key-12345"}
+	mockAI.On("TestModel",
+		mock.Anything, "OPENAI",
+		map[string]interface{}{"model_name": "gpt-4o"},
+		map[string]interface{}{"api_key": "plain-api-key-12345"},
+	).Return(&ai.TestModelResult{
+		Success:        true,
+		Message:        "Model responded successfully",
+		ResponseTimeMs: 300,
+	}, nil)
+
+	handler := handlers.NewAIHandler(mockAI, mockPlatform)
+	router := testutils.SetupTestRouter()
+	router.POST("/tenants/:tenantId/ai/test-model", handler.TestModel)
+
+	body := dto.TestModelRequest{
+		Provider:     "OPENAI",
+		Config:       map[string]interface{}{"model_name": "gpt-4o"},
+		CredentialID: "plain-cred",
+	}
+
+	w := testutils.PerformRequest(router, "POST",
+		fmt.Sprintf("/tenants/%s/ai/test-model", testTenantID),
+		body, nil)
+
+	testutils.AssertStatusCode(t, http.StatusOK, w)
+
+	var resp dto.TestModelResponse
+	testutils.ParseJSONResponse(t, w, &resp)
+	assert.True(t, resp.Success)
+
+	mockAI.AssertExpectations(t)
+	mockPlatform.AssertExpectations(t)
+}
+
+func TestAIHandler_TestModel_ServiceError(t *testing.T) {
+	// Tests when the AI service returns an error (not just a failure result)
+	mockAI := new(mocks.MockAIService)
+	mockPlatform := new(mocks.MockPlatformClient)
+
+	mockAI.On("TestModel",
+		mock.Anything, "OPENAI",
+		map[string]interface{}{"model_name": "gpt-4o"},
+		mock.Anything,
+	).Return(nil, fmt.Errorf("network timeout"))
+
+	handler := handlers.NewAIHandler(mockAI, mockPlatform)
+	router := testutils.SetupTestRouter()
+	router.POST("/tenants/:tenantId/ai/test-model", handler.TestModel)
+
+	body := dto.TestModelRequest{
+		Provider: "OPENAI",
+		Config:   map[string]interface{}{"model_name": "gpt-4o"},
+	}
+
+	w := testutils.PerformRequest(router, "POST",
+		fmt.Sprintf("/tenants/%s/ai/test-model", testTenantID),
+		body, nil)
+
+	testutils.AssertStatusCode(t, http.StatusInternalServerError, w)
+
+	mockAI.AssertExpectations(t)
 }
 
 // --- GetCapabilities Tests ---

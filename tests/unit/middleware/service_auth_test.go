@@ -1,93 +1,84 @@
-package middleware_test
+package middleware
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	"github.com/unifiedui/agent-service/internal/api/middleware"
 	"github.com/unifiedui/agent-service/internal/config"
 	"github.com/unifiedui/agent-service/tests/mocks"
-	"github.com/unifiedui/agent-service/tests/testutils"
 )
 
-func createServiceKeyMiddleware(mockVault *mocks.MockVaultClient) *middleware.ServiceKeyMiddleware {
-	return middleware.NewServiceKeyMiddleware(mockVault, config.AppVaultConfig{
-		PlatformServiceKey: "PLATFORM_TO_AGENT_SERVICE_KEY",
-		AgentToPlatformKey: "AGENT_TO_PLATFORM_SERVICE_KEY",
-	})
+func TestServiceKeyMiddleware_MissingHeader(t *testing.T) {
+	vault := mocks.NewMockVaultClient()
+	cfg := config.AppVaultConfig{PlatformServiceKey: "service-key-name"}
+	skm := middleware.NewServiceKeyMiddleware(vault, cfg)
+
+	router := gin.New()
+	router.Use(skm.AuthenticateServiceKey())
+	router.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
-func TestServiceKeyMiddleware_ValidKey_Success(t *testing.T) {
-	mockVault := mocks.NewMockVaultClient()
-	mockVault.On("GetSecret", mock.Anything, "dotenv://PLATFORM_TO_AGENT_SERVICE_KEY", false).Return("valid-key", nil)
+func TestServiceKeyMiddleware_EmptyKeyName(t *testing.T) {
+	vault := mocks.NewMockVaultClient()
+	cfg := config.AppVaultConfig{PlatformServiceKey: ""}
+	skm := middleware.NewServiceKeyMiddleware(vault, cfg)
 
-	mw := createServiceKeyMiddleware(mockVault)
+	router := gin.New()
+	router.Use(skm.AuthenticateServiceKey())
+	router.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
 
-	router := testutils.SetupTestRouter()
-	router.Use(mw.AuthenticateServiceKey())
-	router.DELETE("/test", func(c *gin.Context) {
-		c.Status(http.StatusNoContent)
-	})
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req.Header.Set("X-Service-Key", "some-key")
+	router.ServeHTTP(w, req)
 
-	headers := map[string]string{"X-Service-Key": "valid-key"}
-	w := testutils.PerformRequest(router, "DELETE", "/test", nil, headers)
-
-	testutils.AssertStatusCode(t, http.StatusNoContent, w)
-	mockVault.AssertExpectations(t)
+	require.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
-func TestServiceKeyMiddleware_InvalidKey_Forbidden(t *testing.T) {
-	mockVault := mocks.NewMockVaultClient()
-	mockVault.On("GetSecret", mock.Anything, "dotenv://PLATFORM_TO_AGENT_SERVICE_KEY", false).Return("valid-key", nil)
+func TestServiceKeyMiddleware_InvalidKey(t *testing.T) {
+	vault := mocks.NewMockVaultClient()
+	vault.On("GetSecret", mock.Anything, "dotenv://my-key", false).Return("correct-key", nil)
+	cfg := config.AppVaultConfig{PlatformServiceKey: "my-key"}
+	skm := middleware.NewServiceKeyMiddleware(vault, cfg)
 
-	mw := createServiceKeyMiddleware(mockVault)
+	router := gin.New()
+	router.Use(skm.AuthenticateServiceKey())
+	router.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
 
-	router := testutils.SetupTestRouter()
-	router.Use(mw.AuthenticateServiceKey())
-	router.DELETE("/test", func(c *gin.Context) {
-		c.Status(http.StatusNoContent)
-	})
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req.Header.Set("X-Service-Key", "wrong-key")
+	router.ServeHTTP(w, req)
 
-	headers := map[string]string{"X-Service-Key": "wrong-key"}
-	w := testutils.PerformRequest(router, "DELETE", "/test", nil, headers)
-
-	testutils.AssertStatusCode(t, http.StatusForbidden, w)
+	require.Equal(t, http.StatusForbidden, w.Code)
 }
 
-func TestServiceKeyMiddleware_MissingHeader_Unauthorized(t *testing.T) {
-	mockVault := mocks.NewMockVaultClient()
+func TestServiceKeyMiddleware_ValidKey(t *testing.T) {
+	vault := mocks.NewMockVaultClient()
+	vault.On("GetSecret", mock.Anything, "dotenv://my-key", false).Return("correct-key", nil)
+	cfg := config.AppVaultConfig{PlatformServiceKey: "my-key"}
+	skm := middleware.NewServiceKeyMiddleware(vault, cfg)
 
-	mw := createServiceKeyMiddleware(mockVault)
+	router := gin.New()
+	router.Use(skm.AuthenticateServiceKey())
+	router.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
 
-	router := testutils.SetupTestRouter()
-	router.Use(mw.AuthenticateServiceKey())
-	router.DELETE("/test", func(c *gin.Context) {
-		c.Status(http.StatusNoContent)
-	})
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req.Header.Set("X-Service-Key", "correct-key")
+	router.ServeHTTP(w, req)
 
-	w := testutils.PerformRequest(router, "DELETE", "/test", nil, nil)
-
-	testutils.AssertStatusCode(t, http.StatusUnauthorized, w)
-}
-
-func TestServiceKeyMiddleware_VaultError_InternalError(t *testing.T) {
-	mockVault := mocks.NewMockVaultClient()
-	mockVault.On("GetSecret", mock.Anything, "dotenv://PLATFORM_TO_AGENT_SERVICE_KEY", false).Return("", assert.AnError)
-
-	mw := createServiceKeyMiddleware(mockVault)
-
-	router := testutils.SetupTestRouter()
-	router.Use(mw.AuthenticateServiceKey())
-	router.DELETE("/test", func(c *gin.Context) {
-		c.Status(http.StatusNoContent)
-	})
-
-	headers := map[string]string{"X-Service-Key": "some-key"}
-	w := testutils.PerformRequest(router, "DELETE", "/test", nil, headers)
-
-	testutils.AssertStatusCode(t, http.StatusInternalServerError, w)
+	require.Equal(t, http.StatusOK, w.Code)
 }

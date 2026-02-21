@@ -168,9 +168,14 @@ type anthropicClient struct {
 	httpLLMClient
 	modelName string
 	apiKey    string
+	baseURL   string
 }
 
 func newAnthropicClient(config map[string]interface{}, apiKey string) (*anthropicClient, error) {
+	return newAnthropicClientWithBaseURL(config, apiKey, "https://api.anthropic.com")
+}
+
+func newAnthropicClientWithBaseURL(config map[string]interface{}, apiKey string, baseURL string) (*anthropicClient, error) {
 	modelName, _ := config["model_name"].(string)
 	if modelName == "" {
 		return nil, fmt.Errorf("anthropic requires model_name")
@@ -180,6 +185,7 @@ func newAnthropicClient(config map[string]interface{}, apiKey string) (*anthropi
 		httpLLMClient: httpLLMClient{httpClient: newHTTPClient()},
 		modelName:     modelName,
 		apiKey:        apiKey,
+		baseURL:       baseURL,
 	}, nil
 }
 
@@ -214,7 +220,8 @@ func (c *anthropicClient) ChatCompletion(ctx context.Context, messages []ChatMes
 	}
 
 	start := time.Now()
-	resp, err := doHTTPRequest(ctx, c.httpClient, "https://api.anthropic.com/v1/messages", body, headers)
+	url := fmt.Sprintf("%s/v1/messages", c.baseURL)
+	resp, err := doHTTPRequest(ctx, c.httpClient, url, body, headers)
 	if err != nil {
 		return nil, err
 	}
@@ -229,9 +236,14 @@ type googleGenAIClient struct {
 	httpLLMClient
 	modelName string
 	apiKey    string
+	baseURL   string
 }
 
 func newGoogleGenAIClient(config map[string]interface{}, apiKey string) (*googleGenAIClient, error) {
+	return newGoogleGenAIClientWithBaseURL(config, apiKey, "https://generativelanguage.googleapis.com")
+}
+
+func newGoogleGenAIClientWithBaseURL(config map[string]interface{}, apiKey string, baseURL string) (*googleGenAIClient, error) {
 	modelName, _ := config["model_name"].(string)
 	if modelName == "" {
 		return nil, fmt.Errorf("google_genai requires model_name")
@@ -241,12 +253,13 @@ func newGoogleGenAIClient(config map[string]interface{}, apiKey string) (*google
 		httpLLMClient: httpLLMClient{httpClient: newHTTPClient()},
 		modelName:     modelName,
 		apiKey:        apiKey,
+		baseURL:       baseURL,
 	}, nil
 }
 
 // ChatCompletion sends a chat completion request to Google Gemini.
 func (c *googleGenAIClient) ChatCompletion(ctx context.Context, messages []ChatMessage) (*ChatCompletionResult, error) {
-	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", c.modelName, c.apiKey)
+	url := fmt.Sprintf("%s/v1beta/models/%s:generateContent?key=%s", c.baseURL, c.modelName, c.apiKey)
 
 	contents := make([]map[string]interface{}, 0)
 	for _, msg := range messages {
@@ -329,9 +342,14 @@ type mistralClient struct {
 	httpLLMClient
 	modelName string
 	apiKey    string
+	baseURL   string
 }
 
 func newMistralClient(config map[string]interface{}, apiKey string) (*mistralClient, error) {
+	return newMistralClientWithBaseURL(config, apiKey, "https://api.mistral.ai")
+}
+
+func newMistralClientWithBaseURL(config map[string]interface{}, apiKey string, baseURL string) (*mistralClient, error) {
 	modelName, _ := config["model_name"].(string)
 	if modelName == "" {
 		return nil, fmt.Errorf("mistral requires model_name")
@@ -341,6 +359,7 @@ func newMistralClient(config map[string]interface{}, apiKey string) (*mistralCli
 		httpLLMClient: httpLLMClient{httpClient: newHTTPClient()},
 		modelName:     modelName,
 		apiKey:        apiKey,
+		baseURL:       baseURL,
 	}, nil
 }
 
@@ -356,7 +375,8 @@ func (c *mistralClient) ChatCompletion(ctx context.Context, messages []ChatMessa
 	}
 
 	start := time.Now()
-	resp, err := doHTTPRequest(ctx, c.httpClient, "https://api.mistral.ai/v1/chat/completions", body, headers)
+	url := fmt.Sprintf("%s/v1/chat/completions", c.baseURL)
+	resp, err := doHTTPRequest(ctx, c.httpClient, url, body, headers)
 	if err != nil {
 		return nil, err
 	}
@@ -371,9 +391,14 @@ type groqClient struct {
 	httpLLMClient
 	modelName string
 	apiKey    string
+	baseURL   string
 }
 
 func newGroqClient(config map[string]interface{}, apiKey string) (*groqClient, error) {
+	return newGroqClientWithBaseURL(config, apiKey, "https://api.groq.com/openai")
+}
+
+func newGroqClientWithBaseURL(config map[string]interface{}, apiKey string, baseURL string) (*groqClient, error) {
 	modelName, _ := config["model_name"].(string)
 	if modelName == "" {
 		return nil, fmt.Errorf("groq requires model_name")
@@ -383,6 +408,7 @@ func newGroqClient(config map[string]interface{}, apiKey string) (*groqClient, e
 		httpLLMClient: httpLLMClient{httpClient: newHTTPClient()},
 		modelName:     modelName,
 		apiKey:        apiKey,
+		baseURL:       baseURL,
 	}, nil
 }
 
@@ -398,7 +424,8 @@ func (c *groqClient) ChatCompletion(ctx context.Context, messages []ChatMessage)
 	}
 
 	start := time.Now()
-	resp, err := doHTTPRequest(ctx, c.httpClient, "https://api.groq.com/openai/v1/chat/completions", body, headers)
+	url := fmt.Sprintf("%s/v1/chat/completions", c.baseURL)
+	resp, err := doHTTPRequest(ctx, c.httpClient, url, body, headers)
 	if err != nil {
 		return nil, err
 	}

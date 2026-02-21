@@ -55,6 +55,11 @@ func NewWorkflowClient(config *WorkflowClientConfig) (*WorkflowClient, error) {
 	}, nil
 }
 
+// SetHTTPClient sets a custom HTTP client (used for testing).
+func (c *WorkflowClient) SetHTTPClient(client *http.Client) {
+	c.httpClient = client
+}
+
 // Invoke sends a message and returns the complete response (non-streaming).
 func (c *WorkflowClient) Invoke(ctx context.Context, req *InvokeRequest) (*InvokeResponse, error) {
 	reader, err := c.InvokeStreamReader(ctx, req)

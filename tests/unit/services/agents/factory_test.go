@@ -1,4 +1,3 @@
-// Package agents_test provides tests for the agent factory.
 package agents_test
 
 import (
@@ -11,137 +10,155 @@ import (
 	"github.com/unifiedui/agent-service/internal/services/platform"
 )
 
-// TestNewFactory tests factory creation.
 func TestNewFactory(t *testing.T) {
-	factory := agents.NewFactory()
-	assert.NotNil(t, factory)
+	f := agents.NewFactory()
+	assert.NotNil(t, f)
 }
 
-// TestFactory_CreateClients_N8N tests creating N8N clients.
-func TestFactory_CreateClients_N8N(t *testing.T) {
-	factory := agents.NewFactory()
+func TestCreateClients_NilConfig(t *testing.T) {
+	f := agents.NewFactory()
+	_, err := f.CreateClients(nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "config is required")
+}
+
+func TestCreateClients_N8N_Success(t *testing.T) {
+	f := agents.NewFactory()
 	config := &platform.AgentConfig{
-		Type:          platform.AgentTypeN8N,
-		TenantID:      "tenant-123",
-		ChatAgentID: "app-456",
+		Type: platform.AgentTypeN8N,
 		Settings: platform.AgentSettings{
-			ChatURL:      "https://n8n.example.com/webhook/chat",
-			WorkflowType: platform.N8NWorkflowTypeChatAgent,
+			WorkflowType: "N8N_CHAT_AGENT_WORKFLOW",
+			ChatURL:      "http://n8n.local/webhook/chat",
 			APIVersion:   "v1",
 		},
 	}
-
-	clients, err := factory.CreateClients(config)
+	clients, err := f.CreateClients(config)
 	require.NoError(t, err)
-	require.NotNil(t, clients)
+	assert.NotNil(t, clients)
 	assert.NotNil(t, clients.WorkflowClient)
+	assert.NotNil(t, clients.APIClient)
 	defer clients.Close()
 }
 
-// TestFactory_CreateClients_Foundry_RequiresToken tests that Foundry requires token via separate method.
-func TestFactory_CreateClients_Foundry_RequiresToken(t *testing.T) {
-	factory := agents.NewFactory()
+func TestCreateClients_Foundry_RequiresToken(t *testing.T) {
+	f := agents.NewFactory()
 	config := &platform.AgentConfig{
-		Type:          platform.AgentTypeFoundry,
-		TenantID:      "tenant-123",
-		ChatAgentID: "app-456",
-		Settings: platform.AgentSettings{
-			ProjectEndpoint: "https://test.services.ai.azure.com/api/projects/test-project",
-			AgentName:       "TestAgent",
-		},
+		Type: platform.AgentTypeFoundry,
 	}
-
-	// CreateClients should fail for Foundry - need to use CreateFoundryClients
-	clients, err := factory.CreateClients(config)
-	require.Error(t, err)
-	assert.Nil(t, clients)
-	assert.Contains(t, err.Error(), "use CreateFoundryClients instead")
+	_, err := f.CreateClients(config)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "CreateFoundryClients")
 }
 
-// TestFactory_CreateFoundryClients_Success tests creating Foundry clients.
-func TestFactory_CreateFoundryClients_Success(t *testing.T) {
-	factory := agents.NewFactory()
-	config := &platform.AgentConfig{
-		Type:          platform.AgentTypeFoundry,
-		TenantID:      "tenant-123",
-		ChatAgentID: "app-456",
-		Settings: platform.AgentSettings{
-			APIVersion:      "2025-11-15-preview",
-			AgentType:       "AGENT",
-			ProjectEndpoint: "https://test.services.ai.azure.com/api/projects/test-project",
-			AgentName:       "TestAgent",
-		},
-	}
-
-	clients, err := factory.CreateFoundryClients(config, "test-api-token")
-	require.NoError(t, err)
-	require.NotNil(t, clients)
-	assert.NotNil(t, clients.WorkflowClient)
-	assert.Nil(t, clients.APIClient) // Foundry doesn't have separate API client
-	defer clients.Close()
-}
-
-// TestFactory_CreateFoundryClients_MissingToken tests error when token is missing.
-func TestFactory_CreateFoundryClients_MissingToken(t *testing.T) {
-	factory := agents.NewFactory()
-	config := &platform.AgentConfig{
-		Type:          platform.AgentTypeFoundry,
-		TenantID:      "tenant-123",
-		ChatAgentID: "app-456",
-		Settings: platform.AgentSettings{
-			ProjectEndpoint: "https://test.services.ai.azure.com/api/projects/test-project",
-			AgentName:       "TestAgent",
-		},
-	}
-
-	clients, err := factory.CreateFoundryClients(config, "")
-	require.Error(t, err)
-	assert.Nil(t, clients)
-	assert.Contains(t, err.Error(), "API token is required")
-}
-
-// TestFactory_CreateFoundryClients_NilConfig tests error when config is nil.
-func TestFactory_CreateFoundryClients_NilConfig(t *testing.T) {
-	factory := agents.NewFactory()
-
-	clients, err := factory.CreateFoundryClients(nil, "test-token")
-	require.Error(t, err)
-	assert.Nil(t, clients)
-	assert.Contains(t, err.Error(), "config is required")
-}
-
-// TestFactory_CreateClients_NilConfig tests error when config is nil.
-func TestFactory_CreateClients_NilConfig(t *testing.T) {
-	factory := agents.NewFactory()
-
-	clients, err := factory.CreateClients(nil)
-	require.Error(t, err)
-	assert.Nil(t, clients)
-	assert.Contains(t, err.Error(), "config is required")
-}
-
-// TestFactory_CreateClients_UnsupportedType tests error for unsupported agent type.
-func TestFactory_CreateClients_UnsupportedType(t *testing.T) {
-	factory := agents.NewFactory()
-	config := &platform.AgentConfig{
-		Type: platform.AgentType("UNKNOWN"),
-	}
-
-	clients, err := factory.CreateClients(config)
-	require.Error(t, err)
-	assert.Nil(t, clients)
-	assert.Contains(t, err.Error(), "unsupported agent type")
-}
-
-// TestFactory_CreateClients_Copilot_NotImplemented tests that Copilot is not yet implemented.
-func TestFactory_CreateClients_Copilot_NotImplemented(t *testing.T) {
-	factory := agents.NewFactory()
+func TestCreateClients_Copilot_NotImplemented(t *testing.T) {
+	f := agents.NewFactory()
 	config := &platform.AgentConfig{
 		Type: platform.AgentTypeCopilot,
 	}
-
-	clients, err := factory.CreateClients(config)
-	require.Error(t, err)
-	assert.Nil(t, clients)
+	_, err := f.CreateClients(config)
+	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not yet implemented")
+}
+
+func TestCreateClients_Custom_NotImplemented(t *testing.T) {
+	f := agents.NewFactory()
+	config := &platform.AgentConfig{
+		Type: platform.AgentTypeCustom,
+	}
+	_, err := f.CreateClients(config)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not yet implemented")
+}
+
+func TestCreateClients_UnsupportedType(t *testing.T) {
+	f := agents.NewFactory()
+	config := &platform.AgentConfig{
+		Type: "UNKNOWN_TYPE",
+	}
+	_, err := f.CreateClients(config)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported")
+}
+
+func TestCreateFoundryClients_NilConfig(t *testing.T) {
+	f := agents.NewFactory()
+	_, err := f.CreateFoundryClients(nil, "token")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "config is required")
+}
+
+func TestCreateFoundryClients_EmptyToken(t *testing.T) {
+	f := agents.NewFactory()
+	config := &platform.AgentConfig{
+		Type: platform.AgentTypeFoundry,
+	}
+	_, err := f.CreateFoundryClients(config, "")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "API token")
+}
+
+func TestCreateFoundryClients_Success(t *testing.T) {
+	f := agents.NewFactory()
+	config := &platform.AgentConfig{
+		Type: platform.AgentTypeFoundry,
+		Settings: platform.AgentSettings{
+			AgentType:       "AGENT",
+			ProjectEndpoint: "https://foundry.example.com",
+			AgentName:       "my-agent",
+		},
+	}
+	clients, err := f.CreateFoundryClients(config, "api-token")
+	require.NoError(t, err)
+	assert.NotNil(t, clients)
+	assert.NotNil(t, clients.WorkflowClient)
+	defer clients.Close()
+}
+
+func TestCreateClients_N8N_MissingChatURL(t *testing.T) {
+	f := agents.NewFactory()
+	config := &platform.AgentConfig{
+		Type: platform.AgentTypeN8N,
+		Settings: platform.AgentSettings{
+			WorkflowType: "N8N_CHAT_AGENT_WORKFLOW",
+			ChatURL:      "",
+			APIVersion:   "v1",
+		},
+	}
+	_, err := f.CreateClients(config)
+	assert.Error(t, err)
+}
+
+func TestCreateClients_N8N_UnsupportedWorkflowType(t *testing.T) {
+	f := agents.NewFactory()
+	config := &platform.AgentConfig{
+		Type: platform.AgentTypeN8N,
+		Settings: platform.AgentSettings{
+			WorkflowType: "N8N_HUMAN_IN_THE_LOOP",
+			ChatURL:      "http://n8n.local/webhook/chat",
+			APIVersion:   "v1",
+		},
+	}
+	_, err := f.CreateClients(config)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not yet implemented")
+}
+
+func TestCreateClients_N8N_UnsupportedAPIVersion(t *testing.T) {
+	f := agents.NewFactory()
+	config := &platform.AgentConfig{
+		Type: platform.AgentTypeN8N,
+		Settings: platform.AgentSettings{
+			WorkflowType: "N8N_CHAT_AGENT_WORKFLOW",
+			ChatURL:      "http://n8n.local/webhook/chat",
+			APIVersion:   "v99",
+		},
+	}
+	_, err := f.CreateClients(config)
+	assert.Error(t, err)
+}
+
+func TestAgentClients_Close_NilClients(t *testing.T) {
+	clients := &agents.AgentClients{}
+	err := clients.Close()
+	assert.NoError(t, err)
 }

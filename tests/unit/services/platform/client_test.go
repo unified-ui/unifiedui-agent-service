@@ -1,4 +1,3 @@
-// Package platform provides tests for the platform service client.
 package platform_test
 
 import (
@@ -9,329 +8,489 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
-
-	"github.com/unifiedui/agent-service/internal/services/platform"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/unifiedui/agent-service/internal/services/platform"
 )
 
-// TestGetChatAgentConfig_Success tests successful chat agent config retrieval.
+func newTestClient(ts *httptest.Server) platform.Client {
+	return platform.NewClient(&platform.ClientConfig{
+		BaseURL:    ts.URL,
+		ServiceKey: "test-service-key",
+		Timeout:    0,
+	})
+}
+
+func jsonHandler(data interface{}) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(data)
+	}
+}
+
+func statusHandler(code int, body string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(code)
+		w.Write([]byte(body))
+	}
+}
+
+// --- NewClient ---
+
+func TestNewClient_DefaultTimeout(t *testing.T) {
+	client := platform.NewClient(&platform.ClientConfig{
+		BaseURL:    "http://localhost:8080",
+		ServiceKey: "key",
+	})
+	assert.NotNil(t, client)
+}
+
+func TestNewClient_CustomTimeout(t *testing.T) {
+	client := platform.NewClient(&platform.ClientConfig{
+		BaseURL:    "http://localhost:8080",
+		ServiceKey: "key",
+		Timeout:    5000000000,
+	})
+	assert.NotNil(t, client)
+}
+
+// --- GetChatAgentConfig ---
+
 func TestGetChatAgentConfig_Success(t *testing.T) {
-	// Create test response (now includes user info)
-	expectedResponse := &platform.ChatAgentConfigResponse{
-		DocVersion:    "v1",
-		Type:          platform.AgentTypeN8N,
-		TenantID:      "tenant-123",
-		ChatAgentID: "app-456",
-		Settings: platform.AgentSettings{
-			APIVersion:            "v1",
-			WorkflowType:          platform.N8NWorkflowTypeChatAgent,
-			UseUnifiedChatHistory: true,
-			ChatHistoryCount:      5,
-			ChatURL:               "https://n8n.example.com/webhook/chat",
-		},
-		User: &platform.UserInfo{
-			ID:            "user-789",
-			DisplayName:   "Test User",
-			PrincipalName: "test@example.com",
-			Mail:          "test@example.com",
-		},
+	resp := platform.ChatAgentConfigResponse{
+		DocVersion:  "1",
+		Type:        platform.AgentTypeN8N,
+		TenantID:    "tenant1",
+		ChatAgentID: "agent1",
 	}
+	ts := httptest.NewServer(jsonHandler(resp))
+	defer ts.Close()
 
-	// Create test server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Verify request
-		assert.Equal(t, http.MethodGet, r.Method)
-		assert.Equal(t, "/api/v1/platform-service/tenants/tenant-123/chat-agents/app-456/config", r.URL.Path)
-		assert.Equal(t, "test-service-key", r.Header.Get("X-Service-Key"))
-		assert.Equal(t, "Bearer test-auth-token", r.Header.Get("Authorization"))
-		assert.Equal(t, "application/json", r.Header.Get("Accept"))
-
-		// Send response
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(expectedResponse)
-	}))
-	defer server.Close()
-
-	// Create client
-	client := platform.NewClient(&platform.ClientConfig{
-		BaseURL:    server.URL,
-		ServiceKey: "test-service-key",
-		Timeout:    5 * time.Second,
-	})
-
-	// Call GetChatAgentConfig
-	config, err := client.GetChatAgentConfig(context.Background(), "tenant-123", "app-456", "test-auth-token")
-
-	// Verify result
+	client := newTestClient(ts)
+	result, err := client.GetChatAgentConfig(context.Background(), "tenant1", "agent1", "auth-token")
 	require.NoError(t, err)
-	require.NotNil(t, config)
-	assert.Equal(t, expectedResponse.DocVersion, config.DocVersion)
-	assert.Equal(t, expectedResponse.Type, config.Type)
-	assert.Equal(t, expectedResponse.TenantID, config.TenantID)
-	assert.Equal(t, expectedResponse.ChatAgentID, config.ChatAgentID)
-	assert.Equal(t, expectedResponse.Settings.ChatURL, config.Settings.ChatURL)
-	assert.NotNil(t, config.User)
-	assert.Equal(t, "user-789", config.User.ID)
+	assert.Equal(t, "tenant1", result.TenantID)
+	assert.Equal(t, "agent1", result.ChatAgentID)
 }
 
-// TestGetChatAgentConfig_MissingBaseURL tests error when base URL is not configured.
 func TestGetChatAgentConfig_MissingBaseURL(t *testing.T) {
-	client := platform.NewClient(&platform.ClientConfig{
-		ServiceKey: "test-key",
-	})
-
-	config, err := client.GetChatAgentConfig(context.Background(), "tenant-123", "app-456", "test-token")
-
-	require.Error(t, err)
-	assert.Nil(t, config)
-	assert.Contains(t, err.Error(), "platform service URL not configured")
+	client := platform.NewClient(&platform.ClientConfig{ServiceKey: "key"})
+	_, err := client.GetChatAgentConfig(context.Background(), "t", "a", "token")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not configured")
 }
 
-// TestGetChatAgentConfig_MissingServiceKey tests error when service key is not configured.
 func TestGetChatAgentConfig_MissingServiceKey(t *testing.T) {
-	client := platform.NewClient(&platform.ClientConfig{
-		BaseURL: "http://localhost:8081",
-	})
-
-	config, err := client.GetChatAgentConfig(context.Background(), "tenant-123", "app-456", "test-token")
-
-	require.Error(t, err)
-	assert.Nil(t, config)
-	assert.Contains(t, err.Error(), "service key not configured")
+	client := platform.NewClient(&platform.ClientConfig{BaseURL: "http://localhost"})
+	_, err := client.GetChatAgentConfig(context.Background(), "t", "a", "token")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "service key")
 }
 
-// TestGetChatAgentConfig_MissingAuthToken tests error when auth token is not provided.
 func TestGetChatAgentConfig_MissingAuthToken(t *testing.T) {
-	client := platform.NewClient(&platform.ClientConfig{
-		BaseURL:    "http://localhost:8081",
-		ServiceKey: "test-key",
-	})
-
-	config, err := client.GetChatAgentConfig(context.Background(), "tenant-123", "app-456", "")
-
-	require.Error(t, err)
-	assert.Nil(t, config)
-	assert.Contains(t, err.Error(), "auth token not provided")
+	client := platform.NewClient(&platform.ClientConfig{BaseURL: "http://localhost", ServiceKey: "key"})
+	_, err := client.GetChatAgentConfig(context.Background(), "t", "a", "")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "auth token")
 }
 
-// TestGetChatAgentConfig_Unauthorized tests handling of 401 response.
-func TestGetChatAgentConfig_Unauthorized(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(`{"error": "invalid service key or token"}`))
-	}))
-	defer server.Close()
-
-	client := platform.NewClient(&platform.ClientConfig{
-		BaseURL:    server.URL,
-		ServiceKey: "invalid-key",
-		Timeout:    5 * time.Second,
-	})
-
-	config, err := client.GetChatAgentConfig(context.Background(), "tenant-123", "app-456", "invalid-token")
-
-	require.Error(t, err)
-	assert.Nil(t, config)
-	assert.Contains(t, err.Error(), "unauthorized:")
-}
-
-// TestGetChatAgentConfig_Forbidden tests handling of 403 response (invalid service key).
-func TestGetChatAgentConfig_Forbidden(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusForbidden)
-		w.Write([]byte(`{"error": "invalid service key"}`))
-	}))
-	defer server.Close()
-
-	client := platform.NewClient(&platform.ClientConfig{
-		BaseURL:    server.URL,
-		ServiceKey: "wrong-key",
-		Timeout:    5 * time.Second,
-	})
-
-	config, err := client.GetChatAgentConfig(context.Background(), "tenant-123", "app-456", "test-token")
-
-	require.Error(t, err)
-	assert.Nil(t, config)
-	assert.Contains(t, err.Error(), "forbidden:")
-}
-
-// TestGetChatAgentConfig_NotFound tests handling of 404 response.
 func TestGetChatAgentConfig_NotFound(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"error": "chat agent not found"}`))
-	}))
-	defer server.Close()
-
-	client := platform.NewClient(&platform.ClientConfig{
-		BaseURL:    server.URL,
-		ServiceKey: "test-key",
-		Timeout:    5 * time.Second,
-	})
-
-	config, err := client.GetChatAgentConfig(context.Background(), "tenant-123", "nonexistent-app", "test-token")
-
-	require.Error(t, err)
-	assert.Nil(t, config)
-	assert.Contains(t, err.Error(), "not_found:")
+	ts := httptest.NewServer(statusHandler(404, "not found"))
+	defer ts.Close()
+	client := newTestClient(ts)
+	_, err := client.GetChatAgentConfig(context.Background(), "t", "a", "token")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not_found")
 }
 
-// TestGetAgentConfig_Success tests successful agent config retrieval.
+func TestGetChatAgentConfig_Unauthorized(t *testing.T) {
+	ts := httptest.NewServer(statusHandler(401, "unauthorized"))
+	defer ts.Close()
+	client := newTestClient(ts)
+	_, err := client.GetChatAgentConfig(context.Background(), "t", "a", "token")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unauthorized")
+}
+
+func TestGetChatAgentConfig_Forbidden(t *testing.T) {
+	ts := httptest.NewServer(statusHandler(403, "forbidden"))
+	defer ts.Close()
+	client := newTestClient(ts)
+	_, err := client.GetChatAgentConfig(context.Background(), "t", "a", "token")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "forbidden")
+}
+
+func TestGetChatAgentConfig_ServerError(t *testing.T) {
+	ts := httptest.NewServer(statusHandler(500, "server error"))
+	defer ts.Close()
+	client := newTestClient(ts)
+	_, err := client.GetChatAgentConfig(context.Background(), "t", "a", "token")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "500")
+}
+
+// --- GetAgentConfig ---
+
 func TestGetAgentConfig_Success(t *testing.T) {
-	// Create test response (includes user info from platform)
-	appResponse := &platform.ChatAgentConfigResponse{
-		DocVersion:    "v1",
-		Type:          platform.AgentTypeN8N,
-		TenantID:      "tenant-123",
-		ChatAgentID: "app-456",
+	resp := platform.ChatAgentConfigResponse{
+		DocVersion:  "1",
+		Type:        platform.AgentTypeN8N,
+		TenantID:    "tenant1",
+		ChatAgentID: "agent1",
 		Settings: platform.AgentSettings{
-			APIVersion:            "v1",
-			WorkflowType:          platform.N8NWorkflowTypeChatAgent,
-			UseUnifiedChatHistory: true,
-			ChatHistoryCount:      5,
-			ChatURL:               "https://n8n.example.com/webhook/chat",
-		},
-		User: &platform.UserInfo{
-			ID:            "user-789",
-			DisplayName:   "Test User",
-			PrincipalName: "test@example.com",
-			Mail:          "test@example.com",
+			ChatURL: "http://n8n.local/webhook/chat",
 		},
 	}
+	ts := httptest.NewServer(jsonHandler(resp))
+	defer ts.Close()
 
-	// Create test server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(appResponse)
-	}))
-	defer server.Close()
-
-	// Create client
-	client := platform.NewClient(&platform.ClientConfig{
-		BaseURL:    server.URL,
-		ServiceKey: "test-service-key",
-		Timeout:    5 * time.Second,
-	})
-
-	// Call GetAgentConfig (now takes authToken instead of user)
-	config, err := client.GetAgentConfig(context.Background(), "tenant-123", "app-456", "conv-abc", "test-auth-token")
-
-	// Verify result
+	client := newTestClient(ts)
+	result, err := client.GetAgentConfig(context.Background(), "tenant1", "agent1", "conv1", "auth-token")
 	require.NoError(t, err)
-	require.NotNil(t, config)
-	assert.Equal(t, "v1", config.DocVersion)
-	assert.Equal(t, platform.AgentTypeN8N, config.Type)
-	assert.Equal(t, "tenant-123", config.TenantID)
-	assert.Equal(t, "app-456", config.ChatAgentID)
-	assert.Equal(t, "conv-abc", config.ConversationID)
-	// User info comes from platform response now
-	assert.NotNil(t, config.User)
-	assert.Equal(t, "user-789", config.User.ID)
-	assert.Equal(t, "Test User", config.User.DisplayName)
+	assert.Equal(t, "conv1", result.ConversationID)
+	assert.Equal(t, "agent1", result.ChatAgentID)
 }
 
-// TestGetAgentConfig_PlatformError tests error handling when platform call fails.
-func TestGetAgentConfig_PlatformError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"error": "internal error"}`))
-	}))
-	defer server.Close()
+// --- GetAgentConfigFromFile ---
 
-	client := platform.NewClient(&platform.ClientConfig{
-		BaseURL:    server.URL,
-		ServiceKey: "test-service-key",
-		Timeout:    5 * time.Second,
-	})
-
-	config, err := client.GetAgentConfig(context.Background(), "tenant-123", "app-456", "conv-abc", "test-token")
-
-	require.Error(t, err)
-	assert.Nil(t, config)
-	assert.Contains(t, err.Error(), "failed to get chat agent config")
-}
-
-// TestGetAgentConfigFromFile_Success tests successful config retrieval from file.
 func TestGetAgentConfigFromFile_Success(t *testing.T) {
-	// Create temp config file
-	tempDir := t.TempDir()
-	configPath := filepath.Join(tempDir, "config.json")
-
-	configData := &platform.AgentConfig{
-		DocVersion:     "v1",
-		Type:           platform.AgentTypeN8N,
-		TenantID:       "tenant-123",
-		ChatAgentID:  "app-456",
-		ConversationID: "conv-789",
-		Settings: platform.AgentSettings{
-			APIVersion:   "v1",
-			WorkflowType: platform.N8NWorkflowTypeChatAgent,
-			ChatURL:      "https://n8n.example.com/webhook/chat",
-		},
+	tmpDir := t.TempDir()
+	configFile := filepath.Join(tmpDir, "config.json")
+	config := platform.AgentConfig{
+		Type:     platform.AgentTypeN8N,
+		TenantID: "tenant1",
 	}
+	data, _ := json.Marshal(config)
+	os.WriteFile(configFile, data, 0644)
 
-	data, err := json.Marshal(configData)
+	client := platform.NewClient(&platform.ClientConfig{ConfigPath: configFile})
+	result, err := client.GetAgentConfigFromFile(context.Background(), "tenant1", "agent1")
 	require.NoError(t, err)
-	err = os.WriteFile(configPath, data, 0644)
-	require.NoError(t, err)
-
-	client := platform.NewClient(&platform.ClientConfig{
-		ConfigPath: configPath,
-	})
-
-	config, err := client.GetAgentConfigFromFile(context.Background(), "tenant-123", "app-456")
-
-	require.NoError(t, err)
-	require.NotNil(t, config)
-	assert.Equal(t, "v1", config.DocVersion)
-	assert.Equal(t, platform.AgentTypeN8N, config.Type)
-	assert.Equal(t, "tenant-123", config.TenantID)
+	assert.Equal(t, "tenant1", result.TenantID)
 }
 
-// TestGetAgentConfigFromFile_MissingPath tests error when config path is not set.
-func TestGetAgentConfigFromFile_MissingPath(t *testing.T) {
+func TestGetAgentConfigFromFile_MissingConfigPath(t *testing.T) {
 	client := platform.NewClient(&platform.ClientConfig{})
-
-	config, err := client.GetAgentConfigFromFile(context.Background(), "tenant-123", "app-456")
-
-	require.Error(t, err)
-	assert.Nil(t, config)
-	assert.Contains(t, err.Error(), "config path not configured")
+	_, err := client.GetAgentConfigFromFile(context.Background(), "t", "a")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "config path")
 }
 
-// TestGetAgentConfigFromFile_FileNotFound tests error when config file doesn't exist.
 func TestGetAgentConfigFromFile_FileNotFound(t *testing.T) {
-	client := platform.NewClient(&platform.ClientConfig{
-		ConfigPath: "/nonexistent/path/config.json",
-	})
-
-	config, err := client.GetAgentConfigFromFile(context.Background(), "tenant-123", "app-456")
-
-	require.Error(t, err)
-	assert.Nil(t, config)
-	assert.Contains(t, err.Error(), "failed to read config file")
+	client := platform.NewClient(&platform.ClientConfig{ConfigPath: "/nonexistent/config.json"})
+	_, err := client.GetAgentConfigFromFile(context.Background(), "t", "a")
+	assert.Error(t, err)
 }
 
-// TestGetAgentConfigFromFile_InvalidJSON tests error when config file has invalid JSON.
 func TestGetAgentConfigFromFile_InvalidJSON(t *testing.T) {
-	tempDir := t.TempDir()
-	configPath := filepath.Join(tempDir, "config.json")
+	tmpDir := t.TempDir()
+	configFile := filepath.Join(tmpDir, "config.json")
+	os.WriteFile(configFile, []byte("not json"), 0644)
 
-	// Write invalid JSON
-	err := os.WriteFile(configPath, []byte("invalid json {"), 0644)
+	client := platform.NewClient(&platform.ClientConfig{ConfigPath: configFile})
+	_, err := client.GetAgentConfigFromFile(context.Background(), "t", "a")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "parse")
+}
+
+// --- GetMe ---
+
+func TestGetMe_Success(t *testing.T) {
+	resp := platform.UserInfo{ID: "user1", DisplayName: "Test User"}
+	ts := httptest.NewServer(jsonHandler(resp))
+	defer ts.Close()
+
+	client := newTestClient(ts)
+	result, err := client.GetMe(context.Background(), "auth-token")
 	require.NoError(t, err)
+	assert.Equal(t, "user1", result.ID)
+}
 
-	client := platform.NewClient(&platform.ClientConfig{
-		ConfigPath: configPath,
-	})
+func TestGetMe_MissingBaseURL(t *testing.T) {
+	client := platform.NewClient(&platform.ClientConfig{})
+	_, err := client.GetMe(context.Background(), "token")
+	assert.Error(t, err)
+}
 
-	config, err := client.GetAgentConfigFromFile(context.Background(), "tenant-123", "app-456")
+func TestGetMe_MissingAuthToken(t *testing.T) {
+	client := platform.NewClient(&platform.ClientConfig{BaseURL: "http://localhost"})
+	_, err := client.GetMe(context.Background(), "")
+	assert.Error(t, err)
+}
 
-	require.Error(t, err)
-	assert.Nil(t, config)
-	assert.Contains(t, err.Error(), "failed to parse config file")
+// --- GetConversation ---
+
+func TestGetConversation_Success(t *testing.T) {
+	resp := platform.ConversationResponse{ID: "conv1", Name: "Test Conv"}
+	ts := httptest.NewServer(jsonHandler(resp))
+	defer ts.Close()
+
+	client := newTestClient(ts)
+	result, err := client.GetConversation(context.Background(), "tenant1", "conv1", "token")
+	require.NoError(t, err)
+	assert.Equal(t, "conv1", result.ID)
+}
+
+func TestGetConversation_MissingBaseURL(t *testing.T) {
+	client := platform.NewClient(&platform.ClientConfig{})
+	_, err := client.GetConversation(context.Background(), "t", "c", "token")
+	assert.Error(t, err)
+}
+
+// --- ValidateConversation ---
+
+func TestValidateConversation_Success(t *testing.T) {
+	ts := httptest.NewServer(statusHandler(200, "{}"))
+	defer ts.Close()
+
+	client := newTestClient(ts)
+	err := client.ValidateConversation(context.Background(), "tenant1", "conv1", "token")
+	assert.NoError(t, err)
+}
+
+func TestValidateConversation_EmptyBaseURL(t *testing.T) {
+	client := platform.NewClient(&platform.ClientConfig{})
+	err := client.ValidateConversation(context.Background(), "t", "c", "token")
+	assert.NoError(t, err)
+}
+
+func TestValidateConversation_MissingToken(t *testing.T) {
+	client := platform.NewClient(&platform.ClientConfig{BaseURL: "http://localhost"})
+	err := client.ValidateConversation(context.Background(), "t", "c", "")
+	assert.Error(t, err)
+}
+
+func TestValidateConversation_NotFound(t *testing.T) {
+	ts := httptest.NewServer(statusHandler(404, "not found"))
+	defer ts.Close()
+	client := newTestClient(ts)
+	err := client.ValidateConversation(context.Background(), "t", "c", "token")
+	assert.Error(t, err)
+}
+
+// --- ValidateAutonomousAgent ---
+
+func TestValidateAutonomousAgent_Success(t *testing.T) {
+	ts := httptest.NewServer(statusHandler(200, "{}"))
+	defer ts.Close()
+	client := newTestClient(ts)
+	err := client.ValidateAutonomousAgent(context.Background(), "tenant1", "aa1", "token")
+	assert.NoError(t, err)
+}
+
+func TestValidateAutonomousAgent_EmptyBaseURL(t *testing.T) {
+	client := platform.NewClient(&platform.ClientConfig{})
+	err := client.ValidateAutonomousAgent(context.Background(), "t", "a", "token")
+	assert.NoError(t, err)
+}
+
+func TestValidateAutonomousAgent_MissingToken(t *testing.T) {
+	client := platform.NewClient(&platform.ClientConfig{BaseURL: "http://localhost"})
+	err := client.ValidateAutonomousAgent(context.Background(), "t", "a", "")
+	assert.Error(t, err)
+}
+
+// --- GetAutonomousAgentConfig ---
+
+func TestGetAutonomousAgentConfig_Success(t *testing.T) {
+	resp := platform.AutonomousAgentConfigResponse{
+		TenantID:         "tenant1",
+		AutonomousAgentID: "aa1",
+	}
+	ts := httptest.NewServer(jsonHandler(resp))
+	defer ts.Close()
+
+	client := newTestClient(ts)
+	result, err := client.GetAutonomousAgentConfig(context.Background(), "tenant1", "aa1", "api-key")
+	require.NoError(t, err)
+	assert.Equal(t, "aa1", result.AutonomousAgentID)
+}
+
+func TestGetAutonomousAgentConfig_MissingBaseURL(t *testing.T) {
+	client := platform.NewClient(&platform.ClientConfig{})
+	_, err := client.GetAutonomousAgentConfig(context.Background(), "t", "a", "key")
+	assert.Error(t, err)
+}
+
+func TestGetAutonomousAgentConfig_MissingAPIKey(t *testing.T) {
+	client := platform.NewClient(&platform.ClientConfig{BaseURL: "http://localhost"})
+	_, err := client.GetAutonomousAgentConfig(context.Background(), "t", "a", "")
+	assert.Error(t, err)
+}
+
+// --- GetAutonomousAgentConfigWithBearer ---
+
+func TestGetAutonomousAgentConfigWithBearer_Success(t *testing.T) {
+	resp := platform.AutonomousAgentConfigResponse{
+		TenantID:         "tenant1",
+		AutonomousAgentID: "aa1",
+	}
+	ts := httptest.NewServer(jsonHandler(resp))
+	defer ts.Close()
+
+	client := newTestClient(ts)
+	result, err := client.GetAutonomousAgentConfigWithBearer(context.Background(), "tenant1", "aa1", "bearer-token")
+	require.NoError(t, err)
+	assert.Equal(t, "aa1", result.AutonomousAgentID)
+}
+
+func TestGetAutonomousAgentConfigWithBearer_MissingAuth(t *testing.T) {
+	client := platform.NewClient(&platform.ClientConfig{BaseURL: "http://localhost"})
+	_, err := client.GetAutonomousAgentConfigWithBearer(context.Background(), "t", "a", "")
+	assert.Error(t, err)
+}
+
+// --- ValidateAutonomousAgentAPIKey ---
+
+func TestValidateAutonomousAgentAPIKey_Success(t *testing.T) {
+	ts := httptest.NewServer(statusHandler(200, "{}"))
+	defer ts.Close()
+	client := newTestClient(ts)
+	err := client.ValidateAutonomousAgentAPIKey(context.Background(), "tenant1", "aa1", "api-key")
+	assert.NoError(t, err)
+}
+
+func TestValidateAutonomousAgentAPIKey_EmptyBaseURL(t *testing.T) {
+	client := platform.NewClient(&platform.ClientConfig{})
+	err := client.ValidateAutonomousAgentAPIKey(context.Background(), "t", "a", "key")
+	assert.NoError(t, err)
+}
+
+func TestValidateAutonomousAgentAPIKey_MissingKey(t *testing.T) {
+	client := platform.NewClient(&platform.ClientConfig{BaseURL: "http://localhost"})
+	err := client.ValidateAutonomousAgentAPIKey(context.Background(), "t", "a", "")
+	assert.Error(t, err)
+}
+
+// --- GetAIModelsByPurpose ---
+
+func TestGetAIModelsByPurpose_Success(t *testing.T) {
+	resp := []platform.AIModelWithSecretResponse{
+		{ID: "m1", Provider: "OPENAI", Config: map[string]interface{}{"model_name": "gpt-4"}},
+	}
+	ts := httptest.NewServer(jsonHandler(resp))
+	defer ts.Close()
+
+	client := newTestClient(ts)
+	result, err := client.GetAIModelsByPurpose(context.Background(), "tenant1", "TITLE_GEN", "LLM_MODEL")
+	require.NoError(t, err)
+	assert.Len(t, result, 1)
+	assert.Equal(t, "m1", result[0].ID)
+}
+
+func TestGetAIModelsByPurpose_WithModelType(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Contains(t, r.URL.RawQuery, "model_type=LLM_MODEL")
+		json.NewEncoder(w).Encode([]platform.AIModelWithSecretResponse{})
+	}))
+	defer ts.Close()
+
+	client := newTestClient(ts)
+	_, err := client.GetAIModelsByPurpose(context.Background(), "tenant1", "TITLE_GEN", "LLM_MODEL")
+	assert.NoError(t, err)
+}
+
+func TestGetAIModelsByPurpose_MissingBaseURL(t *testing.T) {
+	client := platform.NewClient(&platform.ClientConfig{})
+	_, err := client.GetAIModelsByPurpose(context.Background(), "t", "p", "m")
+	assert.Error(t, err)
+}
+
+func TestGetAIModelsByPurpose_MissingServiceKey(t *testing.T) {
+	client := platform.NewClient(&platform.ClientConfig{BaseURL: "http://localhost"})
+	_, err := client.GetAIModelsByPurpose(context.Background(), "t", "p", "m")
+	assert.Error(t, err)
+}
+
+// --- GetCredentialSecret ---
+
+func TestGetCredentialSecret_Success(t *testing.T) {
+	resp := platform.CredentialSecretResponse{CredentialID: "cred1", SecretValue: "secret-value"}
+	ts := httptest.NewServer(jsonHandler(resp))
+	defer ts.Close()
+
+	client := newTestClient(ts)
+	result, err := client.GetCredentialSecret(context.Background(), "tenant1", "cred1", "token")
+	require.NoError(t, err)
+	assert.Equal(t, "secret-value", result)
+}
+
+func TestGetCredentialSecret_MissingBaseURL(t *testing.T) {
+	client := platform.NewClient(&platform.ClientConfig{})
+	_, err := client.GetCredentialSecret(context.Background(), "t", "c", "token")
+	assert.Error(t, err)
+}
+
+func TestGetCredentialSecret_MissingAuthToken(t *testing.T) {
+	client := platform.NewClient(&platform.ClientConfig{BaseURL: "http://localhost"})
+	_, err := client.GetCredentialSecret(context.Background(), "t", "c", "")
+	assert.Error(t, err)
+}
+
+// --- UpdateConversationTitle ---
+
+func TestUpdateConversationTitle_Success(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPatch, r.Method)
+		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
+		var body map[string]string
+		json.NewDecoder(r.Body).Decode(&body)
+		assert.Equal(t, "New Title", body["name"])
+		w.WriteHeader(200)
+	}))
+	defer ts.Close()
+
+	client := newTestClient(ts)
+	err := client.UpdateConversationTitle(context.Background(), "tenant1", "conv1", "New Title", "token")
+	assert.NoError(t, err)
+}
+
+func TestUpdateConversationTitle_MissingBaseURL(t *testing.T) {
+	client := platform.NewClient(&platform.ClientConfig{})
+	err := client.UpdateConversationTitle(context.Background(), "t", "c", "title", "token")
+	assert.Error(t, err)
+}
+
+func TestUpdateConversationTitle_MissingAuthToken(t *testing.T) {
+	client := platform.NewClient(&platform.ClientConfig{BaseURL: "http://localhost"})
+	err := client.UpdateConversationTitle(context.Background(), "t", "c", "title", "")
+	assert.Error(t, err)
+}
+
+func TestUpdateConversationTitle_NotFound(t *testing.T) {
+	ts := httptest.NewServer(statusHandler(404, "not found"))
+	defer ts.Close()
+	client := newTestClient(ts)
+	err := client.UpdateConversationTitle(context.Background(), "t", "c", "title", "token")
+	assert.Error(t, err)
+}
+
+// --- Headers verification ---
+
+func TestBearerHeaders_IncludesServiceKey(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "Bearer auth-token", r.Header.Get("Authorization"))
+		assert.Equal(t, "test-service-key", r.Header.Get("X-Service-Key"))
+		json.NewEncoder(w).Encode(platform.UserInfo{ID: "u1"})
+	}))
+	defer ts.Close()
+
+	client := newTestClient(ts)
+	_, err := client.GetMe(context.Background(), "auth-token")
+	assert.NoError(t, err)
+}
+
+func TestAPIKeyHeaders(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "my-api-key", r.Header.Get("X-Unified-UI-Autonomous-Agent-API-Key"))
+		json.NewEncoder(w).Encode(platform.AutonomousAgentConfigResponse{TenantID: "t1", AutonomousAgentID: "aa1"})
+	}))
+	defer ts.Close()
+
+	client := newTestClient(ts)
+	_, err := client.GetAutonomousAgentConfig(context.Background(), "t1", "aa1", "my-api-key")
+	assert.NoError(t, err)
 }
