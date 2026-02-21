@@ -75,7 +75,7 @@ func (s *ImportService) EnqueueImport(agentType platform.AgentType, req *ImportR
 		Config: JobConfig{
 			TenantID:       req.TenantID,
 			ConversationID: req.ConversationID,
-			ApplicationID:  req.ApplicationID,
+			ChatAgentID:    req.ChatAgentID,
 			Logs:           req.Logs,
 			UserID:         req.UserID,
 			BackendConfig:  req.BackendConfig,
@@ -93,7 +93,7 @@ func (s *ImportService) processJob(ctx context.Context, job *ImportJob) error {
 	req := &ImportRequest{
 		TenantID:       job.Config.TenantID,
 		ConversationID: job.Config.ConversationID,
-		ApplicationID:  job.Config.ApplicationID,
+		ChatAgentID:    job.Config.ChatAgentID,
 		Logs:           job.Config.Logs,
 		UserID:         job.Config.UserID,
 		BackendConfig:  job.Config.BackendConfig,

@@ -70,7 +70,7 @@ const (
     TestTenantID       = "test-tenant-id"
     TestConversationID = "test-conversation-id"
     TestMessageID      = "test-message-id"
-    TestApplicationID  = "test-application-id"
+    TestChatAgentID     = "test-chat-agent-id"
     TestUserID         = "test-user-id"
     TestTraceID        = "test-trace-id"
 )
@@ -181,7 +181,7 @@ func TestTracesHandler_CreateTrace_Conversation_Success(t *testing.T) {
 
     // 2. Create request DTO
     createReq := dto.CreateTraceRequest{
-        ApplicationID:  testutils.TestApplicationID,
+        ChatAgentID:     testutils.TestChatAgentID,
         ConversationID: testutils.TestConversationID,
         ReferenceID:    "workflow-123",
         ReferenceName:  "Test Workflow",

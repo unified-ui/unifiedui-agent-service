@@ -136,7 +136,7 @@ func (f *TraceImporter) Import(ctx context.Context, req *traceimport.ImportReque
 	trace := &models.Trace{
 		ID:                traceID,
 		TenantID:          req.TenantID,
-		ApplicationID:     req.ApplicationID,
+		ChatAgentID:       req.ChatAgentID,
 		ConversationID:    req.ConversationID,
 		AutonomousAgentID: req.AutonomousAgentID,
 		ContextType:       contextType,

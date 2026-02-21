@@ -21,7 +21,7 @@ const (
 // ListTracesOptions contains options for listing traces.
 type ListTracesOptions struct {
 	TenantID          string
-	ApplicationID     string
+	ChatAgentID       string
 	ConversationID    string
 	AutonomousAgentID string
 	ContextType       models.TraceContextType // Optional: filter by context type

@@ -330,14 +330,14 @@ func (c *TracesCollection) EnsureIndexes(ctx context.Context) error {
 			},
 			Options: options.Index().SetName("idx_tenant_conversation").SetSparse(true),
 		},
-		// Application + Conversation compound index
+		// Chat Agent + Conversation compound index
 		{
 			Keys: bson.D{
 				{Key: "tenantId", Value: 1},
-				{Key: "applicationId", Value: 1},
+				{Key: "chatAgentId", Value: 1},
 				{Key: "conversationId", Value: 1},
 			},
-			Options: options.Index().SetName("idx_tenant_app_conversation").SetSparse(true),
+			Options: options.Index().SetName("idx_tenant_chat_agent_conversation").SetSparse(true),
 		},
 		// Autonomous agent context index (unique per tenant+agent)
 		{
@@ -383,8 +383,8 @@ func (c *TracesCollection) buildFilter(opts *docdb.ListTracesOptions) bson.M {
 	if opts.TenantID != "" {
 		filter["tenantId"] = opts.TenantID
 	}
-	if opts.ApplicationID != "" {
-		filter["applicationId"] = opts.ApplicationID
+	if opts.ChatAgentID != "" {
+		filter["chatAgentId"] = opts.ChatAgentID
 	}
 	if opts.ConversationID != "" {
 		filter["conversationId"] = opts.ConversationID

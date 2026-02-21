@@ -43,8 +43,8 @@ type CreateTraceRequest struct {
 	// ID is optional; if not provided, one will be generated.
 	ID string `json:"id,omitempty"`
 
-	// Context fields - EITHER (applicationId + conversationId) OR autonomousAgentId
-	ApplicationID     string `json:"applicationId,omitempty"`
+	// Context fields - EITHER (chatAgentId + conversationId) OR autonomousAgentId
+	ChatAgentID       string `json:"chatAgentId,omitempty"`
 	ConversationID    string `json:"conversationId,omitempty"`
 	AutonomousAgentID string `json:"autonomousAgentId,omitempty"`
 
@@ -123,7 +123,7 @@ type TraceNodeResponse struct {
 type TraceResponse struct {
 	ID                string                 `json:"id"`
 	TenantID          string                 `json:"tenantId"`
-	ApplicationID     string                 `json:"applicationId,omitempty"`
+	ChatAgentID       string                 `json:"chatAgentId,omitempty"`
 	ConversationID    string                 `json:"conversationId,omitempty"`
 	AutonomousAgentID string                 `json:"autonomousAgentId,omitempty"`
 	ContextType       string                 `json:"contextType"`
@@ -284,7 +284,7 @@ func TraceToResponse(trace *models.Trace) *TraceResponse {
 	resp := &TraceResponse{
 		ID:                trace.ID,
 		TenantID:          trace.TenantID,
-		ApplicationID:     trace.ApplicationID,
+		ChatAgentID:       trace.ChatAgentID,
 		ConversationID:    trace.ConversationID,
 		AutonomousAgentID: trace.AutonomousAgentID,
 		ContextType:       string(trace.ContextType),

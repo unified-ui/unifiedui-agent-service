@@ -16,7 +16,7 @@ func TestNewImportRequest_CreatesRequest(t *testing.T) {
 	require.NotNil(t, req)
 	assert.Equal(t, "tenant-1", req.TenantID)
 	assert.Equal(t, "conv-1", req.ConversationID)
-	assert.Equal(t, "app-1", req.ApplicationID)
+	assert.Equal(t, "app-1", req.ChatAgentID)
 	assert.Equal(t, "user-1", req.UserID)
 	assert.NotNil(t, req.Logs)
 	assert.Empty(t, req.Logs)

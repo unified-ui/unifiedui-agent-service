@@ -14,18 +14,18 @@ type MockPlatformClient struct {
 	mock.Mock
 }
 
-// GetApplicationConfig mocks the GetApplicationConfig method.
-func (m *MockPlatformClient) GetApplicationConfig(ctx context.Context, tenantID, applicationID, authToken string) (*platform.ApplicationConfigResponse, error) {
-	args := m.Called(ctx, tenantID, applicationID, authToken)
+// GetChatAgentConfig mocks the GetChatAgentConfig method.
+func (m *MockPlatformClient) GetChatAgentConfig(ctx context.Context, tenantID, chatAgentID, authToken string) (*platform.ChatAgentConfigResponse, error) {
+	args := m.Called(ctx, tenantID, chatAgentID, authToken)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*platform.ApplicationConfigResponse), args.Error(1)
+	return args.Get(0).(*platform.ChatAgentConfigResponse), args.Error(1)
 }
 
 // GetAgentConfig mocks the GetAgentConfig method.
-func (m *MockPlatformClient) GetAgentConfig(ctx context.Context, tenantID, applicationID, conversationID, authToken string) (*platform.AgentConfig, error) {
-	args := m.Called(ctx, tenantID, applicationID, conversationID, authToken)
+func (m *MockPlatformClient) GetAgentConfig(ctx context.Context, tenantID, chatAgentID, conversationID, authToken string) (*platform.AgentConfig, error) {
+	args := m.Called(ctx, tenantID, chatAgentID, conversationID, authToken)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -33,8 +33,8 @@ func (m *MockPlatformClient) GetAgentConfig(ctx context.Context, tenantID, appli
 }
 
 // GetAgentConfigFromFile mocks the GetAgentConfigFromFile method.
-func (m *MockPlatformClient) GetAgentConfigFromFile(ctx context.Context, tenantID, applicationID string) (*platform.AgentConfig, error) {
-	args := m.Called(ctx, tenantID, applicationID)
+func (m *MockPlatformClient) GetAgentConfigFromFile(ctx context.Context, tenantID, chatAgentID string) (*platform.AgentConfig, error) {
+	args := m.Called(ctx, tenantID, chatAgentID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

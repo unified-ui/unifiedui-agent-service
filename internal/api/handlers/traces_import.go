@@ -56,9 +56,9 @@ func (h *TracesHandler) ImportConversationTrace(c *gin.Context) {
 		return
 	}
 
-	appConfig, err := h.platformClient.GetApplicationConfig(ctx, tenantID, conversation.ApplicationID, authToken)
+	appConfig, err := h.platformClient.GetChatAgentConfig(ctx, tenantID, conversation.ChatAgentID, authToken)
 	if err != nil {
-		middleware.HandleError(c, errors.NewInternalError("failed to get application configuration", err))
+		middleware.HandleError(c, errors.NewInternalError("failed to get chat agent configuration", err))
 		return
 	}
 
@@ -85,7 +85,7 @@ func (h *TracesHandler) ImportConversationTrace(c *gin.Context) {
 	req := traceimport.NewImportRequest(
 		tenantID,
 		conversationID,
-		conversation.ApplicationID,
+		conversation.ChatAgentID,
 		userInfo.ID,
 	)
 	req.BackendConfig = backendConfig
@@ -103,7 +103,7 @@ func (h *TracesHandler) ImportConversationTrace(c *gin.Context) {
 
 func (h *TracesHandler) buildBackendConfig(
 	c *gin.Context,
-	appConfig *platform.ApplicationConfigResponse,
+	appConfig *platform.ChatAgentConfigResponse,
 	conversation *platform.ConversationResponse,
 ) (map[string]interface{}, error) {
 	switch appConfig.Type {
@@ -118,7 +118,7 @@ func (h *TracesHandler) buildBackendConfig(
 
 func (h *TracesHandler) buildFoundryConfig(
 	c *gin.Context,
-	appConfig *platform.ApplicationConfigResponse,
+	appConfig *platform.ChatAgentConfigResponse,
 	conversation *platform.ConversationResponse,
 ) (map[string]interface{}, error) {
 	foundryAPIKey := c.GetHeader("X-Microsoft-Foundry-API-Key")
@@ -139,7 +139,7 @@ func (h *TracesHandler) buildFoundryConfig(
 
 	if appConfig.Settings.ProjectEndpoint == "" {
 		return nil, errors.NewValidationError(
-			"application configuration missing project endpoint",
+			"chat agent configuration missing project endpoint",
 			"",
 		)
 	}
@@ -159,7 +159,7 @@ func (h *TracesHandler) buildFoundryConfig(
 
 func (h *TracesHandler) buildN8NConfig(
 	_ *gin.Context,
-	_ *platform.ApplicationConfigResponse,
+	_ *platform.ChatAgentConfigResponse,
 	_ *platform.ConversationResponse,
 ) (map[string]interface{}, error) {
 	return nil, errors.NewValidationError(

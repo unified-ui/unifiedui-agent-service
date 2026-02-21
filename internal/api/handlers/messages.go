@@ -71,7 +71,7 @@ type MessageResponse struct {
 	ID                  string                      `json:"id"`
 	Type                models.MessageType          `json:"type"`
 	ConversationID      string                      `json:"conversationId"`
-	ApplicationID       string                      `json:"applicationId"`
+	ChatAgentID         string                      `json:"chatAgentId"`
 	Content             string                      `json:"content"`
 	UserID              string                      `json:"userId,omitempty"`
 	UserMessageID       string                      `json:"userMessageId,omitempty"`
@@ -110,7 +110,7 @@ type InvokeConfig struct {
 // SendMessageRequest represents the request body for sending a message.
 type SendMessageRequest struct {
 	ConversationID    string         `json:"conversationId,omitempty"`
-	ApplicationID     string         `json:"applicationId" binding:"required"`
+	ChatAgentID       string         `json:"chatAgentId" binding:"required"`
 	ExtConversationID string         `json:"extConversationId,omitempty"`
 	Message           MessageContent `json:"message" binding:"required"`
 	InvokeConfig      InvokeConfig   `json:"invokeConfig,omitempty"`
@@ -187,7 +187,7 @@ func (h *MessagesHandler) toMessageResponse(msg *models.Message) MessageResponse
 		ID:                  msg.ID,
 		Type:                msg.Type,
 		ConversationID:      msg.ConversationID,
-		ApplicationID:       msg.ApplicationID,
+		ChatAgentID:         msg.ChatAgentID,
 		Content:             msg.Content,
 		UserID:              msg.UserID,
 		UserMessageID:       msg.UserMessageID,

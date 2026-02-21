@@ -29,36 +29,36 @@ const (
 )
 
 // ServiceConfigResponse represents the config response from platform service (without user data).
-// DEPRECATED: Use ApplicationConfigResponse instead.
+// DEPRECATED: Use ChatAgentConfigResponse instead.
 // This is kept for backwards compatibility.
 type ServiceConfigResponse struct {
-	DocVersion    string        `json:"docversion"`
-	Type          AgentType     `json:"type"`
-	TenantID      string        `json:"tenant_id"`
-	ApplicationID string        `json:"application_id"`
-	Settings      AgentSettings `json:"settings"`
+	DocVersion  string        `json:"docversion"`
+	Type        AgentType     `json:"type"`
+	TenantID    string        `json:"tenant_id"`
+	ChatAgentID string        `json:"chat_agent_id"`
+	Settings    AgentSettings `json:"settings"`
 }
 
-// ApplicationConfigResponse represents the config response from platform service.
-// This is the response from GET /tenants/{tenant_id}/applications/{application_id}/config
+// ChatAgentConfigResponse represents the config response from platform service.
+// This is the response from GET /tenants/{tenant_id}/chat-agents/{chat_agent_id}/config
 // and includes user information.
-type ApplicationConfigResponse struct {
-	DocVersion    string        `json:"docversion"`
-	Type          AgentType     `json:"type"`
-	TenantID      string        `json:"tenant_id"`
-	ApplicationID string        `json:"application_id"`
-	Settings      AgentSettings `json:"settings"`
-	User          *UserInfo     `json:"user,omitempty"`
+type ChatAgentConfigResponse struct {
+	DocVersion  string        `json:"docversion"`
+	Type        AgentType     `json:"type"`
+	TenantID    string        `json:"tenant_id"`
+	ChatAgentID string        `json:"chat_agent_id"`
+	Settings    AgentSettings `json:"settings"`
+	User        *UserInfo     `json:"user,omitempty"`
 }
 
-// AgentConfig represents the complete configuration for an agent application.
+// AgentConfig represents the complete configuration for a chat agent.
 // This includes user data and is used internally when user context is available.
 type AgentConfig struct {
 	DocVersion     string        `json:"docversion"`
 	Type           AgentType     `json:"type"`
 	TenantID       string        `json:"tenant_id"`
 	ConversationID string        `json:"conversation_id"`
-	ApplicationID  string        `json:"application_id"`
+	ChatAgentID    string        `json:"chat_agent_id"`
 	Settings       AgentSettings `json:"settings"`
 	User           *UserInfo     `json:"user,omitempty"`
 }
@@ -119,7 +119,7 @@ type ConversationResponse struct {
 	ID                string `json:"id"`
 	Name              string `json:"name"`
 	TenantID          string `json:"tenant_id"`
-	ApplicationID     string `json:"application_id"`
+	ChatAgentID       string `json:"chat_agent_id"`
 	ExtConversationID string `json:"ext_conversation_id,omitempty"`
 }
 

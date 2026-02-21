@@ -13,9 +13,9 @@ import (
 
 // Client defines the interface for the platform service client.
 type Client interface {
-	GetApplicationConfig(ctx context.Context, tenantID, applicationID, authToken string) (*ApplicationConfigResponse, error)
-	GetAgentConfig(ctx context.Context, tenantID, applicationID, conversationID, authToken string) (*AgentConfig, error)
-	GetAgentConfigFromFile(ctx context.Context, tenantID, applicationID string) (*AgentConfig, error)
+	GetChatAgentConfig(ctx context.Context, tenantID, chatAgentID, authToken string) (*ChatAgentConfigResponse, error)
+	GetAgentConfig(ctx context.Context, tenantID, chatAgentID, conversationID, authToken string) (*AgentConfig, error)
+	GetAgentConfigFromFile(ctx context.Context, tenantID, chatAgentID string) (*AgentConfig, error)
 	GetMe(ctx context.Context, authToken string) (*UserInfo, error)
 	GetConversation(ctx context.Context, tenantID, conversationID, authToken string) (*ConversationResponse, error)
 	ValidateConversation(ctx context.Context, tenantID, conversationID, authToken string) error
@@ -60,7 +60,7 @@ func NewClient(cfg *ClientConfig) Client {
 	}
 }
 
-func (c *client) GetApplicationConfig(ctx context.Context, tenantID, applicationID, authToken string) (*ApplicationConfigResponse, error) {
+func (c *client) GetChatAgentConfig(ctx context.Context, tenantID, chatAgentID, authToken string) (*ChatAgentConfigResponse, error) {
 	if c.baseURL == "" {
 		return nil, fmt.Errorf("platform service URL not configured")
 	}
@@ -70,18 +70,18 @@ func (c *client) GetApplicationConfig(ctx context.Context, tenantID, application
 	if authToken == "" {
 		return nil, fmt.Errorf("auth token not provided")
 	}
-	url := fmt.Sprintf("%s/api/v1/platform-service/tenants/%s/applications/%s/config", c.baseURL, tenantID, applicationID)
+	url := fmt.Sprintf("%s/api/v1/platform-service/tenants/%s/chat-agents/%s/config", c.baseURL, tenantID, chatAgentID)
 	headers := map[string]string{
 		"X-Service-Key": c.serviceKey,
 		"Authorization": "Bearer " + authToken,
 	}
-	return doJSONRequest[ApplicationConfigResponse](c, ctx, requestConfig{method: http.MethodGet, url: url, headers: headers}, "application config not found")
+	return doJSONRequest[ChatAgentConfigResponse](c, ctx, requestConfig{method: http.MethodGet, url: url, headers: headers}, "chat agent config not found")
 }
 
-func (c *client) GetAgentConfig(ctx context.Context, tenantID, applicationID, conversationID, authToken string) (*AgentConfig, error) {
-	appConfig, err := c.GetApplicationConfig(ctx, tenantID, applicationID, authToken)
+func (c *client) GetAgentConfig(ctx context.Context, tenantID, chatAgentID, conversationID, authToken string) (*AgentConfig, error) {
+	appConfig, err := c.GetChatAgentConfig(ctx, tenantID, chatAgentID, authToken)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get application config: %w", err)
+		return nil, fmt.Errorf("failed to get chat agent config: %w", err)
 	}
 
 	return &AgentConfig{
@@ -89,13 +89,13 @@ func (c *client) GetAgentConfig(ctx context.Context, tenantID, applicationID, co
 		Type:           appConfig.Type,
 		TenantID:       appConfig.TenantID,
 		ConversationID: conversationID,
-		ApplicationID:  appConfig.ApplicationID,
+		ChatAgentID:    appConfig.ChatAgentID,
 		Settings:       appConfig.Settings,
 		User:           appConfig.User,
 	}, nil
 }
 
-func (c *client) GetAgentConfigFromFile(ctx context.Context, tenantID, applicationID string) (*AgentConfig, error) {
+func (c *client) GetAgentConfigFromFile(ctx context.Context, tenantID, chatAgentID string) (*AgentConfig, error) {
 	if c.configPath == "" {
 		return nil, fmt.Errorf("config path not configured")
 	}

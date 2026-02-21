@@ -25,15 +25,15 @@ func TestAIHandler_GenerateDescription_Success(t *testing.T) {
 	mockPlatform := new(mocks.MockPlatformClient)
 
 	mockAI.On("GenerateDescription",
-		mock.Anything, testTenantID, "application", "My App", "", mock.Anything,
-	).Return("A powerful application for managing workflows.", nil)
+		mock.Anything, testTenantID, "chat_agent", "My App", "", mock.Anything,
+	).Return("A powerful chat agent for managing workflows.", nil)
 
 	handler := handlers.NewAIHandler(mockAI, mockPlatform)
 	router := testutils.SetupTestRouter()
 	router.POST("/tenants/:tenantId/ai/generate-description", handler.GenerateDescription)
 
 	body := dto.GenerateDescriptionRequest{
-		EntityType: "application",
+		EntityType: "chat_agent",
 		EntityName: "My App",
 	}
 
@@ -45,7 +45,7 @@ func TestAIHandler_GenerateDescription_Success(t *testing.T) {
 
 	var resp dto.GenerateDescriptionResponse
 	testutils.ParseJSONResponse(t, w, &resp)
-	assert.Equal(t, "A powerful application for managing workflows.", resp.Description)
+	assert.Equal(t, "A powerful chat agent for managing workflows.", resp.Description)
 
 	mockAI.AssertExpectations(t)
 }
@@ -109,7 +109,7 @@ func TestAIHandler_GenerateDescription_MissingEntityName(t *testing.T) {
 	router.POST("/tenants/:tenantId/ai/generate-description", handler.GenerateDescription)
 
 	body := map[string]interface{}{
-		"entity_type": "application",
+		"entity_type": "chat_agent",
 	}
 
 	w := testutils.PerformRequest(router, "POST",
@@ -124,7 +124,7 @@ func TestAIHandler_GenerateDescription_ServiceError(t *testing.T) {
 	mockPlatform := new(mocks.MockPlatformClient)
 
 	mockAI.On("GenerateDescription",
-		mock.Anything, testTenantID, "application", "My App", "", mock.Anything,
+		mock.Anything, testTenantID, "chat_agent", "My App", "", mock.Anything,
 	).Return("", fmt.Errorf("no active AI models configured"))
 
 	handler := handlers.NewAIHandler(mockAI, mockPlatform)
@@ -132,7 +132,7 @@ func TestAIHandler_GenerateDescription_ServiceError(t *testing.T) {
 	router.POST("/tenants/:tenantId/ai/generate-description", handler.GenerateDescription)
 
 	body := dto.GenerateDescriptionRequest{
-		EntityType: "application",
+		EntityType: "chat_agent",
 		EntityName: "My App",
 	}
 

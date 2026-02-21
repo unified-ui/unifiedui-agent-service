@@ -16,7 +16,7 @@ func TestNewFromConfig_Success(t *testing.T) {
 	config := &platform.AgentConfig{
 		Type:          platform.AgentTypeFoundry,
 		TenantID:      "tenant-123",
-		ApplicationID: "app-456",
+		ChatAgentID: "app-456",
 		Settings: platform.AgentSettings{
 			APIVersion:      "2025-11-15-preview",
 			AgentType:       "AGENT",
@@ -44,7 +44,7 @@ func TestNewFromConfig_MissingToken(t *testing.T) {
 	config := &platform.AgentConfig{
 		Type:          platform.AgentTypeFoundry,
 		TenantID:      "tenant-123",
-		ApplicationID: "app-456",
+		ChatAgentID: "app-456",
 		Settings: platform.AgentSettings{
 			ProjectEndpoint: "https://test.services.ai.azure.com/api/projects/test-project",
 			AgentName:       "TestAgent",
@@ -62,7 +62,7 @@ func TestNewFromConfig_MissingProjectEndpoint(t *testing.T) {
 	config := &platform.AgentConfig{
 		Type:          platform.AgentTypeFoundry,
 		TenantID:      "tenant-123",
-		ApplicationID: "app-456",
+		ChatAgentID: "app-456",
 		Settings: platform.AgentSettings{
 			AgentName: "TestAgent",
 		},
@@ -79,7 +79,7 @@ func TestNewFromConfig_MissingAgentName(t *testing.T) {
 	config := &platform.AgentConfig{
 		Type:          platform.AgentTypeFoundry,
 		TenantID:      "tenant-123",
-		ApplicationID: "app-456",
+		ChatAgentID: "app-456",
 		Settings: platform.AgentSettings{
 			ProjectEndpoint: "https://test.services.ai.azure.com/api/projects/test-project",
 		},
@@ -96,7 +96,7 @@ func TestNewFromConfig_DefaultAPIVersion(t *testing.T) {
 	config := &platform.AgentConfig{
 		Type:          platform.AgentTypeFoundry,
 		TenantID:      "tenant-123",
-		ApplicationID: "app-456",
+		ChatAgentID: "app-456",
 		Settings: platform.AgentSettings{
 			ProjectEndpoint: "https://test.services.ai.azure.com/api/projects/test-project",
 			AgentName:       "TestAgent",

@@ -23,6 +23,7 @@ Read the relevant instruction file **before** working in that area.
 | [handlers.instructions.md](./handlers.instructions.md) | Implementing handler methods, Swagger annotations, error handling |
 | [infrastructure.instructions.md](./infrastructure.instructions.md) | Working with cache, vault, docdb, SSE, session, platform client |
 | [testing.instructions.md](./testing.instructions.md) | Writing tests, running tests, understanding mock/fixture patterns |
+| [github-pipelines.instructions.md](./github-pipelines.instructions.md) | Working with CI/CD workflows, adding pipelines, coverage thresholds |
 | [instruction-management.instructions.md](./instruction-management.instructions.md) | After completing work — decides if/how to update docs |
 
 ---
@@ -38,7 +39,7 @@ Read the relevant instruction file **before** working in that area.
 7. **`context.Context` first parameter** — All service/repository methods take `context.Context` as first parameter.
 8. **Keep files under 300 lines** — Split large handlers into helper methods or separate files.
 9. **Handlers are thin** — Parse request → validate → call service/docdb → return response. Complex logic goes into services.
-10. **Run tests after changes** — After significant changes: `make test` (runs `go test -v ./...`). Regenerate swagger after handler annotation changes: `swag init -g cmd/server/main.go -o docs`.
+10. **Run tests after changes** — After significant changes: `make test` (runs `go test -v ./...`). Run `go vet ./...` to verify code correctness. Regenerate swagger after handler annotation changes: `swag init -g cmd/server/main.go -o docs`.
 
 ---
 

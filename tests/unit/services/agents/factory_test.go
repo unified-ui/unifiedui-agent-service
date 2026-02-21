@@ -23,7 +23,7 @@ func TestFactory_CreateClients_N8N(t *testing.T) {
 	config := &platform.AgentConfig{
 		Type:          platform.AgentTypeN8N,
 		TenantID:      "tenant-123",
-		ApplicationID: "app-456",
+		ChatAgentID: "app-456",
 		Settings: platform.AgentSettings{
 			ChatURL:      "https://n8n.example.com/webhook/chat",
 			WorkflowType: platform.N8NWorkflowTypeChatAgent,
@@ -44,7 +44,7 @@ func TestFactory_CreateClients_Foundry_RequiresToken(t *testing.T) {
 	config := &platform.AgentConfig{
 		Type:          platform.AgentTypeFoundry,
 		TenantID:      "tenant-123",
-		ApplicationID: "app-456",
+		ChatAgentID: "app-456",
 		Settings: platform.AgentSettings{
 			ProjectEndpoint: "https://test.services.ai.azure.com/api/projects/test-project",
 			AgentName:       "TestAgent",
@@ -64,7 +64,7 @@ func TestFactory_CreateFoundryClients_Success(t *testing.T) {
 	config := &platform.AgentConfig{
 		Type:          platform.AgentTypeFoundry,
 		TenantID:      "tenant-123",
-		ApplicationID: "app-456",
+		ChatAgentID: "app-456",
 		Settings: platform.AgentSettings{
 			APIVersion:      "2025-11-15-preview",
 			AgentType:       "AGENT",
@@ -87,7 +87,7 @@ func TestFactory_CreateFoundryClients_MissingToken(t *testing.T) {
 	config := &platform.AgentConfig{
 		Type:          platform.AgentTypeFoundry,
 		TenantID:      "tenant-123",
-		ApplicationID: "app-456",
+		ChatAgentID: "app-456",
 		Settings: platform.AgentSettings{
 			ProjectEndpoint: "https://test.services.ai.azure.com/api/projects/test-project",
 			AgentName:       "TestAgent",

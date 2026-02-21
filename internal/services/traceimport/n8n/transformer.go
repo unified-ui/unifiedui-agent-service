@@ -281,7 +281,7 @@ func (t *Transformer) extractInputData(nodeExec *NodeExecution, nodeType string)
 }
 
 // extractOutputData extracts output data from node execution.
-func (t *Transformer) extractOutputData(nodeExec *NodeExecution, nodeType string) *models.NodeDataIO {
+func (t *Transformer) extractOutputData(nodeExec *NodeExecution, _ string) *models.NodeDataIO {
 	if len(nodeExec.Data.Main) == 0 {
 		return nil
 	}

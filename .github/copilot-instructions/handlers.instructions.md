@@ -140,7 +140,7 @@ DTOs live in `internal/api/dto/`:
 
 ```go
 type CreateTraceRequest struct {
-    ApplicationID     string            `json:"applicationId,omitempty"`
+    ChatAgentID        string            `json:"chatAgentId,omitempty"`
     ConversationID    string            `json:"conversationId,omitempty"`
     AutonomousAgentID string            `json:"autonomousAgentId,omitempty"`
     ReferenceID       string            `json:"referenceId"`

@@ -31,7 +31,7 @@ const (
 
 // MessageRequest represents the original request that triggered a message.
 type MessageRequest struct {
-	ApplicationID  string                 `json:"applicationId" bson:"applicationId"`
+	ChatAgentID    string                 `json:"chatAgentId" bson:"chatAgentId"`
 	ConversationID string                 `json:"conversationId,omitempty" bson:"conversationId,omitempty"`
 	Message        MessageRequestContent  `json:"message" bson:"message"`
 	InvokeConfig   MessageInvokeConfig    `json:"invokeConfig,omitempty" bson:"invokeConfig,omitempty"`
@@ -87,7 +87,7 @@ type Message struct {
 	ID             string      `json:"id" bson:"_id"`
 	Type           MessageType `json:"type" bson:"type"`
 	ConversationID string      `json:"conversationId" bson:"conversationId"`
-	ApplicationID  string      `json:"applicationId" bson:"applicationId"`
+	ChatAgentID    string      `json:"chatAgentId" bson:"chatAgentId"`
 	TenantID       string      `json:"tenantId" bson:"tenantId"`
 	Content        string      `json:"content" bson:"content"`
 	CreatedAt      time.Time   `json:"createdAt" bson:"createdAt"`
@@ -118,7 +118,7 @@ type ChatHistoryEntry struct {
 func NewUserMessage(
 	tenantID string,
 	conversationID string,
-	applicationID string,
+	chatAgentID string,
 	userID string,
 	content string,
 	attachments []string,
@@ -128,7 +128,7 @@ func NewUserMessage(
 	return &Message{
 		Type:           MessageTypeUser,
 		ConversationID: conversationID,
-		ApplicationID:  applicationID,
+		ChatAgentID:    chatAgentID,
 		TenantID:       tenantID,
 		UserID:         userID,
 		Content:        content,
@@ -144,7 +144,7 @@ func NewAssistantMessage(
 	tenantID string,
 	conversationID string,
 	userMessageID string,
-	applicationID string,
+	chatAgentID string,
 	content string,
 	status MessageStatus,
 ) *Message {
@@ -153,7 +153,7 @@ func NewAssistantMessage(
 		Type:           MessageTypeAssistant,
 		ConversationID: conversationID,
 		UserMessageID:  userMessageID,
-		ApplicationID:  applicationID,
+		ChatAgentID:    chatAgentID,
 		TenantID:       tenantID,
 		Content:        content,
 		Status:         status,

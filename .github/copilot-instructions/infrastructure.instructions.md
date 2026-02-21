@@ -235,9 +235,9 @@ type Service interface {
 
 ```go
 type Client interface {
-    GetApplicationConfig(ctx context.Context, tenantID, applicationID, authToken string) (*ApplicationConfigResponse, error)
-    GetAgentConfig(ctx context.Context, tenantID, applicationID, conversationID, authToken string) (*AgentConfig, error)
-    GetAgentConfigFromFile(ctx context.Context, tenantID, applicationID string) (*AgentConfig, error)
+    GetChatAgentConfig(ctx context.Context, tenantID, chatAgentID, authToken string) (*ChatAgentConfigResponse, error)
+    GetAgentConfig(ctx context.Context, tenantID, chatAgentID, conversationID, authToken string) (*AgentConfig, error)
+    GetAgentConfigFromFile(ctx context.Context, tenantID, chatAgentID string) (*AgentConfig, error)
     GetMe(ctx context.Context, authToken string) (*UserInfo, error)
     GetConversation(ctx context.Context, tenantID, conversationID, authToken string) (*ConversationResponse, error)
     ValidateConversation(ctx context.Context, tenantID, conversationID, authToken string) error

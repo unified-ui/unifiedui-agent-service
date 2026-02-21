@@ -40,8 +40,8 @@ definitions:
     type: object
   dto.CreateTraceRequest:
     properties:
-      applicationId:
-        description: Context fields - EITHER (applicationId + conversationId) OR autonomousAgentId
+      chatAgentId:
+        description: Context fields - EITHER (chatAgentId + conversationId) OR autonomousAgentId
         type: string
       autonomousAgentId:
         type: string
@@ -231,7 +231,7 @@ definitions:
     type: object
   dto.TraceResponse:
     properties:
-      applicationId:
+      chatAgentId:
         type: string
       autonomousAgentId:
         type: string
@@ -307,7 +307,7 @@ definitions:
     type: object
   handlers.MessageResponse:
     properties:
-      applicationId:
+      chatAgentId:
         type: string
       content:
         type: string
@@ -338,7 +338,7 @@ definitions:
     type: object
   handlers.SendMessageRequest:
     properties:
-      applicationId:
+      chatAgentId:
         type: string
       conversationId:
         type: string
@@ -349,7 +349,7 @@ definitions:
       message:
         $ref: '#/definitions/handlers.MessageContent'
     required:
-    - applicationId
+    - chatAgentId
     - message
     type: object
   handlers.SendMessageResponse:
@@ -892,7 +892,7 @@ paths:
         in: header
         name: X-Microsoft-Foundry-API-Key
         type: string
-      - description: Message content with applicationId
+      - description: Message content with chatAgentId
         in: body
         name: request
         required: true
@@ -1138,7 +1138,7 @@ paths:
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
         "404":
-          description: Application, Conversation, or AutonomousAgent not found
+          description: ChatAgent, Conversation, or AutonomousAgent not found
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
         "500":

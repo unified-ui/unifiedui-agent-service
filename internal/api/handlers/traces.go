@@ -64,7 +64,7 @@ func (h *TracesHandler) CreateTrace(c *gin.Context) {
 		return
 	}
 
-	hasConversationContext := req.ApplicationID != "" && req.ConversationID != ""
+	hasConversationContext := req.ChatAgentID != "" && req.ConversationID != ""
 	hasAgentContext := req.AutonomousAgentID != ""
 
 	if hasConversationContext && hasAgentContext {
@@ -78,7 +78,7 @@ func (h *TracesHandler) CreateTrace(c *gin.Context) {
 	if !hasConversationContext && !hasAgentContext {
 		middleware.HandleError(c, errors.NewValidationError(
 			"missing context",
-			"must specify either (applicationId + conversationId) or autonomousAgentId",
+			"must specify either (chatAgentId + conversationId) or autonomousAgentId",
 		))
 		return
 	}
@@ -99,7 +99,7 @@ func (h *TracesHandler) CreateTrace(c *gin.Context) {
 		}
 		userID = uid
 
-		if err := h.validateConversationContext(ctx, tenantID, req.ApplicationID, req.ConversationID, authToken); err != nil {
+		if err := h.validateConversationContext(ctx, tenantID, req.ChatAgentID, req.ConversationID, authToken); err != nil {
 			middleware.HandleError(c, err)
 			return
 		}
@@ -164,7 +164,7 @@ func (h *TracesHandler) CreateTrace(c *gin.Context) {
 	}
 
 	if hasConversationContext {
-		trace.ApplicationID = req.ApplicationID
+		trace.ChatAgentID = req.ChatAgentID
 		trace.ConversationID = req.ConversationID
 		trace.ContextType = models.TraceContextConversation
 	} else {

@@ -26,7 +26,7 @@ import (
 // @Produce text/event-stream
 // @Param tenantId path string true "Tenant ID"
 // @Param X-Microsoft-Foundry-API-Key header string false "Microsoft Foundry API Key (required for Foundry agents)"
-// @Param request body SendMessageRequest true "Message content with applicationId"
+// @Param request body SendMessageRequest true "Message content with chatAgentId"
 // @Success 200 {object} SendMessageResponse
 // @Failure 400 {object} dto.ErrorResponse
 // @Failure 401 {object} dto.ErrorResponse
@@ -69,7 +69,7 @@ func (h *MessagesHandler) SendMessage(c *gin.Context) {
 			return
 		}
 
-		agentConfig, err = h.platformClient.GetAgentConfig(ctx, tenantCtx.TenantID, req.ApplicationID, conversationID, authToken)
+		agentConfig, err = h.platformClient.GetAgentConfig(ctx, tenantCtx.TenantID, req.ChatAgentID, conversationID, authToken)
 		if err != nil {
 			middleware.HandleError(c, errors.NewInternalError("failed to get agent configuration", err))
 			return
@@ -98,12 +98,12 @@ func (h *MessagesHandler) SendMessage(c *gin.Context) {
 	userMessage := models.NewUserMessage(
 		tenantCtx.TenantID,
 		conversationID,
-		req.ApplicationID,
+		req.ChatAgentID,
 		tenantCtx.UserID,
 		req.Message.Content,
 		req.Message.Attachments,
 		&models.MessageRequest{
-			ApplicationID:  req.ApplicationID,
+			ChatAgentID:    req.ChatAgentID,
 			ConversationID: req.ConversationID,
 			Message: models.MessageRequestContent{
 				Content:     req.Message.Content,
@@ -146,7 +146,7 @@ func (h *MessagesHandler) SendMessage(c *gin.Context) {
 		tenantCtx.TenantID,
 		conversationID,
 		userMessageID,
-		req.ApplicationID,
+		req.ChatAgentID,
 		"",
 		models.MessageStatusPending,
 	)
@@ -349,7 +349,7 @@ func (h *MessagesHandler) handleFoundryStreaming(
 			tenantCtx.TenantID,
 			userMessage.ConversationID,
 			userMessage.ID,
-			userMessage.ApplicationID,
+			userMessage.ChatAgentID,
 			"",
 			models.MessageStatusPending,
 		)

@@ -17,14 +17,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestGetApplicationConfig_Success tests successful application config retrieval.
-func TestGetApplicationConfig_Success(t *testing.T) {
+// TestGetChatAgentConfig_Success tests successful chat agent config retrieval.
+func TestGetChatAgentConfig_Success(t *testing.T) {
 	// Create test response (now includes user info)
-	expectedResponse := &platform.ApplicationConfigResponse{
+	expectedResponse := &platform.ChatAgentConfigResponse{
 		DocVersion:    "v1",
 		Type:          platform.AgentTypeN8N,
 		TenantID:      "tenant-123",
-		ApplicationID: "app-456",
+		ChatAgentID: "app-456",
 		Settings: platform.AgentSettings{
 			APIVersion:            "v1",
 			WorkflowType:          platform.N8NWorkflowTypeChatAgent,
@@ -44,7 +44,7 @@ func TestGetApplicationConfig_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Verify request
 		assert.Equal(t, http.MethodGet, r.Method)
-		assert.Equal(t, "/api/v1/platform-service/tenants/tenant-123/applications/app-456/config", r.URL.Path)
+		assert.Equal(t, "/api/v1/platform-service/tenants/tenant-123/chat-agents/app-456/config", r.URL.Path)
 		assert.Equal(t, "test-service-key", r.Header.Get("X-Service-Key"))
 		assert.Equal(t, "Bearer test-auth-token", r.Header.Get("Authorization"))
 		assert.Equal(t, "application/json", r.Header.Get("Accept"))
@@ -62,8 +62,8 @@ func TestGetApplicationConfig_Success(t *testing.T) {
 		Timeout:    5 * time.Second,
 	})
 
-	// Call GetApplicationConfig
-	config, err := client.GetApplicationConfig(context.Background(), "tenant-123", "app-456", "test-auth-token")
+	// Call GetChatAgentConfig
+	config, err := client.GetChatAgentConfig(context.Background(), "tenant-123", "app-456", "test-auth-token")
 
 	// Verify result
 	require.NoError(t, err)
@@ -71,54 +71,54 @@ func TestGetApplicationConfig_Success(t *testing.T) {
 	assert.Equal(t, expectedResponse.DocVersion, config.DocVersion)
 	assert.Equal(t, expectedResponse.Type, config.Type)
 	assert.Equal(t, expectedResponse.TenantID, config.TenantID)
-	assert.Equal(t, expectedResponse.ApplicationID, config.ApplicationID)
+	assert.Equal(t, expectedResponse.ChatAgentID, config.ChatAgentID)
 	assert.Equal(t, expectedResponse.Settings.ChatURL, config.Settings.ChatURL)
 	assert.NotNil(t, config.User)
 	assert.Equal(t, "user-789", config.User.ID)
 }
 
-// TestGetApplicationConfig_MissingBaseURL tests error when base URL is not configured.
-func TestGetApplicationConfig_MissingBaseURL(t *testing.T) {
+// TestGetChatAgentConfig_MissingBaseURL tests error when base URL is not configured.
+func TestGetChatAgentConfig_MissingBaseURL(t *testing.T) {
 	client := platform.NewClient(&platform.ClientConfig{
 		ServiceKey: "test-key",
 	})
 
-	config, err := client.GetApplicationConfig(context.Background(), "tenant-123", "app-456", "test-token")
+	config, err := client.GetChatAgentConfig(context.Background(), "tenant-123", "app-456", "test-token")
 
 	require.Error(t, err)
 	assert.Nil(t, config)
 	assert.Contains(t, err.Error(), "platform service URL not configured")
 }
 
-// TestGetApplicationConfig_MissingServiceKey tests error when service key is not configured.
-func TestGetApplicationConfig_MissingServiceKey(t *testing.T) {
+// TestGetChatAgentConfig_MissingServiceKey tests error when service key is not configured.
+func TestGetChatAgentConfig_MissingServiceKey(t *testing.T) {
 	client := platform.NewClient(&platform.ClientConfig{
 		BaseURL: "http://localhost:8081",
 	})
 
-	config, err := client.GetApplicationConfig(context.Background(), "tenant-123", "app-456", "test-token")
+	config, err := client.GetChatAgentConfig(context.Background(), "tenant-123", "app-456", "test-token")
 
 	require.Error(t, err)
 	assert.Nil(t, config)
 	assert.Contains(t, err.Error(), "service key not configured")
 }
 
-// TestGetApplicationConfig_MissingAuthToken tests error when auth token is not provided.
-func TestGetApplicationConfig_MissingAuthToken(t *testing.T) {
+// TestGetChatAgentConfig_MissingAuthToken tests error when auth token is not provided.
+func TestGetChatAgentConfig_MissingAuthToken(t *testing.T) {
 	client := platform.NewClient(&platform.ClientConfig{
 		BaseURL:    "http://localhost:8081",
 		ServiceKey: "test-key",
 	})
 
-	config, err := client.GetApplicationConfig(context.Background(), "tenant-123", "app-456", "")
+	config, err := client.GetChatAgentConfig(context.Background(), "tenant-123", "app-456", "")
 
 	require.Error(t, err)
 	assert.Nil(t, config)
 	assert.Contains(t, err.Error(), "auth token not provided")
 }
 
-// TestGetApplicationConfig_Unauthorized tests handling of 401 response.
-func TestGetApplicationConfig_Unauthorized(t *testing.T) {
+// TestGetChatAgentConfig_Unauthorized tests handling of 401 response.
+func TestGetChatAgentConfig_Unauthorized(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte(`{"error": "invalid service key or token"}`))
@@ -131,15 +131,15 @@ func TestGetApplicationConfig_Unauthorized(t *testing.T) {
 		Timeout:    5 * time.Second,
 	})
 
-	config, err := client.GetApplicationConfig(context.Background(), "tenant-123", "app-456", "invalid-token")
+	config, err := client.GetChatAgentConfig(context.Background(), "tenant-123", "app-456", "invalid-token")
 
 	require.Error(t, err)
 	assert.Nil(t, config)
 	assert.Contains(t, err.Error(), "unauthorized:")
 }
 
-// TestGetApplicationConfig_Forbidden tests handling of 403 response (invalid service key).
-func TestGetApplicationConfig_Forbidden(t *testing.T) {
+// TestGetChatAgentConfig_Forbidden tests handling of 403 response (invalid service key).
+func TestGetChatAgentConfig_Forbidden(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
 		w.Write([]byte(`{"error": "invalid service key"}`))
@@ -152,18 +152,18 @@ func TestGetApplicationConfig_Forbidden(t *testing.T) {
 		Timeout:    5 * time.Second,
 	})
 
-	config, err := client.GetApplicationConfig(context.Background(), "tenant-123", "app-456", "test-token")
+	config, err := client.GetChatAgentConfig(context.Background(), "tenant-123", "app-456", "test-token")
 
 	require.Error(t, err)
 	assert.Nil(t, config)
 	assert.Contains(t, err.Error(), "forbidden:")
 }
 
-// TestGetApplicationConfig_NotFound tests handling of 404 response.
-func TestGetApplicationConfig_NotFound(t *testing.T) {
+// TestGetChatAgentConfig_NotFound tests handling of 404 response.
+func TestGetChatAgentConfig_NotFound(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"error": "application not found"}`))
+		w.Write([]byte(`{"error": "chat agent not found"}`))
 	}))
 	defer server.Close()
 
@@ -173,7 +173,7 @@ func TestGetApplicationConfig_NotFound(t *testing.T) {
 		Timeout:    5 * time.Second,
 	})
 
-	config, err := client.GetApplicationConfig(context.Background(), "tenant-123", "nonexistent-app", "test-token")
+	config, err := client.GetChatAgentConfig(context.Background(), "tenant-123", "nonexistent-app", "test-token")
 
 	require.Error(t, err)
 	assert.Nil(t, config)
@@ -183,11 +183,11 @@ func TestGetApplicationConfig_NotFound(t *testing.T) {
 // TestGetAgentConfig_Success tests successful agent config retrieval.
 func TestGetAgentConfig_Success(t *testing.T) {
 	// Create test response (includes user info from platform)
-	appResponse := &platform.ApplicationConfigResponse{
+	appResponse := &platform.ChatAgentConfigResponse{
 		DocVersion:    "v1",
 		Type:          platform.AgentTypeN8N,
 		TenantID:      "tenant-123",
-		ApplicationID: "app-456",
+		ChatAgentID: "app-456",
 		Settings: platform.AgentSettings{
 			APIVersion:            "v1",
 			WorkflowType:          platform.N8NWorkflowTypeChatAgent,
@@ -226,7 +226,7 @@ func TestGetAgentConfig_Success(t *testing.T) {
 	assert.Equal(t, "v1", config.DocVersion)
 	assert.Equal(t, platform.AgentTypeN8N, config.Type)
 	assert.Equal(t, "tenant-123", config.TenantID)
-	assert.Equal(t, "app-456", config.ApplicationID)
+	assert.Equal(t, "app-456", config.ChatAgentID)
 	assert.Equal(t, "conv-abc", config.ConversationID)
 	// User info comes from platform response now
 	assert.NotNil(t, config.User)
@@ -252,7 +252,7 @@ func TestGetAgentConfig_PlatformError(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Nil(t, config)
-	assert.Contains(t, err.Error(), "failed to get application config")
+	assert.Contains(t, err.Error(), "failed to get chat agent config")
 }
 
 // TestGetAgentConfigFromFile_Success tests successful config retrieval from file.
@@ -265,7 +265,7 @@ func TestGetAgentConfigFromFile_Success(t *testing.T) {
 		DocVersion:     "v1",
 		Type:           platform.AgentTypeN8N,
 		TenantID:       "tenant-123",
-		ApplicationID:  "app-456",
+		ChatAgentID:  "app-456",
 		ConversationID: "conv-789",
 		Settings: platform.AgentSettings{
 			APIVersion:   "v1",

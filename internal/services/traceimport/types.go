@@ -32,8 +32,8 @@ type JobConfig struct {
 	TenantID string `json:"tenantId"`
 	// ConversationID is the internal conversation ID.
 	ConversationID string `json:"conversationId"`
-	// ApplicationID is the application ID.
-	ApplicationID string `json:"applicationId"`
+	// ChatAgentID is the chat agent ID.
+	ChatAgentID string `json:"chatAgentId"`
 	// Logs are optional log entries to add to the trace.
 	Logs []string `json:"logs"`
 	// UserID is the user who initiated the import.
@@ -49,8 +49,8 @@ type ImportRequest struct {
 	TenantID string
 	// ConversationID is the internal conversation ID.
 	ConversationID string
-	// ApplicationID is the application ID.
-	ApplicationID string
+	// ChatAgentID is the chat agent ID.
+	ChatAgentID string
 	// AutonomousAgentID is the autonomous agent ID (for autonomous agent context).
 	AutonomousAgentID string
 	// ExistingTraceID is set when updating an existing trace (preserves the ID).
@@ -67,11 +67,11 @@ type ImportRequest struct {
 }
 
 // NewImportRequest creates a new ImportRequest with the given parameters.
-func NewImportRequest(tenantID, conversationID, applicationID, userID string) *ImportRequest {
+func NewImportRequest(tenantID, conversationID, chatAgentID, userID string) *ImportRequest {
 	return &ImportRequest{
 		TenantID:       tenantID,
 		ConversationID: conversationID,
-		ApplicationID:  applicationID,
+		ChatAgentID:    chatAgentID,
 		UserID:         userID,
 		Logs:           []string{},
 		BackendConfig:  make(map[string]interface{}),

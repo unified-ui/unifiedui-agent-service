@@ -298,9 +298,10 @@ func (t *Transformer) transformMessage(item ConversationItem, createdBy string) 
 	inputText, outputText := t.extractMessageContent(item)
 
 	name := "Message"
-	if item.Role == "user" {
+	switch item.Role {
+	case "user":
 		name = "User Message"
-	} else if item.Role == "assistant" {
+	case "assistant":
 		name = "Assistant Response"
 	}
 

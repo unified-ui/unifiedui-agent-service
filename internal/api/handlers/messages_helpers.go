@@ -197,7 +197,7 @@ func (h *MessagesHandler) enqueueFoundryTraceImport(
 	req := traceimport.NewImportRequest(
 		tenantCtx.TenantID,
 		userMessage.ConversationID,
-		userMessage.ApplicationID,
+		userMessage.ChatAgentID,
 		tenantCtx.UserID,
 	)
 
@@ -236,7 +236,7 @@ func (h *MessagesHandler) enqueueN8NTraceImport(
 	req := traceimport.NewImportRequest(
 		tenantCtx.TenantID,
 		userMessage.ConversationID,
-		userMessage.ApplicationID,
+		userMessage.ChatAgentID,
 		tenantCtx.UserID,
 	)
 

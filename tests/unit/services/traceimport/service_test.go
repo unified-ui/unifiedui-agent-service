@@ -123,7 +123,7 @@ func TestImportService_Import_PassesCorrectRequest(t *testing.T) {
 	require.NotNil(t, receivedReq)
 	assert.Equal(t, "tenant-1", receivedReq.TenantID)
 	assert.Equal(t, "conv-1", receivedReq.ConversationID)
-	assert.Equal(t, "app-1", receivedReq.ApplicationID)
+	assert.Equal(t, "app-1", receivedReq.ChatAgentID)
 	assert.Equal(t, "user-1", receivedReq.UserID)
 	assert.Equal(t, "ext-conv-123", receivedReq.BackendConfig["ext_conversation_id"])
 	assert.Equal(t, "https://project.ai.azure.com", receivedReq.BackendConfig["project_endpoint"])

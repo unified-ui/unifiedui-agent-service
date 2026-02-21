@@ -1,4 +1,4 @@
-name: CI
+name: ci-tests-and-lint
 
 on:
   push:
@@ -6,9 +6,41 @@ on:
   workflow_dispatch:
 
 jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          cache: true
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run go vet
+        run: go vet ./...
+
+      - name: Run staticcheck
+        uses: dominikh/staticcheck-action@v1
+        with:
+          version: "latest"
+          install-go: false
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+
   test:
     name: Test
     runs-on: ubuntu-latest
+    needs: lint
 
     services:
       redis:
@@ -38,25 +70,13 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: "1.24"
           cache: true
 
       - name: Download dependencies
         run: go mod download
 
-      - name: Verify dependencies
-        run: go mod verify
-
-      - name: Run go vet
-        run: go vet ./...
-
-      - name: Run staticcheck
-        uses: dominikh/staticcheck-action@v1
-        with:
-          version: "latest"
-          install-go: false
-
-      - name: Run tests
+      - name: Run tests with coverage
         run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
         env:
           REDIS_HOST: localhost
@@ -64,14 +84,11 @@ jobs:
           MONGODB_URI: mongodb://localhost:27017
           MONGODB_DATABASE: unifiedui_test
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          files: ./coverage.out
-          fail_ci_if_error: false
-          verbose: true
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      - name: Report coverage
+        run: |
+          go tool cover -func=coverage.out | tail -1
+          echo "---"
+          echo "Target: 80% — enforce threshold once coverage reaches target"
 
   build:
     name: Build
@@ -85,7 +102,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: "1.24"
           cache: true
 
       - name: Build

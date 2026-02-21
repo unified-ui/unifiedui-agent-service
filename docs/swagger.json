@@ -725,7 +725,7 @@
                         "in": "header"
                     },
                     {
-                        "description": "Message content with applicationId",
+                        "description": "Message content with chatAgentId",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -1088,7 +1088,7 @@
                         }
                     },
                     "404": {
-                        "description": "Application, Conversation, or AutonomousAgent not found",
+                        "description": "ChatAgent, Conversation, or AutonomousAgent not found",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
@@ -1449,8 +1449,8 @@
         "dto.CreateTraceRequest": {
             "type": "object",
             "properties": {
-                "applicationId": {
-                    "description": "Context fields - EITHER (applicationId + conversationId) OR autonomousAgentId",
+                "chatAgentId": {
+                    "description": "Context fields - EITHER (chatAgentId + conversationId) OR autonomousAgentId",
                     "type": "string"
                 },
                 "autonomousAgentId": {
@@ -1730,7 +1730,7 @@
         "dto.TraceResponse": {
             "type": "object",
             "properties": {
-                "applicationId": {
+                "chatAgentId": {
                     "type": "string"
                 },
                 "autonomousAgentId": {
@@ -1845,7 +1845,7 @@
         "handlers.MessageResponse": {
             "type": "object",
             "properties": {
-                "applicationId": {
+                "chatAgentId": {
                     "type": "string"
                 },
                 "content": {
@@ -1892,11 +1892,11 @@
         "handlers.SendMessageRequest": {
             "type": "object",
             "required": [
-                "applicationId",
+                "chatAgentId",
                 "message"
             ],
             "properties": {
-                "applicationId": {
+                "chatAgentId": {
                     "type": "string"
                 },
                 "conversationId": {

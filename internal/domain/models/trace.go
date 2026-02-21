@@ -108,8 +108,8 @@ type Trace struct {
 	// TenantID is required for tenant isolation.
 	TenantID string `json:"tenantId" bson:"tenantId"`
 
-	// Context fields - either (ApplicationID + ConversationID) OR AutonomousAgentID
-	ApplicationID     string `json:"applicationId,omitempty" bson:"applicationId,omitempty"`
+	// Context fields - either (ChatAgentID + ConversationID) OR AutonomousAgentID
+	ChatAgentID       string `json:"chatAgentId,omitempty" bson:"chatAgentId,omitempty"`
 	ConversationID    string `json:"conversationId,omitempty" bson:"conversationId,omitempty"`
 	AutonomousAgentID string `json:"autonomousAgentId,omitempty" bson:"autonomousAgentId,omitempty"`
 
@@ -135,11 +135,11 @@ type Trace struct {
 }
 
 // NewConversationTrace creates a new trace for a conversation context.
-func NewConversationTrace(tenantID, applicationID, conversationID, createdBy string) *Trace {
+func NewConversationTrace(tenantID, chatAgentID, conversationID, createdBy string) *Trace {
 	now := time.Now().UTC()
 	return &Trace{
 		TenantID:       tenantID,
-		ApplicationID:  applicationID,
+		ChatAgentID:    chatAgentID,
 		ConversationID: conversationID,
 		ContextType:    TraceContextConversation,
 		Nodes:          []TraceNode{},
@@ -227,10 +227,10 @@ func (t *Trace) IsAutonomousAgentContext() bool {
 // ValidateContext validates that the trace has valid context fields.
 func (t *Trace) ValidateContext() bool {
 	if t.ContextType == TraceContextConversation {
-		return t.ApplicationID != "" && t.ConversationID != "" && t.AutonomousAgentID == ""
+		return t.ChatAgentID != "" && t.ConversationID != "" && t.AutonomousAgentID == ""
 	}
 	if t.ContextType == TraceContextAutonomousAgent {
-		return t.AutonomousAgentID != "" && t.ApplicationID == "" && t.ConversationID == ""
+		return t.AutonomousAgentID != "" && t.ChatAgentID == "" && t.ConversationID == ""
 	}
 	return false
 }
@@ -242,7 +242,7 @@ func (t *Trace) Validate() error {
 	}
 
 	// Check for mixed context
-	hasConversationContext := t.ApplicationID != "" || t.ConversationID != ""
+	hasConversationContext := t.ChatAgentID != "" || t.ConversationID != ""
 	hasAutonomousAgentContext := t.AutonomousAgentID != ""
 
 	if hasConversationContext && hasAutonomousAgentContext {
@@ -251,8 +251,8 @@ func (t *Trace) Validate() error {
 
 	switch t.ContextType {
 	case TraceContextConversation:
-		if t.ApplicationID == "" {
-			return fmt.Errorf("applicationId is required for conversation context")
+		if t.ChatAgentID == "" {
+			return fmt.Errorf("chatAgentId is required for conversation context")
 		}
 		if t.ConversationID == "" {
 			return fmt.Errorf("conversationId is required for conversation context")
