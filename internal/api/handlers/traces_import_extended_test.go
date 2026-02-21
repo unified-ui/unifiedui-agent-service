@@ -4,7 +4,6 @@ package handlers
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -1805,9 +1804,4 @@ func TestImportConversationTrace_N8NNotImplemented(t *testing.T) {
 	// Should fail because buildN8NConfig returns not implemented error
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 	mockPlatform.AssertExpectations(t)
-}
-
-// Helper function for getting the context from tests
-func getTestContext() context.Context {
-	return context.Background()
 }

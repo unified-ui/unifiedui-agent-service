@@ -25,14 +25,6 @@ import (
 // Test Fixtures for SendMessage
 // =============================================================================
 
-func setupSendMessageTestContext() (*gin.Context, *httptest.ResponseRecorder, *gin.Engine) {
-	gin.SetMode(gin.TestMode)
-	w := httptest.NewRecorder()
-	_, engine := gin.CreateTestContext(w)
-	c, _ := gin.CreateTestContext(w)
-	return c, w, engine
-}
-
 func createSendTestHandler(
 	docDBClient *mocks.MockDocDBClient,
 	platformClient *mocks.MockPlatformClient,
