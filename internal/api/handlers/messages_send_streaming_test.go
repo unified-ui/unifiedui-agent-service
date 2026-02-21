@@ -748,10 +748,8 @@ func TestStreamTitleGeneration_EmptyAuthToken(t *testing.T) {
 }
 
 func TestStreamTitleGeneration_NilAIService(t *testing.T) {
-	mockDocDB := mocks.NewMockDocDBClient()
 	handler := &MessagesHandler{
-		docDBClient: mockDocDB,
-		aiService:   nil, // No AI service
+		aiService: nil,
 	}
 
 	// This should not panic and should return early
