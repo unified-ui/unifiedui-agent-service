@@ -116,7 +116,7 @@ func TestFoundryTransformer_Transform_WorkflowAction(t *testing.T) {
 	nodes := transformer.Transform(items, "test-user")
 
 	assert.Len(t, nodes, 1)
-	assert.Equal(t, "SendActivity", nodes[0].Name) // SendActivity containers use literal name
+	assert.Equal(t, "Send Activity", nodes[0].Name)
 	assert.Equal(t, models.NodeTypeWorkflow, nodes[0].Type)
 	assert.Equal(t, models.NodeStatusCompleted, nodes[0].Status)
 	assert.Equal(t, "wfa_001", nodes[0].ReferenceID)
@@ -541,8 +541,8 @@ func TestFoundryTransformer_Transform_SendActivityHierarchy(t *testing.T) {
 	assert.Equal(t, "User Message", nodes[0].Name)
 	assert.Equal(t, "msg_user", nodes[0].ReferenceID)
 
-	// Second root node should be SendActivity container
-	assert.Equal(t, "SendActivity", nodes[1].Name)
+	// Second root node should be SendActivity with children
+	assert.Equal(t, "Send Activity", nodes[1].Name)
 	assert.Equal(t, "wfa_sendactivity", nodes[1].ReferenceID)
 
 	// SendActivity should have 2 child nodes (the two assistant messages)
@@ -638,26 +638,300 @@ func TestFoundryTransformer_Transform_MultipleResponseGroups(t *testing.T) {
 
 	nodes := transformer.Transform(items, "test-user")
 
-	// Should have 2 root nodes (2 SendActivity containers)
-	assert.Len(t, nodes, 2)
+	// New algorithm: Each workflow action is a top-level node.
+	// Messages are children of their message-producing action (SendActivity/Question).
+	// EndConversation is no longer a child of SendActivity — it's a standalone top-level node.
+	assert.Len(t, nodes, 4)
 
-	// First: SendActivity1 with 1 child (msg_group1)
-	assert.Equal(t, "SendActivity", nodes[0].Name)
+	// 1. SendActivity1 with 1 child (msg_group1)
+	assert.Equal(t, "Send Activity", nodes[0].Name)
 	assert.Equal(t, "wfa_sendactivity1", nodes[0].ReferenceID)
 	require.Len(t, nodes[0].Nodes, 1)
 	assert.Equal(t, "msg_group1", nodes[0].Nodes[0].ReferenceID)
 
-	// Second: SendActivity2 with 3 children (InvokeAzureAgent, msg_group2, EndConversation)
-	assert.Equal(t, "SendActivity", nodes[1].Name)
-	assert.Equal(t, "wfa_sendactivity2", nodes[1].ReferenceID)
-	require.Len(t, nodes[1].Nodes, 3)
+	// 2. InvokeAzureAgent (standalone, no children)
+	assert.Equal(t, "Invoke Azure Agent", nodes[1].Name)
+	assert.Equal(t, "wfa_invoke", nodes[1].ReferenceID)
+	assert.Empty(t, nodes[1].Nodes)
 
-	// Children should include the other workflow actions and the message
-	childRefIDs := []string{}
-	for _, child := range nodes[1].Nodes {
-		childRefIDs = append(childRefIDs, child.ReferenceID)
+	// 3. SendActivity2 with 1 child (msg_group2)
+	assert.Equal(t, "Send Activity", nodes[2].Name)
+	assert.Equal(t, "wfa_sendactivity2", nodes[2].ReferenceID)
+	require.Len(t, nodes[2].Nodes, 1)
+	assert.Equal(t, "msg_group2", nodes[2].Nodes[0].ReferenceID)
+
+	// 4. EndConversation (standalone top-level — not child of SendActivity)
+	assert.Equal(t, "End Conversation", nodes[3].Name)
+	assert.Equal(t, "wfa_end", nodes[3].ReferenceID)
+	assert.Empty(t, nodes[3].Nodes)
+}
+
+// TestFoundryTransformer_Transform_SubAgentMessageAssignment tests that sub-agent messages
+// (no response_id, but with agent info) are assigned to the nearest preceding InvokeAzureAgent.
+func TestFoundryTransformer_Transform_SubAgentMessageAssignment(t *testing.T) {
+	transformer := foundry.NewTransformer()
+
+	items := []foundry.ConversationItem{
+		// Newest first (API order)
+		{
+			ID:               "wfa_end",
+			Type:             "workflow_action",
+			Status:           "completed",
+			Kind:             "EndConversation",
+			ActionID:         "action-300",
+			PreviousActionID: "action-200",
+			CreatedBy: map[string]interface{}{
+				"response_id": "wfresp_001",
+			},
+		},
+		{
+			ID:               "wfa_send",
+			Type:             "workflow_action",
+			Status:           "completed",
+			Kind:             "SendActivity",
+			ActionID:         "action-200",
+			PreviousActionID: "action-150",
+			CreatedBy: map[string]interface{}{
+				"response_id": "wfresp_001",
+			},
+		},
+		{
+			ID:     "msg_send",
+			Type:   "message",
+			Status: "completed",
+			Role:   "assistant",
+			CreatedBy: map[string]interface{}{
+				"response_id": "wfresp_001",
+				"agent":       map[string]interface{}{"name": "BasicWorkflow"},
+			},
+			Content: []interface{}{
+				map[string]interface{}{"type": "output_text", "text": "Goodbye!"},
+			},
+		},
+		{
+			ID:     "msg_subagent",
+			Type:   "message",
+			Status: "completed",
+			Role:   "assistant",
+			CreatedBy: map[string]interface{}{
+				"agent": map[string]interface{}{"name": "BasicAssistantAgent"},
+			},
+			Content: []interface{}{
+				map[string]interface{}{"type": "output_text", "text": "Sub-agent response"},
+			},
+		},
+		{
+			ID:               "wfa_invoke",
+			Type:             "workflow_action",
+			Status:           "completed",
+			Kind:             "InvokeAzureAgent",
+			ActionID:         "action-150",
+			PreviousActionID: "action-100",
+			CreatedBy: map[string]interface{}{
+				"response_id": "wfresp_001",
+			},
+		},
+		{
+			ID:     "msg_user",
+			Type:   "message",
+			Status: "completed",
+			Role:   "user",
+			Content: []interface{}{
+				map[string]interface{}{"type": "input_text", "text": "Hello"},
+			},
+		},
 	}
-	assert.Contains(t, childRefIDs, "wfa_invoke")
-	assert.Contains(t, childRefIDs, "msg_group2")
-	assert.Contains(t, childRefIDs, "wfa_end")
+
+	nodes := transformer.Transform(items, "test-user")
+
+	// Expected: user_msg, InvokeAzureAgent(→sub-agent msg), SendActivity(→goodbye msg), EndConversation
+	assert.Len(t, nodes, 4)
+
+	assert.Equal(t, "User Message", nodes[0].Name)
+
+	assert.Equal(t, "Invoke Azure Agent", nodes[1].Name)
+	require.Len(t, nodes[1].Nodes, 1)
+	assert.Equal(t, "msg_subagent", nodes[1].Nodes[0].ReferenceID)
+	assert.Contains(t, nodes[1].Nodes[0].Data.Output.Text, "Sub-agent response")
+
+	assert.Equal(t, "Send Activity", nodes[2].Name)
+	require.Len(t, nodes[2].Nodes, 1)
+	assert.Equal(t, "msg_send", nodes[2].Nodes[0].ReferenceID)
+
+	assert.Equal(t, "End Conversation", nodes[3].Name)
+	assert.Empty(t, nodes[3].Nodes)
+}
+
+// TestFoundryTransformer_Transform_MCPAssignedToAction tests that MCP groups with response_id
+// matching a workflow action become children of that action.
+func TestFoundryTransformer_Transform_MCPAssignedToAction(t *testing.T) {
+	transformer := foundry.NewTransformer()
+	approved := true
+
+	items := []foundry.ConversationItem{
+		// Newest first
+		{
+			ID:               "wfa_send",
+			Type:             "workflow_action",
+			Status:           "completed",
+			Kind:             "SendActivity",
+			ActionID:         "action-200",
+			PreviousActionID: "action-100",
+			CreatedBy: map[string]interface{}{
+				"response_id": "wfresp_001",
+			},
+		},
+		{
+			ID:     "msg_result",
+			Type:   "message",
+			Status: "completed",
+			Role:   "assistant",
+			CreatedBy: map[string]interface{}{
+				"response_id": "wfresp_001",
+			},
+			Content: []interface{}{
+				map[string]interface{}{"type": "output_text", "text": "Done!"},
+			},
+		},
+		{
+			ID:                "mcp_call_001",
+			Type:              "mcp_call",
+			Status:            "completed",
+			ApprovalRequestID: "mcp_req_001",
+			ServerLabel:       "TestServer",
+			Name:              "DoSomething",
+			Arguments:         `{"key":"value"}`,
+			Output:            `{"result":"ok"}`,
+			CreatedBy: map[string]interface{}{
+				"response_id": "wfresp_001",
+			},
+		},
+		{
+			ID:                "mcp_resp_001",
+			Type:              "mcp_approval_response",
+			ApprovalRequestID: "mcp_req_001",
+			Approve:           &approved,
+		},
+		{
+			ID:          "mcp_req_001",
+			Type:        "mcp_approval_request",
+			ServerLabel: "TestServer",
+			Name:        "DoSomething",
+			Arguments:   `{"key":"value"}`,
+			CreatedBy: map[string]interface{}{
+				"response_id": "wfresp_001",
+			},
+		},
+	}
+
+	nodes := transformer.Transform(items, "test-user")
+
+	// MCP group should be child of the first workflow action with matching response_id
+	// SendActivity gets the message, and the first action with response_id gets the MCP group
+	hasActionWithMCP := false
+	for _, node := range nodes {
+		if node.Type == models.NodeTypeWorkflow {
+			for _, child := range node.Nodes {
+				if child.Name == "DoSomething" && child.Type == models.NodeTypeTool {
+					hasActionWithMCP = true
+				}
+			}
+		}
+	}
+	assert.True(t, hasActionWithMCP, "MCP group should be a child of a workflow action")
+}
+
+// TestFoundryTransformer_Transform_SimpleAgent tests that simple agents (only messages, no workflow)
+// produce a flat list of message nodes.
+func TestFoundryTransformer_Transform_SimpleAgent(t *testing.T) {
+	transformer := foundry.NewTransformer()
+
+	items := []foundry.ConversationItem{
+		{
+			ID:     "msg_003",
+			Type:   "message",
+			Status: "completed",
+			Role:   "assistant",
+			CreatedBy: map[string]interface{}{
+				"response_id": "resp_002",
+				"agent":       map[string]interface{}{"name": "BasicAssistantAgent"},
+			},
+			Content: []interface{}{
+				map[string]interface{}{"type": "output_text", "text": "I'm fine, thanks!"},
+			},
+		},
+		{
+			ID:     "msg_002",
+			Type:   "message",
+			Status: "completed",
+			Role:   "user",
+			Content: []interface{}{
+				map[string]interface{}{"type": "input_text", "text": "How are you?"},
+			},
+		},
+		{
+			ID:     "msg_001",
+			Type:   "message",
+			Status: "completed",
+			Role:   "assistant",
+			CreatedBy: map[string]interface{}{
+				"response_id": "resp_001",
+				"agent":       map[string]interface{}{"name": "BasicAssistantAgent"},
+			},
+			Content: []interface{}{
+				map[string]interface{}{"type": "output_text", "text": "Hello there!"},
+			},
+		},
+	}
+
+	nodes := transformer.Transform(items, "test-user")
+
+	// No workflow actions → all messages are top-level
+	assert.Len(t, nodes, 3)
+	assert.Equal(t, "Assistant Response", nodes[0].Name)
+	assert.Equal(t, "User Message", nodes[1].Name)
+	assert.Equal(t, "Assistant Response", nodes[2].Name)
+}
+
+// TestFoundryTransformer_Transform_QuestionAction tests that Question workflow actions
+// also capture their associated messages as children.
+func TestFoundryTransformer_Transform_QuestionAction(t *testing.T) {
+	transformer := foundry.NewTransformer()
+
+	items := []foundry.ConversationItem{
+		// Newest first
+		{
+			ID:     "msg_question",
+			Type:   "message",
+			Status: "completed",
+			Role:   "assistant",
+			CreatedBy: map[string]interface{}{
+				"response_id": "wfresp_001",
+			},
+			Content: []interface{}{
+				map[string]interface{}{"type": "output_text", "text": "What is your name?"},
+			},
+		},
+		{
+			ID:               "wfa_question",
+			Type:             "workflow_action",
+			Status:           "completed",
+			Kind:             "Question",
+			ActionID:         "action-100",
+			PreviousActionID: "",
+			CreatedBy: map[string]interface{}{
+				"response_id": "wfresp_001",
+			},
+		},
+	}
+
+	nodes := transformer.Transform(items, "test-user")
+
+	// Question action with its message as child
+	assert.Len(t, nodes, 1)
+	assert.Equal(t, "Question", nodes[0].Name)
+	assert.Equal(t, models.NodeTypeWorkflow, nodes[0].Type)
+	require.Len(t, nodes[0].Nodes, 1)
+	assert.Equal(t, "Assistant Response", nodes[0].Nodes[0].Name)
+	assert.Contains(t, nodes[0].Nodes[0].Data.Output.Text, "What is your name?")
 }
