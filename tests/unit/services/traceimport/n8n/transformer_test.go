@@ -227,53 +227,65 @@ func TestN8NTransformer_TransformExecution_AIAgentWorkflow(t *testing.T) {
 					Type: "@n8n/n8n-nodes-langchain.lmChatAzureOpenAi",
 				},
 			},
+			Connections: map[string]interface{}{
+				"When chat message received": map[string]interface{}{
+					"main": []interface{}{
+						[]interface{}{
+							map[string]interface{}{"node": "AI Agent", "type": "main", "index": 0},
+						},
+					},
+				},
+				"Azure OpenAI Chat Model": map[string]interface{}{
+					"ai_languageModel": []interface{}{
+						[]interface{}{
+							map[string]interface{}{"node": "AI Agent", "type": "ai_languageModel", "index": 0},
+						},
+					},
+				},
+			},
 		},
 	}
 
 	nodes := transformer.TransformExecution(execution, "test-user")
 
-	require.Len(t, nodes, 3)
+	require.Len(t, nodes, 2)
 
-	// Find nodes by name
-	var triggerNode, agentNode, llmNode *models.TraceNode
+	var triggerNode, agentNode *models.TraceNode
 	for i := range nodes {
 		switch nodes[i].Name {
 		case "When chat message received":
 			triggerNode = &nodes[i]
 		case "AI Agent":
 			agentNode = &nodes[i]
-		case "Azure OpenAI Chat Model":
-			llmNode = &nodes[i]
 		}
 	}
 
 	require.NotNil(t, triggerNode)
 	require.NotNil(t, agentNode)
-	require.NotNil(t, llmNode)
 
-	// Check trigger node has the user input
 	assert.Equal(t, models.NodeTypeWorkflow, triggerNode.Type)
 	assert.Equal(t, models.NodeStatusCompleted, triggerNode.Status)
 	assert.NotNil(t, triggerNode.Data)
 	assert.NotNil(t, triggerNode.Data.Input)
 	assert.Equal(t, "Hello, what can you do?", triggerNode.Data.Input.Text)
 
-	// Check agent node
 	assert.Equal(t, models.NodeTypeAgent, agentNode.Type)
 	assert.Equal(t, models.NodeStatusCompleted, agentNode.Status)
 	assert.NotNil(t, agentNode.Data)
 	assert.NotNil(t, agentNode.Data.Output)
 	assert.Contains(t, agentNode.Data.Output.Text, "I can help you with various tasks!")
 
-	// Check token usage in metadata
 	require.NotNil(t, agentNode.Metadata)
 	tokenUsage, ok := agentNode.Metadata["token_usage"].(map[string]interface{})
 	require.True(t, ok)
 	assert.Equal(t, 150, tokenUsage["total_tokens"])
 
-	// Check LLM node
+	require.Len(t, agentNode.Nodes, 1)
+	llmNode := agentNode.Nodes[0]
+	assert.Equal(t, "Azure OpenAI Chat Model", llmNode.Name)
 	assert.Equal(t, models.NodeTypeLLM, llmNode.Type)
 	assert.Equal(t, models.NodeStatusCompleted, llmNode.Status)
+	assert.Equal(t, "ai_languageModel", llmNode.Metadata["connection_type"])
 }
 
 func TestN8NTransformer_TransformExecution_ErrorExecution(t *testing.T) {
@@ -579,4 +591,280 @@ func TestN8NTransformer_Transform_InterfaceWrapper(t *testing.T) {
 	// Test with wrong type
 	nodes = transformer.Transform("wrong type", "test-user")
 	assert.Empty(t, nodes)
+}
+
+func TestN8NTransformer_MultipleSubNodes(t *testing.T) {
+	transformer := n8n.NewTransformer()
+
+	execution := &n8n.ExecutionResponse{
+		ID:     "200",
+		Status: n8n.ExecutionStatusSuccess,
+		Data: &n8n.ExecutionData{
+			ResultData: &n8n.ResultData{
+				RunData: map[string][]n8n.NodeExecution{
+					"Chat Trigger": {
+						{
+							StartTime:       1735900000000,
+							ExecutionTime:   5,
+							ExecutionStatus: n8n.NodeExecutionStatusSuccess,
+						},
+					},
+					"AI Agent": {
+						{
+							StartTime:       1735900000010,
+							ExecutionTime:   8000,
+							ExecutionStatus: n8n.NodeExecutionStatusSuccess,
+						},
+					},
+					"Azure OpenAI Chat Model": {
+						{
+							StartTime:       1735900000015,
+							ExecutionTime:   6000,
+							ExecutionStatus: n8n.NodeExecutionStatusSuccess,
+						},
+					},
+					"Memory Buffer": {
+						{
+							StartTime:       1735900000012,
+							ExecutionTime:   50,
+							ExecutionStatus: n8n.NodeExecutionStatusSuccess,
+						},
+					},
+					"Search Tool": {
+						{
+							StartTime:       1735900000020,
+							ExecutionTime:   2000,
+							ExecutionStatus: n8n.NodeExecutionStatusSuccess,
+						},
+					},
+				},
+			},
+		},
+		WorkflowData: &n8n.WorkflowData{
+			Nodes: []n8n.WorkflowNode{
+				{Name: "Chat Trigger", Type: "@n8n/n8n-nodes-langchain.chatTrigger"},
+				{Name: "AI Agent", Type: "@n8n/n8n-nodes-langchain.agent"},
+				{Name: "Azure OpenAI Chat Model", Type: "@n8n/n8n-nodes-langchain.lmChatAzureOpenAi"},
+				{Name: "Memory Buffer", Type: "@n8n/n8n-nodes-langchain.memoryBufferWindow"},
+				{Name: "Search Tool", Type: "@n8n/n8n-nodes-langchain.toolWorkflow"},
+			},
+			Connections: map[string]interface{}{
+				"Chat Trigger": map[string]interface{}{
+					"main": []interface{}{
+						[]interface{}{
+							map[string]interface{}{"node": "AI Agent", "type": "main", "index": 0},
+						},
+					},
+				},
+				"Azure OpenAI Chat Model": map[string]interface{}{
+					"ai_languageModel": []interface{}{
+						[]interface{}{
+							map[string]interface{}{"node": "AI Agent", "type": "ai_languageModel", "index": 0},
+						},
+					},
+				},
+				"Memory Buffer": map[string]interface{}{
+					"ai_memory": []interface{}{
+						[]interface{}{
+							map[string]interface{}{"node": "AI Agent", "type": "ai_memory", "index": 0},
+						},
+					},
+				},
+				"Search Tool": map[string]interface{}{
+					"ai_tool": []interface{}{
+						[]interface{}{
+							map[string]interface{}{"node": "AI Agent", "type": "ai_tool", "index": 0},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	nodes := transformer.TransformExecution(execution, "test-user")
+
+	require.Len(t, nodes, 2)
+	assert.Equal(t, "Chat Trigger", nodes[0].Name)
+	assert.Equal(t, "AI Agent", nodes[1].Name)
+
+	require.Len(t, nodes[1].Nodes, 3)
+	assert.Equal(t, "Memory Buffer", nodes[1].Nodes[0].Name)
+	assert.Equal(t, "ai_memory", nodes[1].Nodes[0].Metadata["connection_type"])
+	assert.Equal(t, "Azure OpenAI Chat Model", nodes[1].Nodes[1].Name)
+	assert.Equal(t, "ai_languageModel", nodes[1].Nodes[1].Metadata["connection_type"])
+	assert.Equal(t, "Search Tool", nodes[1].Nodes[2].Name)
+	assert.Equal(t, "ai_tool", nodes[1].Nodes[2].Metadata["connection_type"])
+}
+
+func TestN8NTransformer_NoConnectionsFlatOutput(t *testing.T) {
+	transformer := n8n.NewTransformer()
+
+	execution := &n8n.ExecutionResponse{
+		Data: &n8n.ExecutionData{
+			ResultData: &n8n.ResultData{
+				RunData: map[string][]n8n.NodeExecution{
+					"Trigger": {
+						{
+							StartTime:       1735900000000,
+							ExecutionTime:   5,
+							ExecutionStatus: n8n.NodeExecutionStatusSuccess,
+						},
+					},
+					"Agent": {
+						{
+							StartTime:       1735900000010,
+							ExecutionTime:   1000,
+							ExecutionStatus: n8n.NodeExecutionStatusSuccess,
+						},
+					},
+					"LLM": {
+						{
+							StartTime:       1735900000015,
+							ExecutionTime:   800,
+							ExecutionStatus: n8n.NodeExecutionStatusSuccess,
+						},
+					},
+				},
+			},
+		},
+		WorkflowData: &n8n.WorkflowData{
+			Nodes: []n8n.WorkflowNode{
+				{Name: "Trigger", Type: "n8n-nodes-base.manualTrigger"},
+				{Name: "Agent", Type: "@n8n/n8n-nodes-langchain.agent"},
+				{Name: "LLM", Type: "@n8n/n8n-nodes-langchain.lmChatOpenAi"},
+			},
+		},
+	}
+
+	nodes := transformer.TransformExecution(execution, "test-user")
+
+	require.Len(t, nodes, 3)
+	assert.Equal(t, "Trigger", nodes[0].Name)
+	assert.Equal(t, "Agent", nodes[1].Name)
+	assert.Equal(t, "LLM", nodes[2].Name)
+
+	for _, node := range nodes {
+		assert.Empty(t, node.Nodes)
+	}
+}
+
+func TestN8NTransformer_BranchingWorkflowStaysFlat(t *testing.T) {
+	transformer := n8n.NewTransformer()
+
+	execution := &n8n.ExecutionResponse{
+		Data: &n8n.ExecutionData{
+			ResultData: &n8n.ResultData{
+				RunData: map[string][]n8n.NodeExecution{
+					"Trigger": {
+						{
+							StartTime:       1735900000000,
+							ExecutionTime:   5,
+							ExecutionStatus: n8n.NodeExecutionStatusSuccess,
+						},
+					},
+					"Switch": {
+						{
+							StartTime:       1735900000010,
+							ExecutionTime:   10,
+							ExecutionStatus: n8n.NodeExecutionStatusSuccess,
+						},
+					},
+					"HTTP Request": {
+						{
+							StartTime:       1735900000020,
+							ExecutionTime:   500,
+							ExecutionStatus: n8n.NodeExecutionStatusSuccess,
+						},
+					},
+					"Code": {
+						{
+							StartTime:       1735900000030,
+							ExecutionTime:   100,
+							ExecutionStatus: n8n.NodeExecutionStatusSuccess,
+						},
+					},
+				},
+			},
+		},
+		WorkflowData: &n8n.WorkflowData{
+			Nodes: []n8n.WorkflowNode{
+				{Name: "Trigger", Type: "n8n-nodes-base.manualTrigger"},
+				{Name: "Switch", Type: "n8n-nodes-base.switch"},
+				{Name: "HTTP Request", Type: "n8n-nodes-base.httpRequest"},
+				{Name: "Code", Type: "n8n-nodes-base.code"},
+			},
+			Connections: map[string]interface{}{
+				"Trigger": map[string]interface{}{
+					"main": []interface{}{
+						[]interface{}{
+							map[string]interface{}{"node": "Switch", "type": "main", "index": 0},
+						},
+					},
+				},
+				"Switch": map[string]interface{}{
+					"main": []interface{}{
+						[]interface{}{
+							map[string]interface{}{"node": "HTTP Request", "type": "main", "index": 0},
+						},
+						[]interface{}{
+							map[string]interface{}{"node": "Code", "type": "main", "index": 0},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	nodes := transformer.TransformExecution(execution, "test-user")
+
+	require.Len(t, nodes, 4)
+	assert.Equal(t, "Trigger", nodes[0].Name)
+	assert.Equal(t, "Switch", nodes[1].Name)
+	assert.Equal(t, "HTTP Request", nodes[2].Name)
+	assert.Equal(t, "Code", nodes[3].Name)
+
+	for _, node := range nodes {
+		assert.Empty(t, node.Nodes)
+	}
+}
+
+func TestN8NTransformer_SubNodeNotInRunDataIgnored(t *testing.T) {
+	transformer := n8n.NewTransformer()
+
+	execution := &n8n.ExecutionResponse{
+		Data: &n8n.ExecutionData{
+			ResultData: &n8n.ResultData{
+				RunData: map[string][]n8n.NodeExecution{
+					"AI Agent": {
+						{
+							StartTime:       1735900000000,
+							ExecutionTime:   5000,
+							ExecutionStatus: n8n.NodeExecutionStatusSuccess,
+						},
+					},
+				},
+			},
+		},
+		WorkflowData: &n8n.WorkflowData{
+			Nodes: []n8n.WorkflowNode{
+				{Name: "AI Agent", Type: "@n8n/n8n-nodes-langchain.agent"},
+				{Name: "Missing LLM", Type: "@n8n/n8n-nodes-langchain.lmChatOpenAi"},
+			},
+			Connections: map[string]interface{}{
+				"Missing LLM": map[string]interface{}{
+					"ai_languageModel": []interface{}{
+						[]interface{}{
+							map[string]interface{}{"node": "AI Agent", "type": "ai_languageModel", "index": 0},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	nodes := transformer.TransformExecution(execution, "test-user")
+
+	require.Len(t, nodes, 1)
+	assert.Equal(t, "AI Agent", nodes[0].Name)
+	assert.Empty(t, nodes[0].Nodes)
 }

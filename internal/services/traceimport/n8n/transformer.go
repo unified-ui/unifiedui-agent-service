@@ -20,8 +20,8 @@ func NewTransformer() *Transformer {
 }
 
 // TransformExecution converts an N8N execution response into a list of TraceNodes.
-// Each node in the execution's runData becomes a TraceNode.
-// Nodes are ordered chronologically by start time.
+// Sub-nodes connected via non-main connections (ai_languageModel, ai_tool, ai_memory)
+// are nested as children of their parent node. Top-level nodes are sorted chronologically.
 func (t *Transformer) TransformExecution(execution *ExecutionResponse, createdBy string) []models.TraceNode {
 	if execution == nil || execution.Data == nil || execution.Data.ResultData == nil {
 		return []models.TraceNode{}
@@ -32,14 +32,11 @@ func (t *Transformer) TransformExecution(execution *ExecutionResponse, createdBy
 		return []models.TraceNode{}
 	}
 
-	// Build workflow node map for type lookup
 	workflowNodeMap := t.buildWorkflowNodeMap(execution.WorkflowData)
+	parentOf, connectionTypes := t.parseConnectionGraph(execution.WorkflowData)
 
-	// Transform each node's executions into TraceNodes
-	var allNodes []models.TraceNode
-
+	nodesByName := make(map[string][]models.TraceNode)
 	for nodeName, nodeExecutions := range runData {
-		// Get node type from workflow data
 		nodeType := ""
 		if wfNode, exists := workflowNodeMap[nodeName]; exists {
 			nodeType = wfNode.Type
@@ -47,22 +44,48 @@ func (t *Transformer) TransformExecution(execution *ExecutionResponse, createdBy
 
 		for runIndex := range nodeExecutions {
 			traceNode := t.transformNodeExecution(nodeName, nodeType, runIndex, &nodeExecutions[runIndex], createdBy)
-			allNodes = append(allNodes, traceNode)
+			if connType, isSubNode := connectionTypes[nodeName]; isSubNode {
+				traceNode.Metadata["connection_type"] = connType
+			}
+			nodesByName[nodeName] = append(nodesByName[nodeName], traceNode)
 		}
 	}
 
-	// Sort nodes by start time (chronological order)
-	sort.Slice(allNodes, func(i, j int) bool {
-		if allNodes[i].StartAt == nil {
+	subNodeNames := make(map[string]bool)
+	for childName, parentName := range parentOf {
+		children := nodesByName[childName]
+		if len(children) == 0 {
+			continue
+		}
+		parentNodes := nodesByName[parentName]
+		if len(parentNodes) == 0 {
+			continue
+		}
+		parentNodes[0].Nodes = append(parentNodes[0].Nodes, children...)
+		subNodeNames[childName] = true
+	}
+
+	t.sortChildNodes(nodesByName, subNodeNames)
+
+	var topLevelNodes []models.TraceNode
+	for nodeName, nodes := range nodesByName {
+		if subNodeNames[nodeName] {
+			continue
+		}
+		topLevelNodes = append(topLevelNodes, nodes...)
+	}
+
+	sort.Slice(topLevelNodes, func(i, j int) bool {
+		if topLevelNodes[i].StartAt == nil {
 			return true
 		}
-		if allNodes[j].StartAt == nil {
+		if topLevelNodes[j].StartAt == nil {
 			return false
 		}
-		return allNodes[i].StartAt.Before(*allNodes[j].StartAt)
+		return topLevelNodes[i].StartAt.Before(*topLevelNodes[j].StartAt)
 	})
 
-	return allNodes
+	return topLevelNodes
 }
 
 // Transform implements the generic interface for transforming items.
@@ -85,6 +108,83 @@ func (t *Transformer) buildWorkflowNodeMap(workflowData *WorkflowData) map[strin
 	}
 
 	return nodeMap
+}
+
+// parseConnectionGraph extracts parent-child relationships from WorkflowData.Connections.
+// Non-main connections (ai_languageModel, ai_tool, ai_memory) indicate sub-node
+// relationships where the source node is a child of the target node.
+func (t *Transformer) parseConnectionGraph(workflowData *WorkflowData) (parentOf map[string]string, connectionTypes map[string]string) {
+	parentOf = make(map[string]string)
+	connectionTypes = make(map[string]string)
+
+	if workflowData == nil || workflowData.Connections == nil {
+		return
+	}
+
+	for sourceName, destTypesRaw := range workflowData.Connections {
+		destTypes, ok := destTypesRaw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		for connType, branchesRaw := range destTypes {
+			if connType == "main" {
+				continue
+			}
+
+			branches, ok := branchesRaw.([]interface{})
+			if !ok {
+				continue
+			}
+
+			for _, branchRaw := range branches {
+				branch, ok := branchRaw.([]interface{})
+				if !ok {
+					continue
+				}
+
+				for _, connRaw := range branch {
+					conn, ok := connRaw.(map[string]interface{})
+					if !ok {
+						continue
+					}
+
+					targetNode, _ := conn["node"].(string)
+					if targetNode == "" {
+						continue
+					}
+
+					parentOf[sourceName] = targetNode
+					connectionTypes[sourceName] = connType
+				}
+			}
+		}
+	}
+
+	return
+}
+
+// sortChildNodes sorts the child nodes of each parent node by start time.
+func (t *Transformer) sortChildNodes(nodesByName map[string][]models.TraceNode, subNodeNames map[string]bool) {
+	for nodeName, nodes := range nodesByName {
+		if subNodeNames[nodeName] {
+			continue
+		}
+		for i := range nodes {
+			if len(nodes[i].Nodes) <= 1 {
+				continue
+			}
+			sort.Slice(nodes[i].Nodes, func(a, b int) bool {
+				if nodes[i].Nodes[a].StartAt == nil {
+					return true
+				}
+				if nodes[i].Nodes[b].StartAt == nil {
+					return false
+				}
+				return nodes[i].Nodes[a].StartAt.Before(*nodes[i].Nodes[b].StartAt)
+			})
+		}
+	}
 }
 
 // transformNodeExecution converts a single N8N node execution to a TraceNode.
