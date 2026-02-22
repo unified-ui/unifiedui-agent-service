@@ -202,7 +202,7 @@ type NodeOutputItem struct {
 	JSON       map[string]interface{} `json:"json,omitempty"`
 	Text       string                 `json:"text,omitempty"`
 	Binary     map[string]interface{} `json:"binary,omitempty"`
-	PairedItem interface{}             `json:"pairedItem,omitempty"`
+	PairedItem interface{}            `json:"pairedItem,omitempty"`
 }
 
 // NodeExecutionError represents an error in node execution.
@@ -388,9 +388,9 @@ const (
 	N8NNodeTypeDocGithubLoader  = "@n8n/n8n-nodes-langchain.documentGithubLoader"
 
 	// Text splitter sub-nodes
-	N8NNodeTypeTextSplitterRecursive  = "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter"
-	N8NNodeTypeTextSplitterCharacter  = "@n8n/n8n-nodes-langchain.textSplitterCharacterTextSplitter"
-	N8NNodeTypeTextSplitterToken      = "@n8n/n8n-nodes-langchain.textSplitterTokenSplitter"
+	N8NNodeTypeTextSplitterRecursive = "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter"
+	N8NNodeTypeTextSplitterCharacter = "@n8n/n8n-nodes-langchain.textSplitterCharacterTextSplitter"
+	N8NNodeTypeTextSplitterToken     = "@n8n/n8n-nodes-langchain.textSplitterTokenSplitter"
 
 	// Retriever sub-nodes
 	N8NNodeTypeRetrieverVectorStore = "@n8n/n8n-nodes-langchain.retrieverVectorStore"
