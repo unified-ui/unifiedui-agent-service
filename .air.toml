@@ -1,3 +1,4 @@
+#:schema https://raw.githubusercontent.com/air-verse/air/refs/heads/master/air_example.toml
 # Air configuration for unified-ui-agent-service hot reload
 # Documentation: https://github.com/air-verse/air
 
