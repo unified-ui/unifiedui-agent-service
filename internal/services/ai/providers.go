@@ -175,7 +175,7 @@ func newAnthropicClient(config map[string]interface{}, apiKey string) (*anthropi
 	return newAnthropicClientWithBaseURL(config, apiKey, "https://api.anthropic.com")
 }
 
-func newAnthropicClientWithBaseURL(config map[string]interface{}, apiKey string, baseURL string) (*anthropicClient, error) {
+func newAnthropicClientWithBaseURL(config map[string]interface{}, apiKey, baseURL string) (*anthropicClient, error) {
 	modelName, _ := config["model_name"].(string)
 	if modelName == "" {
 		return nil, fmt.Errorf("anthropic requires model_name")
@@ -243,7 +243,7 @@ func newGoogleGenAIClient(config map[string]interface{}, apiKey string) (*google
 	return newGoogleGenAIClientWithBaseURL(config, apiKey, "https://generativelanguage.googleapis.com")
 }
 
-func newGoogleGenAIClientWithBaseURL(config map[string]interface{}, apiKey string, baseURL string) (*googleGenAIClient, error) {
+func newGoogleGenAIClientWithBaseURL(config map[string]interface{}, apiKey, baseURL string) (*googleGenAIClient, error) {
 	modelName, _ := config["model_name"].(string)
 	if modelName == "" {
 		return nil, fmt.Errorf("google_genai requires model_name")
@@ -349,7 +349,7 @@ func newMistralClient(config map[string]interface{}, apiKey string) (*mistralCli
 	return newMistralClientWithBaseURL(config, apiKey, "https://api.mistral.ai")
 }
 
-func newMistralClientWithBaseURL(config map[string]interface{}, apiKey string, baseURL string) (*mistralClient, error) {
+func newMistralClientWithBaseURL(config map[string]interface{}, apiKey, baseURL string) (*mistralClient, error) {
 	modelName, _ := config["model_name"].(string)
 	if modelName == "" {
 		return nil, fmt.Errorf("mistral requires model_name")
@@ -398,7 +398,7 @@ func newGroqClient(config map[string]interface{}, apiKey string) (*groqClient, e
 	return newGroqClientWithBaseURL(config, apiKey, "https://api.groq.com/openai")
 }
 
-func newGroqClientWithBaseURL(config map[string]interface{}, apiKey string, baseURL string) (*groqClient, error) {
+func newGroqClientWithBaseURL(config map[string]interface{}, apiKey, baseURL string) (*groqClient, error) {
 	modelName, _ := config["model_name"].(string)
 	if modelName == "" {
 		return nil, fmt.Errorf("groq requires model_name")

@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"github.com/unifiedui/agent-service/internal/services/agents/foundry"
 	"github.com/unifiedui/agent-service/internal/services/agents/n8n"
 )
@@ -22,7 +23,7 @@ import (
 // =============================================================================
 
 // createN8NSSEResponse creates a Server-Sent Events formatted response for n8n
-func createN8NSSEResponse(events []n8n.N8NStreamEvent) string {
+func createN8NSSEResponse(events []n8n.StreamEvent) string {
 	var sb strings.Builder
 	for _, event := range events {
 		data, _ := json.Marshal(event)
@@ -51,8 +52,8 @@ func createFoundrySSEDone() string {
 // =============================================================================
 
 func TestN8NWorkflowAdapter_Invoke_Success(t *testing.T) {
-	events := []n8n.N8NStreamEvent{
-		{Type: n8n.N8NStreamTypeItem, Content: "Hello from n8n!"},
+	events := []n8n.StreamEvent{
+		{Type: n8n.StreamTypeItem, Content: "Hello from n8n!"},
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -99,8 +100,8 @@ func TestN8NWorkflowAdapter_Invoke_WithContextData(t *testing.T) {
 		body, _ := io.ReadAll(r.Body)
 		json.Unmarshal(body, &receivedBody)
 
-		events := []n8n.N8NStreamEvent{
-			{Type: n8n.N8NStreamTypeItem, Content: "Response with context"},
+		events := []n8n.StreamEvent{
+			{Type: n8n.StreamTypeItem, Content: "Response with context"},
 		}
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
@@ -150,8 +151,8 @@ func TestN8NWorkflowAdapter_Invoke_WithFiles(t *testing.T) {
 		body, _ := io.ReadAll(r.Body)
 		json.Unmarshal(body, &receivedBody)
 
-		events := []n8n.N8NStreamEvent{
-			{Type: n8n.N8NStreamTypeItem, Content: "Processed file"},
+		events := []n8n.StreamEvent{
+			{Type: n8n.StreamTypeItem, Content: "Processed file"},
 		}
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
@@ -234,10 +235,10 @@ func TestN8NWorkflowAdapter_Invoke_HTTPError(t *testing.T) {
 // =============================================================================
 
 func TestN8NWorkflowAdapter_InvokeStream_Success(t *testing.T) {
-	events := []n8n.N8NStreamEvent{
-		{Type: n8n.N8NStreamTypeItem, Content: "Chunk 1"},
-		{Type: n8n.N8NStreamTypeItem, Content: "Chunk 2"},
-		{Type: n8n.N8NStreamTypeItem, Content: "Chunk 3"},
+	events := []n8n.StreamEvent{
+		{Type: n8n.StreamTypeItem, Content: "Chunk 1"},
+		{Type: n8n.StreamTypeItem, Content: "Chunk 2"},
+		{Type: n8n.StreamTypeItem, Content: "Chunk 3"},
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -269,7 +270,7 @@ func TestN8NWorkflowAdapter_InvokeStream_Success(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, ch)
 
-	var chunks []*StreamChunk
+	var chunks []*StreamChunk //nolint:prealloc // length unknown: reading from channel
 	for chunk := range ch {
 		chunks = append(chunks, chunk)
 	}
@@ -281,8 +282,8 @@ func TestN8NWorkflowAdapter_InvokeStream_Success(t *testing.T) {
 }
 
 func TestN8NWorkflowAdapter_InvokeStream_WithFiles(t *testing.T) {
-	events := []n8n.N8NStreamEvent{
-		{Type: n8n.N8NStreamTypeItem, Content: "Image analysis result"},
+	events := []n8n.StreamEvent{
+		{Type: n8n.StreamTypeItem, Content: "Image analysis result"},
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -321,7 +322,7 @@ func TestN8NWorkflowAdapter_InvokeStream_WithFiles(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, ch)
 
-	var chunks []*StreamChunk
+	var chunks []*StreamChunk //nolint:prealloc // length unknown: reading from channel
 	for chunk := range ch {
 		chunks = append(chunks, chunk)
 	}
@@ -363,9 +364,9 @@ func TestN8NWorkflowAdapter_InvokeStream_HTTPError(t *testing.T) {
 // =============================================================================
 
 func TestN8NWorkflowAdapter_InvokeStreamReader_Success(t *testing.T) {
-	events := []n8n.N8NStreamEvent{
-		{Type: n8n.N8NStreamTypeItem, Content: "Hello"},
-		{Type: n8n.N8NStreamTypeItem, Content: " World"},
+	events := []n8n.StreamEvent{
+		{Type: n8n.StreamTypeItem, Content: "Hello"},
+		{Type: n8n.StreamTypeItem, Content: " World"},
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -417,8 +418,8 @@ func TestN8NWorkflowAdapter_InvokeStreamReader_Success(t *testing.T) {
 func TestN8NWorkflowAdapter_InvokeStreamReader_WithContextData(t *testing.T) {
 	var receivedBody map[string]interface{}
 
-	events := []n8n.N8NStreamEvent{
-		{Type: n8n.N8NStreamTypeItem, Content: "Response"},
+	events := []n8n.StreamEvent{
+		{Type: n8n.StreamTypeItem, Content: "Response"},
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -762,15 +763,15 @@ func TestFoundryWorkflowAdapter_Invoke_Success(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 
 		// Foundry SSE format
-		event := foundry.FoundryEvent{
+		event := foundry.Event{
 			Type:  foundry.EventOutputTextDelta,
 			Delta: "Hello from Foundry!",
 		}
 		w.Write([]byte(createFoundrySSEEvent("", event)))
 
-		completedEvent := foundry.FoundryEvent{
+		completedEvent := foundry.Event{
 			Type: foundry.EventResponseCompleted,
-			Response: &foundry.FoundryResponse{
+			Response: &foundry.Response{
 				ID:     "resp-123",
 				Status: "completed",
 			},
@@ -817,7 +818,7 @@ func TestFoundryWorkflowAdapter_Invoke_WithContextData(t *testing.T) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
 
-		event := foundry.FoundryEvent{
+		event := foundry.Event{
 			Type:  foundry.EventOutputTextDelta,
 			Delta: "Response",
 		}
@@ -870,7 +871,7 @@ func TestFoundryWorkflowAdapter_Invoke_WithFiles(t *testing.T) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
 
-		event := foundry.FoundryEvent{
+		event := foundry.Event{
 			Type:  foundry.EventOutputTextDelta,
 			Delta: "Image analyzed",
 		}
@@ -960,7 +961,7 @@ func TestFoundryWorkflowAdapter_InvokeStream_Success(t *testing.T) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
 
-		events := []foundry.FoundryEvent{
+		events := []foundry.Event{
 			{Type: foundry.EventOutputTextDelta, Delta: "Chunk 1"},
 			{Type: foundry.EventOutputTextDelta, Delta: "Chunk 2"},
 			{Type: foundry.EventOutputTextDelta, Delta: "Chunk 3"},
@@ -995,7 +996,7 @@ func TestFoundryWorkflowAdapter_InvokeStream_Success(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, ch)
 
-	var chunks []*StreamChunk
+	var chunks []*StreamChunk //nolint:prealloc // length unknown: reading from channel
 	for chunk := range ch {
 		chunks = append(chunks, chunk)
 	}
@@ -1008,7 +1009,7 @@ func TestFoundryWorkflowAdapter_InvokeStream_WithFiles(t *testing.T) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
 
-		event := foundry.FoundryEvent{
+		event := foundry.Event{
 			Type:  foundry.EventOutputTextDelta,
 			Delta: "File processed",
 		}
@@ -1048,7 +1049,7 @@ func TestFoundryWorkflowAdapter_InvokeStream_WithFiles(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, ch)
 
-	var chunks []*StreamChunk
+	var chunks []*StreamChunk //nolint:prealloc // length unknown: reading from channel
 	for chunk := range ch {
 		chunks = append(chunks, chunk)
 	}
@@ -1095,7 +1096,7 @@ func TestFoundryWorkflowAdapter_InvokeStreamReader_Success(t *testing.T) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
 
-		events := []foundry.FoundryEvent{
+		events := []foundry.Event{
 			{Type: foundry.EventOutputTextDelta, Delta: "Hello"},
 			{Type: foundry.EventOutputTextDelta, Delta: " World"},
 		}
@@ -1134,7 +1135,7 @@ func TestFoundryWorkflowAdapter_InvokeStreamReader_Success(t *testing.T) {
 	var contents []string
 	for {
 		chunk, err := reader.Read()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -1159,7 +1160,7 @@ func TestFoundryWorkflowAdapter_InvokeStreamReader_WithContextData(t *testing.T)
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
 
-		event := foundry.FoundryEvent{
+		event := foundry.Event{
 			Type:  foundry.EventOutputTextDelta,
 			Delta: "Response",
 		}
@@ -1475,8 +1476,8 @@ func TestFoundryWorkflowAdapter_Invoke_ContextCancellation(t *testing.T) {
 // =============================================================================
 
 func TestN8NWorkflowAdapter_InvokeStreamReader_WithFiles(t *testing.T) {
-	events := []n8n.N8NStreamEvent{
-		{Type: n8n.N8NStreamTypeItem, Content: "File processed"},
+	events := []n8n.StreamEvent{
+		{Type: n8n.StreamTypeItem, Content: "File processed"},
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1526,7 +1527,7 @@ func TestFoundryWorkflowAdapter_InvokeStreamReader_WithFiles(t *testing.T) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
 
-		event := foundry.FoundryEvent{
+		event := foundry.Event{
 			Type:  foundry.EventOutputTextDelta,
 			Delta: "File analyzed",
 		}
@@ -1571,7 +1572,7 @@ func TestFoundryWorkflowAdapter_InvokeStreamReader_WithFiles(t *testing.T) {
 	var contents []string
 	for {
 		chunk, err := reader.Read()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -1586,9 +1587,9 @@ func TestFoundryWorkflowAdapter_InvokeStreamReader_WithFiles(t *testing.T) {
 }
 
 func TestN8NWorkflowAdapter_Invoke_MultipleChunks(t *testing.T) {
-	events := []n8n.N8NStreamEvent{
-		{Type: n8n.N8NStreamTypeItem, Content: "Hello, "},
-		{Type: n8n.N8NStreamTypeItem, Content: "World!"},
+	events := []n8n.StreamEvent{
+		{Type: n8n.StreamTypeItem, Content: "Hello, "},
+		{Type: n8n.StreamTypeItem, Content: "World!"},
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1626,7 +1627,7 @@ func TestFoundryWorkflowAdapter_Invoke_MultipleChunks(t *testing.T) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
 
-		events := []foundry.FoundryEvent{
+		events := []foundry.Event{
 			{Type: foundry.EventOutputTextDelta, Delta: "Hello, "},
 			{Type: foundry.EventOutputTextDelta, Delta: "World!"},
 		}

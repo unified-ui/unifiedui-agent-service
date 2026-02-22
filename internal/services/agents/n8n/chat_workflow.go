@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -115,7 +116,7 @@ func (c *ChatWorkflowClient) Invoke(ctx context.Context, req *InvokeRequest) (*I
 
 	for {
 		chunk, err := reader.Read()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -156,7 +157,7 @@ func (c *ChatWorkflowClient) InvokeStream(ctx context.Context, req *InvokeReques
 
 		for {
 			chunk, err := reader.Read()
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return
 			}
 			if err != nil {
@@ -270,14 +271,14 @@ func (r *streamReader) Read() (*StreamChunk, error) {
 		}
 
 		// Parse N8N stream event
-		var event N8NStreamEvent
+		var event StreamEvent
 		if err := json.Unmarshal([]byte(line), &event); err != nil {
 			// Skip non-JSON lines
 			continue
 		}
 
 		// Only process "item" events with content from AI Agent node
-		if event.Type != N8NStreamTypeItem {
+		if event.Type != StreamTypeItem {
 			continue
 		}
 

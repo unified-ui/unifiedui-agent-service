@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
 	"github.com/unifiedui/agent-service/internal/config"
 	"github.com/unifiedui/agent-service/internal/core/vault"
 )

@@ -15,8 +15,8 @@ const (
 type CredentialType string
 
 const (
-	CredentialTypeN8NAPIKey    CredentialType = "N8N_API_KEY"
-	CredentialTypeN8NBasicAuth CredentialType = "N8N_BASIC_AUTH"
+	CredentialTypeN8NAPIKey    CredentialType = "N8N_API_KEY"    //nolint:gosec // credential type name, not a credential
+	CredentialTypeN8NBasicAuth CredentialType = "N8N_BASIC_AUTH" //nolint:gosec // credential type name, not a credential
 	CredentialTypeBearerToken  CredentialType = "BEARER_TOKEN"
 )
 
@@ -29,7 +29,7 @@ const (
 )
 
 // ServiceConfigResponse represents the config response from platform service (without user data).
-// DEPRECATED: Use ChatAgentConfigResponse instead.
+// Deprecated: Use ChatAgentConfigResponse instead.
 // This is kept for backwards compatibility.
 type ServiceConfigResponse struct {
 	DocVersion  string        `json:"docversion"`

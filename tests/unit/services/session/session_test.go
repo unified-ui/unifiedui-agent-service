@@ -91,7 +91,7 @@ func TestSetSession_Success(t *testing.T) {
 	mockCache.On("Set", ctx, mock.AnythingOfType("string"), mock.Anything, mock.Anything).
 		Return(nil)
 
-	sd := &session.SessionData{
+	sd := &session.Data{
 		TenantID:       "t1",
 		UserID:         "u1",
 		ConversationID: "c1",
@@ -128,7 +128,7 @@ func TestSetAndGetSession_Roundtrip(t *testing.T) {
 			storedData = args.Get(2).([]byte)
 		}).Return(nil)
 
-	sd := session.NewSessionData(
+	sd := session.NewData(
 		&platform.AgentConfig{Settings: platform.AgentSettings{ChatHistoryCount: 10}},
 		[]models.ChatHistoryEntry{{Role: "user", Content: "hi"}},
 		"t1", "u1", "c1",
@@ -222,7 +222,7 @@ func TestUpdateChatHistory_Success(t *testing.T) {
 
 	ctx := context.Background()
 
-	existing := &session.SessionData{
+	existing := &session.Data{
 		Config:         &platform.AgentConfig{Settings: platform.AgentSettings{ChatHistoryCount: 5}},
 		ChatHistory:    []models.ChatHistoryEntry{{Role: "user", Content: "msg1"}},
 		TenantID:       "t1",
@@ -273,7 +273,7 @@ func TestUpdateChatHistory_TrimExcess(t *testing.T) {
 		history[i] = models.ChatHistoryEntry{Role: "user", Content: "m"}
 	}
 
-	existing := &session.SessionData{
+	existing := &session.Data{
 		Config:         &platform.AgentConfig{Settings: platform.AgentSettings{ChatHistoryCount: 5}},
 		ChatHistory:    history,
 		TenantID:       "t1",
@@ -299,16 +299,16 @@ func TestUpdateChatHistory_TrimExcess(t *testing.T) {
 
 	// Decrypt and check trimmed
 	decrypted, _ := enc.Decrypt(string(savedData))
-	var saved session.SessionData
+	var saved session.Data
 	json.Unmarshal(decrypted, &saved)
 	assert.LessOrEqual(t, len(saved.ChatHistory), 5)
 }
 
-func TestNewSessionData(t *testing.T) {
+func TestNewData(t *testing.T) {
 	config := &platform.AgentConfig{Settings: platform.AgentSettings{ChatHistoryCount: 10}}
 	history := []models.ChatHistoryEntry{{Role: "user", Content: "hi"}}
 
-	sd := session.NewSessionData(config, history, "t1", "u1", "c1")
+	sd := session.NewData(config, history, "t1", "u1", "c1")
 	assert.Equal(t, "t1", sd.TenantID)
 	assert.Equal(t, "u1", sd.UserID)
 	assert.Equal(t, "c1", sd.ConversationID)

@@ -22,7 +22,7 @@ func TestErrorMiddleware_Recovery(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/panic", nil)
+	req := httptest.NewRequest(http.MethodGet, "/panic", http.NoBody)
 	router.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusInternalServerError, w.Code)
@@ -32,7 +32,7 @@ func TestErrorMiddleware_Recovery(t *testing.T) {
 func TestHandleError_NilError(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+	c.Request = httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 
 	middleware.HandleError(c, nil)
 	require.Equal(t, http.StatusOK, w.Code)
@@ -41,7 +41,7 @@ func TestHandleError_NilError(t *testing.T) {
 func TestHandleError_DomainError(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+	c.Request = httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 
 	err := domainerrors.NewNotFoundError("Trace", "t-1")
 	middleware.HandleError(c, err)
@@ -53,7 +53,7 @@ func TestHandleError_DomainError(t *testing.T) {
 func TestHandleError_WrappedDomainError(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+	c.Request = httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 
 	inner := domainerrors.NewValidationError("bad input", "field x")
 	wrapped := fmt.Errorf("handler: %w", inner)
@@ -65,7 +65,7 @@ func TestHandleError_WrappedDomainError(t *testing.T) {
 func TestHandleError_PlainError(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+	c.Request = httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 
 	middleware.HandleError(c, fmt.Errorf("something broke"))
 
@@ -78,7 +78,7 @@ func TestNotFound(t *testing.T) {
 	router.NoRoute(middleware.NotFound())
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/nonexistent", nil)
+	req := httptest.NewRequest(http.MethodGet, "/nonexistent", http.NoBody)
 	router.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusNotFound, w.Code)
@@ -92,7 +92,7 @@ func TestMethodNotAllowed(t *testing.T) {
 	router.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/test", nil)
+	req := httptest.NewRequest(http.MethodPost, "/test", http.NoBody)
 	router.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusMethodNotAllowed, w.Code)

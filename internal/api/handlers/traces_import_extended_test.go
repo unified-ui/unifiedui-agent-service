@@ -601,7 +601,7 @@ func setupTestContextWithBody(method, path string, body interface{}, headers map
 		req = httptest.NewRequest(method, path, bytes.NewReader(jsonBody))
 		req.Header.Set("Content-Type", "application/json")
 	} else {
-		req = httptest.NewRequest(method, path, nil)
+		req = httptest.NewRequest(method, path, http.NoBody)
 	}
 
 	for key, value := range headers {
@@ -614,7 +614,7 @@ func setupTestContextWithBody(method, path string, body interface{}, headers map
 
 // setContextParams sets path parameters on a Gin context.
 func setContextParams(c *gin.Context, params map[string]string) {
-	var ginParams []gin.Param
+	ginParams := make([]gin.Param, 0, len(params))
 	for key, value := range params {
 		ginParams = append(ginParams, gin.Param{Key: key, Value: value})
 	}

@@ -15,7 +15,7 @@ type requestConfig struct {
 	headers map[string]string
 }
 
-func (c *client) doRawRequest(ctx context.Context, cfg requestConfig) ([]byte, int, error) {
+func (c *client) doRawRequest(ctx context.Context, cfg requestConfig) (body []byte, statusCode int, err error) {
 	req, err := http.NewRequestWithContext(ctx, cfg.method, cfg.url, cfg.body)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to create request: %w", err)
@@ -32,7 +32,7 @@ func (c *client) doRawRequest(ctx context.Context, cfg requestConfig) ([]byte, i
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err = io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to read response body: %w", err)
 	}
@@ -56,7 +56,7 @@ func checkStatus(statusCode int, body []byte, notFoundMsg string) error {
 	}
 }
 
-func doJSONRequest[T any](c *client, ctx context.Context, cfg requestConfig, notFoundMsg string) (*T, error) {
+func doJSONRequest[T any](ctx context.Context, c *client, cfg requestConfig, notFoundMsg string) (*T, error) {
 	body, statusCode, err := c.doRawRequest(ctx, cfg)
 	if err != nil {
 		return nil, err
@@ -71,7 +71,7 @@ func doJSONRequest[T any](c *client, ctx context.Context, cfg requestConfig, not
 	return &result, nil
 }
 
-func doJSONSliceRequest[T any](c *client, ctx context.Context, cfg requestConfig, notFoundMsg string) ([]T, error) {
+func doJSONSliceRequest[T any](ctx context.Context, c *client, cfg requestConfig, notFoundMsg string) ([]T, error) {
 	body, statusCode, err := c.doRawRequest(ctx, cfg)
 	if err != nil {
 		return nil, err
@@ -86,7 +86,7 @@ func doJSONSliceRequest[T any](c *client, ctx context.Context, cfg requestConfig
 	return result, nil
 }
 
-func doValidateRequest(c *client, ctx context.Context, cfg requestConfig, notFoundMsg string) error {
+func doValidateRequest(ctx context.Context, c *client, cfg requestConfig, notFoundMsg string) error {
 	body, statusCode, err := c.doRawRequest(ctx, cfg)
 	if err != nil {
 		return err

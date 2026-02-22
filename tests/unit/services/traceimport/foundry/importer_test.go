@@ -13,8 +13,8 @@ import (
 
 	"github.com/unifiedui/agent-service/internal/domain/models"
 	"github.com/unifiedui/agent-service/internal/services/platform"
-	foundryimport "github.com/unifiedui/agent-service/internal/services/traceimport/foundry"
 	"github.com/unifiedui/agent-service/internal/services/traceimport"
+	foundryimport "github.com/unifiedui/agent-service/internal/services/traceimport/foundry"
 	"github.com/unifiedui/agent-service/tests/mocks"
 )
 

@@ -24,7 +24,7 @@ func TestServiceKeyMiddleware_MissingHeader(t *testing.T) {
 	router.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
 	router.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusUnauthorized, w.Code)
@@ -40,7 +40,7 @@ func TestServiceKeyMiddleware_EmptyKeyName(t *testing.T) {
 	router.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
 	req.Header.Set("X-Service-Key", "some-key")
 	router.ServeHTTP(w, req)
 
@@ -58,7 +58,7 @@ func TestServiceKeyMiddleware_InvalidKey(t *testing.T) {
 	router.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
 	req.Header.Set("X-Service-Key", "wrong-key")
 	router.ServeHTTP(w, req)
 
@@ -76,7 +76,7 @@ func TestServiceKeyMiddleware_ValidKey(t *testing.T) {
 	router.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
 	req.Header.Set("X-Service-Key", "correct-key")
 	router.ServeHTTP(w, req)
 

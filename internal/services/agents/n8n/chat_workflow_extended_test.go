@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"github.com/unifiedui/agent-service/internal/domain/models"
 )
 
@@ -20,7 +21,7 @@ import (
 // =============================================================================
 
 // createSSEResponse creates a Server-Sent Events formatted response
-func createSSEResponse(events []N8NStreamEvent) string {
+func createSSEResponse(events []StreamEvent) string {
 	var sb strings.Builder
 	for _, event := range events {
 		data, _ := json.Marshal(event)
@@ -112,8 +113,8 @@ func TestNewChatWorkflowClient_WithoutCredentials(t *testing.T) {
 // =============================================================================
 
 func TestInvoke_ValidResponse_SingleChunk(t *testing.T) {
-	events := []N8NStreamEvent{
-		{Type: N8NStreamTypeItem, Content: "Hello, how can I help you?"},
+	events := []StreamEvent{
+		{Type: StreamTypeItem, Content: "Hello, how can I help you?"},
 	}
 
 	server := createTestServer(func(w http.ResponseWriter, r *http.Request) {
@@ -145,12 +146,12 @@ func TestInvoke_ValidResponse_SingleChunk(t *testing.T) {
 }
 
 func TestInvoke_ValidResponse_MultipleChunks(t *testing.T) {
-	events := []N8NStreamEvent{
-		{Type: N8NStreamTypeBegin},
-		{Type: N8NStreamTypeItem, Content: "Hello, "},
-		{Type: N8NStreamTypeItem, Content: "I am an AI assistant. "},
-		{Type: N8NStreamTypeItem, Content: "How can I help you today?"},
-		{Type: N8NStreamTypeEnd},
+	events := []StreamEvent{
+		{Type: StreamTypeBegin},
+		{Type: StreamTypeItem, Content: "Hello, "},
+		{Type: StreamTypeItem, Content: "I am an AI assistant. "},
+		{Type: StreamTypeItem, Content: "How can I help you today?"},
+		{Type: StreamTypeEnd},
 	}
 
 	server := createTestServer(func(w http.ResponseWriter, r *http.Request) {
@@ -180,9 +181,9 @@ func TestInvoke_ValidResponse_MultipleChunks(t *testing.T) {
 }
 
 func TestInvoke_WithMetadata(t *testing.T) {
-	events := []N8NStreamEvent{
-		{Type: N8NStreamTypeItem, Content: "Response content"},
-		{Type: N8NStreamTypeItem, Content: `{"executionId":"exec-123"}`},
+	events := []StreamEvent{
+		{Type: StreamTypeItem, Content: "Response content"},
+		{Type: StreamTypeItem, Content: `{"executionId":"exec-123"}`},
 	}
 
 	server := createTestServer(func(w http.ResponseWriter, r *http.Request) {
@@ -219,8 +220,8 @@ func TestInvoke_WithChatHistory(t *testing.T) {
 		receivedBody, _ = io.ReadAll(r.Body)
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
-		events := []N8NStreamEvent{
-			{Type: N8NStreamTypeItem, Content: "Response"},
+		events := []StreamEvent{
+			{Type: StreamTypeItem, Content: "Response"},
 		}
 		w.Write([]byte(createSSEResponse(events)))
 	})
@@ -263,12 +264,12 @@ func TestInvoke_WithChatHistory(t *testing.T) {
 // =============================================================================
 
 func TestInvokeStream_ValidSSEResponse(t *testing.T) {
-	events := []N8NStreamEvent{
-		{Type: N8NStreamTypeBegin},
-		{Type: N8NStreamTypeItem, Content: "First chunk"},
-		{Type: N8NStreamTypeItem, Content: "Second chunk"},
-		{Type: N8NStreamTypeItem, Content: "Third chunk"},
-		{Type: N8NStreamTypeEnd},
+	events := []StreamEvent{
+		{Type: StreamTypeBegin},
+		{Type: StreamTypeItem, Content: "First chunk"},
+		{Type: StreamTypeItem, Content: "Second chunk"},
+		{Type: StreamTypeItem, Content: "Third chunk"},
+		{Type: StreamTypeEnd},
 	}
 
 	server := createTestServer(func(w http.ResponseWriter, r *http.Request) {
@@ -295,7 +296,7 @@ func TestInvokeStream_ValidSSEResponse(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, ch)
 
-	var chunks []*StreamChunk
+	var chunks []*StreamChunk //nolint:prealloc // length unknown: reading from channel
 	for chunk := range ch {
 		chunks = append(chunks, chunk)
 	}
@@ -312,8 +313,8 @@ func TestInvokeStream_ContextCancellation(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 		// Simulate slow response
 		time.Sleep(100 * time.Millisecond)
-		events := []N8NStreamEvent{
-			{Type: N8NStreamTypeItem, Content: "Should not arrive"},
+		events := []StreamEvent{
+			{Type: StreamTypeItem, Content: "Should not arrive"},
 		}
 		w.Write([]byte(createSSEResponse(events)))
 	})
@@ -477,7 +478,7 @@ func TestInvokeStream_InvalidJSON(t *testing.T) {
 	ch, err := client.InvokeStream(context.Background(), req)
 	require.NoError(t, err)
 
-	var chunks []*StreamChunk
+	var chunks []*StreamChunk //nolint:prealloc // length unknown: reading from channel
 	for chunk := range ch {
 		chunks = append(chunks, chunk)
 	}
@@ -511,7 +512,7 @@ func TestInvokeStream_EmptyResponse(t *testing.T) {
 	ch, err := client.InvokeStream(context.Background(), req)
 	require.NoError(t, err)
 
-	var chunks []*StreamChunk
+	var chunks []*StreamChunk //nolint:prealloc // length unknown: reading from channel
 	for chunk := range ch {
 		chunks = append(chunks, chunk)
 	}
@@ -530,8 +531,8 @@ func TestInvoke_BasicAuth(t *testing.T) {
 		receivedAuth = r.Header.Get("Authorization")
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
-		events := []N8NStreamEvent{
-			{Type: N8NStreamTypeItem, Content: "Authenticated response"},
+		events := []StreamEvent{
+			{Type: StreamTypeItem, Content: "Authenticated response"},
 		}
 		w.Write([]byte(createSSEResponse(events)))
 	})
@@ -565,8 +566,8 @@ func TestInvoke_NoAuth(t *testing.T) {
 		receivedAuth = r.Header.Get("Authorization")
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
-		events := []N8NStreamEvent{
-			{Type: N8NStreamTypeItem, Content: "Response without auth"},
+		events := []StreamEvent{
+			{Type: StreamTypeItem, Content: "Response without auth"},
 		}
 		w.Write([]byte(createSSEResponse(events)))
 	})
@@ -602,8 +603,8 @@ func TestInvoke_CorrectHeaders(t *testing.T) {
 		receivedHeaders = r.Header.Clone()
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
-		events := []N8NStreamEvent{
-			{Type: N8NStreamTypeItem, Content: "Response"},
+		events := []StreamEvent{
+			{Type: StreamTypeItem, Content: "Response"},
 		}
 		w.Write([]byte(createSSEResponse(events)))
 	})
@@ -639,8 +640,8 @@ func TestInvoke_CorrectRequestBody(t *testing.T) {
 		receivedBody, _ = io.ReadAll(r.Body)
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
-		events := []N8NStreamEvent{
-			{Type: N8NStreamTypeItem, Content: "Response"},
+		events := []StreamEvent{
+			{Type: StreamTypeItem, Content: "Response"},
 		}
 		w.Write([]byte(createSSEResponse(events)))
 	})
@@ -675,8 +676,8 @@ func TestInvoke_WithFileAttachments(t *testing.T) {
 		receivedBody, _ = io.ReadAll(r.Body)
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
-		events := []N8NStreamEvent{
-			{Type: N8NStreamTypeItem, Content: "Response with files"},
+		events := []StreamEvent{
+			{Type: StreamTypeItem, Content: "Response with files"},
 		}
 		w.Write([]byte(createSSEResponse(events)))
 	})
@@ -724,8 +725,8 @@ func TestInvoke_WithFileAttachments(t *testing.T) {
 // =============================================================================
 
 func TestStreamReader_Read_ValidContent(t *testing.T) {
-	events := []N8NStreamEvent{
-		{Type: N8NStreamTypeItem, Content: "Test content"},
+	events := []StreamEvent{
+		{Type: StreamTypeItem, Content: "Test content"},
 	}
 	responseBody := createSSEResponse(events)
 
@@ -793,8 +794,8 @@ func TestStreamReader_Close(t *testing.T) {
 	server := createTestServer(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
-		events := []N8NStreamEvent{
-			{Type: N8NStreamTypeItem, Content: "Content"},
+		events := []StreamEvent{
+			{Type: StreamTypeItem, Content: "Content"},
 		}
 		w.Write([]byte(createSSEResponse(events)))
 	})

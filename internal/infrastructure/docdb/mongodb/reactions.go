@@ -3,6 +3,7 @@ package mongodb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -76,7 +77,7 @@ func (c *ReactionsCollection) Get(ctx context.Context, opts *docdb.UpsertReactio
 	var reaction models.MessageReaction
 	err := c.collection.FindOne(ctx, filter).Decode(&reaction)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
+		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to get reaction: %w", err)

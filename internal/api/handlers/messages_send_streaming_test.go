@@ -132,7 +132,7 @@ func (m *mockWorkflowClient) Close() error {
 func createStreamingTestContextWithResponseWriter(rw http.ResponseWriter) *gin.Context {
 	gin.SetMode(gin.TestMode)
 	c, _ := gin.CreateTestContext(rw)
-	c.Request = httptest.NewRequest(http.MethodPost, "/messages", nil)
+	c.Request = httptest.NewRequest(http.MethodPost, "/messages", http.NoBody)
 	return c
 }
 
@@ -334,7 +334,7 @@ func TestHandleDefaultStreaming_ContextCancellation(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	handler := createStreamingTestHandler(mockDocDB, nil)
 
-	// Create a cancelled context
+	// Create a canceled context
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
@@ -364,7 +364,7 @@ func TestHandleDefaultStreaming_ContextCancellation(t *testing.T) {
 	)
 
 	assert.True(t, streamReader.closed)
-	assert.Equal(t, models.MessageStatusCancelled, assistantMessage.Status)
+	assert.Equal(t, models.MessageStatusCanceled, assistantMessage.Status)
 }
 
 func TestHandleDefaultStreaming_StreamReadError(t *testing.T) {
@@ -643,7 +643,7 @@ func TestHandleFoundryStreaming_ContextCancellation(t *testing.T) {
 	)
 
 	assert.True(t, streamReader.closed)
-	assert.Equal(t, models.MessageStatusCancelled, assistantMessage.Status)
+	assert.Equal(t, models.MessageStatusCanceled, assistantMessage.Status)
 }
 
 func TestHandleFoundryStreaming_StreamReadError(t *testing.T) {
@@ -1131,10 +1131,10 @@ func TestGetStringFromMap_NilValue(t *testing.T) {
 }
 
 // =============================================================================
-// saveCancelledAssistantMessage Tests
+// saveCanceledAssistantMessage Tests
 // =============================================================================
 
-func TestSaveCancelledAssistantMessage_SetsCorrectStatus(t *testing.T) {
+func TestSaveCanceledAssistantMessage_SetsCorrectStatus(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	handler := createStreamingTestHandler(mockDocDB, nil)
 
@@ -1144,9 +1144,9 @@ func TestSaveCancelledAssistantMessage_SetsCorrectStatus(t *testing.T) {
 
 	mockDocDB.GetMessagesCollection().On("Add", mock.Anything, mock.Anything).Return(nil)
 
-	handler.saveCancelledAssistantMessage(msg, "partial content", agentConfig, startTime)
+	handler.saveCanceledAssistantMessage(msg, "partial content", agentConfig, startTime)
 
-	assert.Equal(t, models.MessageStatusCancelled, msg.Status)
+	assert.Equal(t, models.MessageStatusCanceled, msg.Status)
 	assert.Equal(t, "partial content", msg.Content)
 	assert.NotNil(t, msg.Metadata)
 	assert.Greater(t, msg.Metadata.LatencyMs, int64(0))

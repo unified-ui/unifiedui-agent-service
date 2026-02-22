@@ -210,9 +210,9 @@ func TestSaveFailedAssistantMessage_DBErrorIgnored(t *testing.T) {
 	mockDocDB.GetMessagesCollection().AssertExpectations(t)
 }
 
-// --- saveCancelledAssistantMessage Tests ---
+// --- saveCanceledAssistantMessage Tests ---
 
-func TestSaveCancelledAssistantMessage_Success(t *testing.T) {
+func TestSaveCanceledAssistantMessage_Success(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockSession := &mocks.MockSessionService{}
 	importService := mocks.NewMockImportService(mockDocDB)
@@ -224,15 +224,15 @@ func TestSaveCancelledAssistantMessage_Success(t *testing.T) {
 	startTime := time.Now().Add(-500 * time.Millisecond)
 
 	mockDocDB.GetMessagesCollection().On("Add", mock.Anything, mock.MatchedBy(func(m *models.Message) bool {
-		return m.Status == models.MessageStatusCancelled &&
+		return m.Status == models.MessageStatusCanceled &&
 			m.Content == partialContent &&
 			m.Metadata != nil &&
 			m.Metadata.LatencyMs > 0
 	})).Return(nil)
 
-	handler.saveCancelledAssistantMessage(msg, partialContent, agentConfig, startTime)
+	handler.saveCanceledAssistantMessage(msg, partialContent, agentConfig, startTime)
 
-	assert.Equal(t, models.MessageStatusCancelled, msg.Status)
+	assert.Equal(t, models.MessageStatusCanceled, msg.Status)
 	assert.Equal(t, partialContent, msg.Content)
 	assert.NotNil(t, msg.Metadata)
 	assert.Greater(t, msg.Metadata.LatencyMs, int64(0))
@@ -240,7 +240,7 @@ func TestSaveCancelledAssistantMessage_Success(t *testing.T) {
 	mockDocDB.GetMessagesCollection().AssertExpectations(t)
 }
 
-func TestSaveCancelledAssistantMessage_WithExistingMetadata(t *testing.T) {
+func TestSaveCanceledAssistantMessage_WithExistingMetadata(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockSession := &mocks.MockSessionService{}
 	importService := mocks.NewMockImportService(mockDocDB)
@@ -256,7 +256,7 @@ func TestSaveCancelledAssistantMessage_WithExistingMetadata(t *testing.T) {
 
 	mockDocDB.GetMessagesCollection().On("Add", mock.Anything, mock.Anything).Return(nil)
 
-	handler.saveCancelledAssistantMessage(msg, "partial", agentConfig, startTime)
+	handler.saveCanceledAssistantMessage(msg, "partial", agentConfig, startTime)
 
 	assert.Equal(t, "gpt-4", msg.Metadata.Model)
 	assert.Equal(t, "exec-123", msg.Metadata.ExecutionID)
@@ -264,7 +264,7 @@ func TestSaveCancelledAssistantMessage_WithExistingMetadata(t *testing.T) {
 	mockDocDB.GetMessagesCollection().AssertExpectations(t)
 }
 
-func TestSaveCancelledAssistantMessage_EmptyContent(t *testing.T) {
+func TestSaveCanceledAssistantMessage_EmptyContent(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockSession := &mocks.MockSessionService{}
 	importService := mocks.NewMockImportService(mockDocDB)
@@ -276,9 +276,9 @@ func TestSaveCancelledAssistantMessage_EmptyContent(t *testing.T) {
 
 	mockDocDB.GetMessagesCollection().On("Add", mock.Anything, mock.Anything).Return(nil)
 
-	handler.saveCancelledAssistantMessage(msg, "", agentConfig, startTime)
+	handler.saveCanceledAssistantMessage(msg, "", agentConfig, startTime)
 
-	assert.Equal(t, models.MessageStatusCancelled, msg.Status)
+	assert.Equal(t, models.MessageStatusCanceled, msg.Status)
 	assert.Equal(t, "", msg.Content)
 	mockDocDB.GetMessagesCollection().AssertExpectations(t)
 }
@@ -324,7 +324,7 @@ func TestUpdateSessionCache_NewSession(t *testing.T) {
 		Return(nil, nil)
 
 	// SetSession should be called with new session
-	mockSession.On("SetSession", mock.Anything, mock.MatchedBy(func(s *session.SessionData) bool {
+	mockSession.On("SetSession", mock.Anything, mock.MatchedBy(func(s *session.Data) bool {
 		return s.TenantID == tenantCtx.TenantID &&
 			s.UserID == tenantCtx.UserID &&
 			s.ConversationID == userMsg.ConversationID &&
@@ -348,7 +348,7 @@ func TestUpdateSessionCache_ExistingSessionUpdated(t *testing.T) {
 	assistantMsg := createTestAssistantMessage()
 	assistantMsg.Content = "Response"
 
-	existingSession := &session.SessionData{
+	existingSession := &session.Data{
 		TenantID:       tenantCtx.TenantID,
 		UserID:         tenantCtx.UserID,
 		ConversationID: userMsg.ConversationID,
@@ -406,7 +406,7 @@ func TestUpdateSessionCacheConfigOnly_NoExistingSession(t *testing.T) {
 	mockSession.On("GetSession", mock.Anything, tenantCtx.TenantID, tenantCtx.UserID, conversationID).
 		Return(nil, nil)
 
-	mockSession.On("SetSession", mock.Anything, mock.MatchedBy(func(s *session.SessionData) bool {
+	mockSession.On("SetSession", mock.Anything, mock.MatchedBy(func(s *session.Data) bool {
 		return s.TenantID == tenantCtx.TenantID &&
 			s.UserID == tenantCtx.UserID &&
 			s.ConversationID == conversationID &&
@@ -428,7 +428,7 @@ func TestUpdateSessionCacheConfigOnly_ExistingSessionSkipped(t *testing.T) {
 	agentConfig := createTestAgentConfig(platform.AgentTypeFoundry)
 	conversationID := "conv-789"
 
-	existingSession := &session.SessionData{
+	existingSession := &session.Data{
 		TenantID: tenantCtx.TenantID,
 	}
 

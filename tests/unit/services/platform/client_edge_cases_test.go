@@ -29,7 +29,7 @@ func TestGetAgentConfigFromFile_DirectoryInsteadOfFile(t *testing.T) {
 func TestGetAgentConfigFromFile_EmptyFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	configFile := filepath.Join(tmpDir, "empty.json")
-	os.WriteFile(configFile, []byte(""), 0644)
+	os.WriteFile(configFile, []byte(""), 0o644)
 
 	client := platform.NewClient(&platform.ClientConfig{ConfigPath: configFile})
 	_, err := client.GetAgentConfigFromFile(context.Background(), "tenant1", "agent1")
@@ -59,7 +59,7 @@ func TestGetAgentConfigFromFile_FullConfig(t *testing.T) {
 		},
 	}
 	data, _ := json.Marshal(config)
-	os.WriteFile(configFile, data, 0644)
+	os.WriteFile(configFile, data, 0o644)
 
 	client := platform.NewClient(&platform.ClientConfig{ConfigPath: configFile})
 	result, err := client.GetAgentConfigFromFile(context.Background(), "tenant1", "agent1")

@@ -118,7 +118,7 @@ func TestService_GetSession_Success(t *testing.T) {
 	userID := "user-456"
 	conversationID := "conv-789"
 
-	sessionData := &session.SessionData{
+	sessionData := &session.Data{
 		Config:         &platform.AgentConfig{TenantID: tenantID},
 		ChatHistory:    []models.ChatHistoryEntry{{Role: models.MessageTypeUser, Content: "Hello"}},
 		TenantID:       tenantID,
@@ -273,7 +273,7 @@ func TestService_SetSession_Success(t *testing.T) {
 	svc, err := session.NewService(cfg)
 	require.NoError(t, err)
 
-	sessionData := &session.SessionData{
+	sessionData := &session.Data{
 		Config:         &platform.AgentConfig{TenantID: "tenant-123"},
 		TenantID:       "tenant-123",
 		UserID:         "user-456",
@@ -376,7 +376,7 @@ func TestService_UpdateChatHistory_Success(t *testing.T) {
 	userID := "user-456"
 	conversationID := "conv-789"
 
-	existingSession := &session.SessionData{
+	existingSession := &session.Data{
 		Config: &platform.AgentConfig{
 			TenantID: tenantID,
 			Settings: platform.AgentSettings{

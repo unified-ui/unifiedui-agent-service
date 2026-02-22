@@ -3,6 +3,7 @@ package mongodb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -54,7 +55,7 @@ func (c *MessagesCollection) Get(ctx context.Context, id string) (*models.Messag
 	var message models.Message
 	err := c.collection.FindOne(ctx, bson.M{"_id": id}).Decode(&message)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
+		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to get message: %w", err)
@@ -72,7 +73,7 @@ func (c *MessagesCollection) GetByUserMessageID(ctx context.Context, userMessage
 	var message models.Message
 	err := c.collection.FindOne(ctx, filter).Decode(&message)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
+		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to get assistant message by user message ID: %w", err)

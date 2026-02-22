@@ -45,7 +45,7 @@ type Service interface {
 	TraceChat(ctx context.Context, tenantID string, request TraceChatInput) (string, error)
 
 	// TestModel tests an LLM model configuration by sending a simple ping.
-	TestModel(ctx context.Context, provider string, config map[string]interface{}, credentialSecret map[string]interface{}) (*TestModelResult, error)
+	TestModel(ctx context.Context, provider string, config, credentialSecret map[string]interface{}) (*TestModelResult, error)
 
 	// GetCapabilities returns the available AI capabilities for a tenant.
 	GetCapabilities(ctx context.Context, tenantID string) (*Capabilities, error)
@@ -93,12 +93,12 @@ type Capabilities struct {
 }
 
 // NewLLMClient creates a new LLM client based on the provider configuration.
-func NewLLMClient(provider string, config map[string]interface{}, credentialSecret map[string]interface{}) (LLMClient, error) {
+func NewLLMClient(provider string, config, credentialSecret map[string]interface{}) (LLMClient, error) {
 	return NewLLMClientWithBaseURL(provider, config, credentialSecret, "")
 }
 
 // NewLLMClientWithBaseURL creates a new LLM client with a custom base URL for testing.
-func NewLLMClientWithBaseURL(provider string, config map[string]interface{}, credentialSecret map[string]interface{}, baseURL string) (LLMClient, error) {
+func NewLLMClientWithBaseURL(provider string, config, credentialSecret map[string]interface{}, baseURL string) (LLMClient, error) {
 	apiKey := ""
 	if credentialSecret != nil {
 		if key, ok := credentialSecret["api_key"].(string); ok {

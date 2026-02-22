@@ -165,7 +165,7 @@ func (f *TraceImporter) Import(ctx context.Context, req *traceimport.ImportReque
 }
 
 // fetchConversationItems fetches conversation items from Microsoft Foundry.
-func (f *TraceImporter) fetchConversationItems(ctx context.Context, config *FoundryConfig) (*ConversationItemsResponse, error) {
+func (f *TraceImporter) fetchConversationItems(ctx context.Context, config *Config) (*ConversationItemsResponse, error) {
 	// Build URL: {PROJECT_ENDPOINT}/openai/conversations/{FOUNDRY_CONV_ID}/items?api-version={VERSION}
 	url := fmt.Sprintf("%s/openai/conversations/%s/items?api-version=%s",
 		config.ProjectEndpoint,
@@ -174,7 +174,7 @@ func (f *TraceImporter) fetchConversationItems(ctx context.Context, config *Foun
 	)
 
 	// Create request
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

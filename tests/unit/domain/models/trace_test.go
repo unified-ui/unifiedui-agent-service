@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
 	"github.com/unifiedui/agent-service/internal/domain/models"
 )
 
@@ -200,7 +201,7 @@ func TestTrace_Validate_InvalidNode(t *testing.T) {
 func TestNodeStatus_IsValid(t *testing.T) {
 	valid := []models.NodeStatus{
 		models.NodeStatusPending, models.NodeStatusRunning, models.NodeStatusCompleted,
-		models.NodeStatusFailed, models.NodeStatusSkipped, models.NodeStatusCancelled,
+		models.NodeStatusFailed, models.NodeStatusSkipped, models.NodeStatusCanceled,
 	}
 
 	for _, s := range valid {

@@ -120,7 +120,8 @@ func (h *TracesHandler) CreateTrace(c *gin.Context) {
 		authToken := middleware.GetToken(c)
 		apiKey := middleware.GetAutonomousAgentAPIKey(c)
 
-		if authToken != "" {
+		switch {
+		case authToken != "":
 			if domainErr := h.resolveAutonomousAgentFromBearer(ctx, tenantID, req.AutonomousAgentID, authToken); domainErr != nil {
 				middleware.HandleError(c, domainErr)
 				return
@@ -132,13 +133,13 @@ func (h *TracesHandler) CreateTrace(c *gin.Context) {
 				return
 			}
 			userID = uid
-		} else if apiKey != "" {
+		case apiKey != "":
 			if domainErr := h.resolveUserIDFromAPIKey(ctx, tenantID, req.AutonomousAgentID, apiKey); domainErr != nil {
 				middleware.HandleError(c, domainErr)
 				return
 			}
 			userID = "autonomous-agent-" + req.AutonomousAgentID
-		} else {
+		default:
 			middleware.HandleError(c, errors.NewUnauthorizedError("Bearer token or X-Unified-UI-Autonomous-Agent-API-Key header required for autonomous agent traces"))
 			return
 		}

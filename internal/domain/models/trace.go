@@ -21,8 +21,8 @@ const (
 	NodeStatusFailed NodeStatus = "failed"
 	// NodeStatusSkipped indicates the node was skipped.
 	NodeStatusSkipped NodeStatus = "skipped"
-	// NodeStatusCancelled indicates the node was cancelled.
-	NodeStatusCancelled NodeStatus = "cancelled"
+	// NodeStatusCanceled indicates the node was canceled.
+	NodeStatusCanceled NodeStatus = "cancelled" //nolint:misspell // value must stay "cancelled" for external API compatibility
 )
 
 // NodeType represents the type of a trace node.
@@ -266,8 +266,8 @@ func (t *Trace) Validate() error {
 	}
 
 	// Validate nodes
-	for _, node := range t.Nodes {
-		if err := node.Validate(); err != nil {
+	for i := range t.Nodes {
+		if err := t.Nodes[i].Validate(); err != nil {
 			return err
 		}
 	}
@@ -279,7 +279,7 @@ func (t *Trace) Validate() error {
 func (s NodeStatus) IsValid() bool {
 	switch s {
 	case NodeStatusPending, NodeStatusRunning, NodeStatusCompleted,
-		NodeStatusFailed, NodeStatusSkipped, NodeStatusCancelled:
+		NodeStatusFailed, NodeStatusSkipped, NodeStatusCanceled:
 		return true
 	}
 	return false
@@ -313,8 +313,8 @@ func (n *TraceNode) Validate() error {
 	}
 
 	// Validate sub-nodes recursively
-	for _, subNode := range n.Nodes {
-		if err := subNode.Validate(); err != nil {
+	for i := range n.Nodes {
+		if err := n.Nodes[i].Validate(); err != nil {
 			return err
 		}
 	}

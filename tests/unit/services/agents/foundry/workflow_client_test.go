@@ -4,6 +4,7 @@ package foundry_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -121,7 +122,7 @@ func TestInvokeStreamReader_Success(t *testing.T) {
 		body, err := io.ReadAll(r.Body)
 		require.NoError(t, err)
 
-		var payload foundry.FoundryRequestPayload
+		var payload foundry.RequestPayload
 		err = json.Unmarshal(body, &payload)
 		require.NoError(t, err)
 		assert.Equal(t, "agent_reference", payload.Agent.Type)
@@ -159,7 +160,7 @@ func TestInvokeStreamReader_Success(t *testing.T) {
 	var chunks []*foundry.StreamChunk
 	for {
 		chunk, err := reader.Read()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -303,7 +304,7 @@ func TestStreamReader_ParseWorkflowAction(t *testing.T) {
 	var hasContent bool
 	for {
 		chunk, err := reader.Read()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -382,7 +383,7 @@ func TestStreamReader_MultipleMessages(t *testing.T) {
 	var contentChunks []string
 	for {
 		chunk, err := reader.Read()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {

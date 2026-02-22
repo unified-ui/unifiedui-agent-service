@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	stderrors "errors"
 	"io"
 	"strings"
 	"time"
@@ -205,11 +206,11 @@ func (h *MessagesHandler) handleStreamingResponse(
 	streamReader, err := agentClients.WorkflowClient.InvokeStreamReader(ctx, invokeReq)
 	if err != nil {
 		errorMsg := "Failed to invoke agent: " + err.Error()
-		writer.WriteStreamStart(assistantMessage.ID, userMessage.ConversationID)
-		writer.WriteStreamError("STREAM_ERROR", errorMsg, err.Error())
-		writer.WriteStreamEnd()
+		_ = writer.WriteStreamStart(assistantMessage.ID, userMessage.ConversationID)
+		_ = writer.WriteStreamError("STREAM_ERROR", errorMsg, err.Error())
+		_ = writer.WriteStreamEnd()
 		h.saveFailedAssistantMessage(ctx, assistantMessage, errorMsg)
-		writer.WriteMessageComplete(assistantMessage)
+		_ = writer.WriteMessageComplete(assistantMessage)
 		return
 	}
 	defer streamReader.Close()
@@ -250,40 +251,40 @@ func (h *MessagesHandler) handleDefaultStreaming(
 	var fullContent string
 	var executionID string
 
-	writer.WriteStreamStart(assistantMessage.ID, userMessage.ConversationID)
+	_ = writer.WriteStreamStart(assistantMessage.ID, userMessage.ConversationID)
 
 	for {
 		select {
 		case <-ctx.Done():
 			streamReader.Close()
-			writer.WriteStreamEnd()
-			h.saveCancelledAssistantMessage(assistantMessage, fullContent, agentConfig, startTime)
+			_ = writer.WriteStreamEnd()
+			h.saveCanceledAssistantMessage(assistantMessage, fullContent, agentConfig, startTime)
 			return executionID
 		default:
 		}
 
 		chunk, err := streamReader.Read()
-		if err == io.EOF {
+		if stderrors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
 			if ctx.Err() != nil {
 				streamReader.Close()
-				h.saveCancelledAssistantMessage(assistantMessage, fullContent, agentConfig, startTime)
+				h.saveCanceledAssistantMessage(assistantMessage, fullContent, agentConfig, startTime)
 				return executionID
 			}
 			errorMsg := "Stream error: " + err.Error()
-			writer.WriteStreamError("STREAM_ERROR", errorMsg, err.Error())
+			_ = writer.WriteStreamError("STREAM_ERROR", errorMsg, err.Error())
 			h.saveFailedAssistantMessage(ctx, assistantMessage, errorMsg)
-			writer.WriteStreamEnd()
-			writer.WriteMessageComplete(assistantMessage)
+			_ = writer.WriteStreamEnd()
+			_ = writer.WriteMessageComplete(assistantMessage)
 			return executionID
 		}
 
 		switch chunk.Type {
 		case agents.ChunkTypeContent:
 			fullContent += chunk.Content
-			writer.WriteTextStream(chunk.Content)
+			_ = writer.WriteTextStream(chunk.Content)
 		case agents.ChunkTypeMetadata:
 			if chunk.ExecutionID != "" {
 				executionID = chunk.ExecutionID
@@ -295,16 +296,16 @@ func (h *MessagesHandler) handleDefaultStreaming(
 		case agents.ChunkTypeError:
 			if chunk.Error != nil {
 				errorMsg := chunk.Error.Error()
-				writer.WriteStreamError("CHUNK_ERROR", errorMsg, errorMsg)
-				writer.WriteStreamEnd()
+				_ = writer.WriteStreamError("CHUNK_ERROR", errorMsg, errorMsg)
+				_ = writer.WriteStreamEnd()
 				h.saveFailedAssistantMessage(ctx, assistantMessage, errorMsg)
-				writer.WriteMessageComplete(assistantMessage)
+				_ = writer.WriteMessageComplete(assistantMessage)
 				return executionID
 			}
 		}
 	}
 
-	writer.WriteStreamEnd()
+	_ = writer.WriteStreamEnd()
 
 	latencyMs := time.Since(startTime).Milliseconds()
 
@@ -316,7 +317,7 @@ func (h *MessagesHandler) handleDefaultStreaming(
 	assistantMessage.Metadata.AgentType = string(agentConfig.Type)
 
 	if err := h.docDBClient.Messages().Add(ctx, assistantMessage); err == nil {
-		writer.WriteMessageComplete(assistantMessage)
+		_ = writer.WriteMessageComplete(assistantMessage)
 	}
 
 	return executionID
@@ -341,7 +342,7 @@ func (h *MessagesHandler) handleFoundryStreaming(
 			h.saveAssistantMessageWithMetadata(ctx, currentMessage, agentConfig, startTime)
 		}
 
-		writer.WriteJSON(sse.EventMessage, &sse.StreamMessage{
+		_ = writer.WriteJSON(sse.EventMessage, &sse.StreamMessage{
 			Type: "STREAM_NEW_MESSAGE",
 		})
 
@@ -357,43 +358,43 @@ func (h *MessagesHandler) handleFoundryStreaming(
 		allMessages = append(allMessages, currentMessage)
 		currentContent = ""
 
-		writer.WriteStreamStart(currentMessage.ID, userMessage.ConversationID)
+		_ = writer.WriteStreamStart(currentMessage.ID, userMessage.ConversationID)
 	}
 
-	writer.WriteStreamStart(currentMessage.ID, userMessage.ConversationID)
+	_ = writer.WriteStreamStart(currentMessage.ID, userMessage.ConversationID)
 
 	for {
 		select {
 		case <-ctx.Done():
 			streamReader.Close()
-			writer.WriteStreamEnd()
-			h.saveCancelledAssistantMessage(currentMessage, currentContent, agentConfig, startTime)
+			_ = writer.WriteStreamEnd()
+			h.saveCanceledAssistantMessage(currentMessage, currentContent, agentConfig, startTime)
 			return
 		default:
 		}
 
 		chunk, err := streamReader.Read()
-		if err == io.EOF {
+		if stderrors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
 			if ctx.Err() != nil {
 				streamReader.Close()
-				h.saveCancelledAssistantMessage(currentMessage, currentContent, agentConfig, startTime)
+				h.saveCanceledAssistantMessage(currentMessage, currentContent, agentConfig, startTime)
 				return
 			}
 			errorMsg := "Stream error: " + err.Error()
-			writer.WriteStreamError("STREAM_ERROR", errorMsg, err.Error())
+			_ = writer.WriteStreamError("STREAM_ERROR", errorMsg, err.Error())
 			h.saveFailedAssistantMessage(ctx, currentMessage, errorMsg)
-			writer.WriteStreamEnd()
-			writer.WriteMessageComplete(currentMessage)
+			_ = writer.WriteStreamEnd()
+			_ = writer.WriteMessageComplete(currentMessage)
 			return
 		}
 
 		switch chunk.Type {
 		case agents.ChunkTypeContent:
 			currentContent += chunk.Content
-			writer.WriteTextStream(chunk.Content)
+			_ = writer.WriteTextStream(chunk.Content)
 
 		case agents.ChunkTypeNewMessage:
 			saveCurrentAndStartNew()
@@ -423,21 +424,21 @@ func (h *MessagesHandler) handleFoundryStreaming(
 		case agents.ChunkTypeError:
 			if chunk.Error != nil {
 				errorMsg := chunk.Error.Error()
-				writer.WriteStreamError("CHUNK_ERROR", errorMsg, errorMsg)
-				writer.WriteStreamEnd()
+				_ = writer.WriteStreamError("CHUNK_ERROR", errorMsg, errorMsg)
+				_ = writer.WriteStreamEnd()
 				h.saveFailedAssistantMessage(ctx, currentMessage, errorMsg)
-				writer.WriteMessageComplete(currentMessage)
+				_ = writer.WriteMessageComplete(currentMessage)
 				return
 			}
 		}
 	}
 
-	writer.WriteStreamEnd()
+	_ = writer.WriteStreamEnd()
 
 	currentMessage.SetSuccess(currentContent)
 	savedMsg := h.saveAssistantMessageWithMetadata(ctx, currentMessage, agentConfig, startTime)
 	if savedMsg != nil {
-		writer.WriteMessageComplete(savedMsg)
+		_ = writer.WriteMessageComplete(savedMsg)
 	}
 }
 
@@ -448,7 +449,7 @@ func (h *MessagesHandler) streamTitleGeneration(ctx context.Context, writer *sse
 		return
 	}
 
-	writer.WriteTitleGeneration(title)
+	_ = writer.WriteTitleGeneration(title)
 
 	if authToken != "" {
 		go func() {

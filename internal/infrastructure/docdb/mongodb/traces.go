@@ -3,6 +3,7 @@ package mongodb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -53,7 +54,7 @@ func (c *TracesCollection) Get(ctx context.Context, id string) (*models.Trace, e
 	var trace models.Trace
 	err := c.collection.FindOne(ctx, bson.M{"_id": id}).Decode(&trace)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
+		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to get trace: %w", err)
@@ -72,7 +73,7 @@ func (c *TracesCollection) GetByConversation(ctx context.Context, tenantID, conv
 	var trace models.Trace
 	err := c.collection.FindOne(ctx, filter).Decode(&trace)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
+		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to get trace by conversation: %w", err)
@@ -91,7 +92,7 @@ func (c *TracesCollection) GetByReferenceID(ctx context.Context, tenantID, refer
 	var trace models.Trace
 	err := c.collection.FindOne(ctx, filter).Decode(&trace)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
+		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to get trace by reference ID: %w", err)
@@ -136,7 +137,7 @@ func (c *TracesCollection) GetByAutonomousAgent(ctx context.Context, tenantID, a
 	var trace models.Trace
 	err := c.collection.FindOne(ctx, filter, findOpts).Decode(&trace)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
+		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to get trace by autonomous agent: %w", err)

@@ -45,7 +45,7 @@ func (m *MockAIService) TraceChat(ctx context.Context, tenantID string, request 
 }
 
 // TestModel mocks the TestModel method.
-func (m *MockAIService) TestModel(ctx context.Context, provider string, config map[string]interface{}, credentialSecret map[string]interface{}) (*ai.TestModelResult, error) {
+func (m *MockAIService) TestModel(ctx context.Context, provider string, config, credentialSecret map[string]interface{}) (*ai.TestModelResult, error) {
 	args := m.Called(ctx, provider, config, credentialSecret)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)

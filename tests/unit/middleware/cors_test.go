@@ -27,7 +27,7 @@ func TestNewCORSMiddleware_AllowedOrigin(t *testing.T) {
 	router.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
 	req.Header.Set("Origin", "http://localhost:5173")
 	router.ServeHTTP(w, req)
 
@@ -43,7 +43,7 @@ func TestNewCORSMiddleware_DisallowedOrigin(t *testing.T) {
 	router.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
 	req.Header.Set("Origin", "http://evil.com")
 	router.ServeHTTP(w, req)
 
@@ -58,7 +58,7 @@ func TestNewCORSMiddleware_Preflight(t *testing.T) {
 	router.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodOptions, "/test", nil)
+	req := httptest.NewRequest(http.MethodOptions, "/test", http.NoBody)
 	req.Header.Set("Origin", "http://localhost:5173")
 	router.ServeHTTP(w, req)
 
@@ -76,7 +76,7 @@ func TestNewCORSMiddleware_WildcardOrigin(t *testing.T) {
 	router.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
 	req.Header.Set("Origin", "http://anything.com")
 	router.ServeHTTP(w, req)
 
@@ -89,7 +89,7 @@ func TestSetupCORSRoutes(t *testing.T) {
 	middleware.SetupCORSRoutes(router, cfg)
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodOptions, "/any/path", nil)
+	req := httptest.NewRequest(http.MethodOptions, "/any/path", http.NoBody)
 	req.Header.Set("Origin", "http://localhost:5173")
 	router.ServeHTTP(w, req)
 

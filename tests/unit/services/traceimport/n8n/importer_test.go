@@ -13,8 +13,8 @@ import (
 
 	"github.com/unifiedui/agent-service/internal/domain/models"
 	"github.com/unifiedui/agent-service/internal/services/platform"
-	n8nimport "github.com/unifiedui/agent-service/internal/services/traceimport/n8n"
 	"github.com/unifiedui/agent-service/internal/services/traceimport"
+	n8nimport "github.com/unifiedui/agent-service/internal/services/traceimport/n8n"
 	"github.com/unifiedui/agent-service/tests/mocks"
 )
 

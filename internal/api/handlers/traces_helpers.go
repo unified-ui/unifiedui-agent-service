@@ -81,7 +81,7 @@ func (h *TracesHandler) getUserID(ctx context.Context, authToken string) (string
 
 	userInfo, err := h.platformClient.GetMe(ctx, authToken)
 	if err != nil {
-		return "system", nil
+		return "system", nil //nolint:nilerr // graceful fallback to "system" user when platform is unavailable
 	}
 
 	return userInfo.ID, nil

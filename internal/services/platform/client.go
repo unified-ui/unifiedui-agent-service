@@ -75,7 +75,7 @@ func (c *client) GetChatAgentConfig(ctx context.Context, tenantID, chatAgentID, 
 		"X-Service-Key": c.serviceKey,
 		"Authorization": "Bearer " + authToken,
 	}
-	return doJSONRequest[ChatAgentConfigResponse](c, ctx, requestConfig{method: http.MethodGet, url: url, headers: headers}, "chat agent config not found")
+	return doJSONRequest[ChatAgentConfigResponse](ctx, c, requestConfig{method: http.MethodGet, url: url, headers: headers}, "chat agent config not found")
 }
 
 func (c *client) GetAgentConfig(ctx context.Context, tenantID, chatAgentID, conversationID, authToken string) (*AgentConfig, error) {
@@ -126,7 +126,7 @@ func (c *client) GetMe(ctx context.Context, authToken string) (*UserInfo, error)
 		return nil, fmt.Errorf("auth token not provided")
 	}
 	url := fmt.Sprintf("%s/api/v1/platform-service/identity/me", c.baseURL)
-	return doJSONRequest[UserInfo](c, ctx, requestConfig{method: http.MethodGet, url: url, headers: bearerHeaders(c, authToken)}, "user not found")
+	return doJSONRequest[UserInfo](ctx, c, requestConfig{method: http.MethodGet, url: url, headers: bearerHeaders(c, authToken)}, "user not found")
 }
 
 func (c *client) GetConversation(ctx context.Context, tenantID, conversationID, authToken string) (*ConversationResponse, error) {
@@ -137,7 +137,7 @@ func (c *client) GetConversation(ctx context.Context, tenantID, conversationID, 
 		return nil, fmt.Errorf("auth token not provided")
 	}
 	url := fmt.Sprintf("%s/api/v1/platform-service/tenants/%s/conversations/%s", c.baseURL, tenantID, conversationID)
-	return doJSONRequest[ConversationResponse](c, ctx, requestConfig{method: http.MethodGet, url: url, headers: bearerHeaders(c, authToken)}, "conversation not found")
+	return doJSONRequest[ConversationResponse](ctx, c, requestConfig{method: http.MethodGet, url: url, headers: bearerHeaders(c, authToken)}, "conversation not found")
 }
 
 func (c *client) ValidateConversation(ctx context.Context, tenantID, conversationID, authToken string) error {
@@ -148,7 +148,7 @@ func (c *client) ValidateConversation(ctx context.Context, tenantID, conversatio
 		return fmt.Errorf("auth token not provided")
 	}
 	url := fmt.Sprintf("%s/api/v1/platform-service/tenants/%s/conversations/%s", c.baseURL, tenantID, conversationID)
-	return doValidateRequest(c, ctx, requestConfig{method: http.MethodGet, url: url, headers: bearerHeaders(c, authToken)}, "conversation not found")
+	return doValidateRequest(ctx, c, requestConfig{method: http.MethodGet, url: url, headers: bearerHeaders(c, authToken)}, "conversation not found")
 }
 
 func (c *client) ValidateAutonomousAgent(ctx context.Context, tenantID, autonomousAgentID, authToken string) error {
@@ -159,7 +159,7 @@ func (c *client) ValidateAutonomousAgent(ctx context.Context, tenantID, autonomo
 		return fmt.Errorf("auth token not provided")
 	}
 	url := fmt.Sprintf("%s/api/v1/platform-service/tenants/%s/autonomous-agents/%s", c.baseURL, tenantID, autonomousAgentID)
-	return doValidateRequest(c, ctx, requestConfig{method: http.MethodGet, url: url, headers: bearerHeaders(c, authToken)}, "autonomous agent not found")
+	return doValidateRequest(ctx, c, requestConfig{method: http.MethodGet, url: url, headers: bearerHeaders(c, authToken)}, "autonomous agent not found")
 }
 
 func (c *client) GetAutonomousAgentConfig(ctx context.Context, tenantID, autonomousAgentID, apiKey string) (*AutonomousAgentConfigResponse, error) {
@@ -170,7 +170,7 @@ func (c *client) GetAutonomousAgentConfig(ctx context.Context, tenantID, autonom
 		return nil, fmt.Errorf("API key not provided")
 	}
 	url := fmt.Sprintf("%s/api/v1/platform-service/tenants/%s/autonomous-agents/%s/config", c.baseURL, tenantID, autonomousAgentID)
-	return doJSONRequest[AutonomousAgentConfigResponse](c, ctx, requestConfig{method: http.MethodGet, url: url, headers: apiKeyHeaders(apiKey)}, "autonomous agent not found")
+	return doJSONRequest[AutonomousAgentConfigResponse](ctx, c, requestConfig{method: http.MethodGet, url: url, headers: apiKeyHeaders(apiKey)}, "autonomous agent not found")
 }
 
 func (c *client) GetAutonomousAgentConfigWithBearer(ctx context.Context, tenantID, autonomousAgentID, authToken string) (*AutonomousAgentConfigResponse, error) {
@@ -181,7 +181,7 @@ func (c *client) GetAutonomousAgentConfigWithBearer(ctx context.Context, tenantI
 		return nil, fmt.Errorf("auth token not provided")
 	}
 	url := fmt.Sprintf("%s/api/v1/platform-service/tenants/%s/autonomous-agents/%s/config/bearer", c.baseURL, tenantID, autonomousAgentID)
-	return doJSONRequest[AutonomousAgentConfigResponse](c, ctx, requestConfig{method: http.MethodGet, url: url, headers: bearerHeaders(c, authToken)}, "autonomous agent not found")
+	return doJSONRequest[AutonomousAgentConfigResponse](ctx, c, requestConfig{method: http.MethodGet, url: url, headers: bearerHeaders(c, authToken)}, "autonomous agent not found")
 }
 
 func (c *client) ValidateAutonomousAgentAPIKey(ctx context.Context, tenantID, autonomousAgentID, apiKey string) error {
@@ -192,7 +192,7 @@ func (c *client) ValidateAutonomousAgentAPIKey(ctx context.Context, tenantID, au
 		return fmt.Errorf("API key not provided")
 	}
 	url := fmt.Sprintf("%s/api/v1/platform-service/tenants/%s/autonomous-agents/%s/validate-api-key", c.baseURL, tenantID, autonomousAgentID)
-	return doValidateRequest(c, ctx, requestConfig{method: http.MethodPost, url: url, headers: apiKeyHeaders(apiKey)}, "autonomous agent not found")
+	return doValidateRequest(ctx, c, requestConfig{method: http.MethodPost, url: url, headers: apiKeyHeaders(apiKey)}, "autonomous agent not found")
 }
 
 func (c *client) GetAIModelsByPurpose(ctx context.Context, tenantID, purposeGroup, modelType string) ([]AIModelWithSecretResponse, error) {
@@ -206,7 +206,7 @@ func (c *client) GetAIModelsByPurpose(ctx context.Context, tenantID, purposeGrou
 	if modelType != "" {
 		url += "?model_type=" + modelType
 	}
-	return doJSONSliceRequest[AIModelWithSecretResponse](c, ctx, requestConfig{method: http.MethodGet, url: url, headers: serviceKeyHeaders(c)}, "AI models not found")
+	return doJSONSliceRequest[AIModelWithSecretResponse](ctx, c, requestConfig{method: http.MethodGet, url: url, headers: serviceKeyHeaders(c)}, "AI models not found")
 }
 
 func (c *client) GetCredentialSecret(ctx context.Context, tenantID, credentialID, authToken string) (string, error) {
@@ -217,7 +217,7 @@ func (c *client) GetCredentialSecret(ctx context.Context, tenantID, credentialID
 		return "", fmt.Errorf("auth token not provided")
 	}
 	url := fmt.Sprintf("%s/api/v1/platform-service/tenants/%s/credentials/%s/secret", c.baseURL, tenantID, credentialID)
-	secretResp, err := doJSONRequest[CredentialSecretResponse](c, ctx, requestConfig{method: http.MethodGet, url: url, headers: bearerHeaders(c, authToken)}, "credential not found")
+	secretResp, err := doJSONRequest[CredentialSecretResponse](ctx, c, requestConfig{method: http.MethodGet, url: url, headers: bearerHeaders(c, authToken)}, "credential not found")
 	if err != nil {
 		return "", err
 	}
@@ -238,5 +238,5 @@ func (c *client) UpdateConversationTitle(ctx context.Context, tenantID, conversa
 	}
 	headers := bearerHeaders(c, authToken)
 	headers["Content-Type"] = "application/json"
-	return doValidateRequest(c, ctx, requestConfig{method: http.MethodPatch, url: url, body: bytes.NewReader(payload), headers: headers}, "conversation not found")
+	return doValidateRequest(ctx, c, requestConfig{method: http.MethodPatch, url: url, body: bytes.NewReader(payload), headers: headers}, "conversation not found")
 }

@@ -19,7 +19,7 @@ func TestLoggingMiddleware_Logger(t *testing.T) {
 	router.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
 	router.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusOK, w.Code)
@@ -32,7 +32,7 @@ func TestLoggingMiddleware_Logger_4xx(t *testing.T) {
 	router.GET("/test", func(c *gin.Context) { c.Status(http.StatusBadRequest) })
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
 	router.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusBadRequest, w.Code)
@@ -45,7 +45,7 @@ func TestLoggingMiddleware_Logger_5xx(t *testing.T) {
 	router.GET("/test", func(c *gin.Context) { c.Status(http.StatusInternalServerError) })
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
 	router.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusInternalServerError, w.Code)
@@ -69,7 +69,7 @@ func TestRequestLogger_SetsRequestID(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
 	router.ServeHTTP(w, req)
 
 	require.NotEmpty(t, requestID)
@@ -88,7 +88,7 @@ func TestRequestLogger_UsesProvidedRequestID(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
 	req.Header.Set("X-Request-ID", "custom-id-123")
 	router.ServeHTTP(w, req)
 
@@ -98,7 +98,7 @@ func TestRequestLogger_UsesProvidedRequestID(t *testing.T) {
 func TestGetRequestLogger_Default(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+	c.Request = httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	logger := middleware.GetRequestLogger(c)
 	require.NotNil(t, logger)
 }
@@ -106,7 +106,7 @@ func TestGetRequestLogger_Default(t *testing.T) {
 func TestGetRequestLogger_WithLoggerSet(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+	c.Request = httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 
 	// Set a custom logger in context
 	customLogger := zerolog.Nop()
@@ -119,14 +119,14 @@ func TestGetRequestLogger_WithLoggerSet(t *testing.T) {
 func TestGetRequestID_NotSet(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+	c.Request = httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	require.Equal(t, "", middleware.GetRequestID(c))
 }
 
 func TestGetRequestID_WhenSet(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+	c.Request = httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	c.Set("request_id", "test-request-123")
 	require.Equal(t, "test-request-123", middleware.GetRequestID(c))
 }

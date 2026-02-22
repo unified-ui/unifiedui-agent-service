@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -65,7 +64,7 @@ func TestWorkflowClient_InvokeStream_Success(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	var chunks []*foundry.StreamChunk
+	var chunks []*foundry.StreamChunk //nolint:prealloc // length unknown: reading from channel
 	for chunk := range ch {
 		chunks = append(chunks, chunk)
 	}
@@ -100,13 +99,10 @@ func TestWorkflowClient_InvokeStreamReader_ServerError(t *testing.T) {
 }
 
 func TestWorkflowClient_InvokeStreamReader_ParsesEvents(t *testing.T) {
-	sseBody := strings.Join([]string{
-		makeSSEEvent("response.output_text.delta", map[string]interface{}{
-			"type":  "response.output_text.delta",
-			"delta": "Test content",
-		}),
-		"data: [DONE]\n\n",
-	}, "")
+	sseBody := makeSSEEvent("response.output_text.delta", map[string]interface{}{
+		"type":  "response.output_text.delta",
+		"delta": "Test content",
+	}) + "data: [DONE]\n\n"
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
@@ -148,13 +144,10 @@ func TestWorkflowClient_InvokeStreamReader_WorkflowAction(t *testing.T) {
 		"status":             "completed",
 	}
 
-	sseBody := strings.Join([]string{
-		makeSSEEvent("response.output_item.added", map[string]interface{}{
-			"type": "response.output_item.added",
-			"item": item,
-		}),
-		"data: [DONE]\n\n",
-	}, "")
+	sseBody := makeSSEEvent("response.output_item.added", map[string]interface{}{
+		"type": "response.output_item.added",
+		"item": item,
+	}) + "data: [DONE]\n\n"
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
@@ -194,14 +187,11 @@ func TestWorkflowClient_InvokeStreamReader_MessageDone(t *testing.T) {
 		},
 	}
 
-	sseBody := strings.Join([]string{
-		makeSSEEvent("response.output_item.done", map[string]interface{}{
-			"type":         "response.output_item.done",
-			"item":         item,
-			"output_index": 0,
-		}),
-		"data: [DONE]\n\n",
-	}, "")
+	sseBody := makeSSEEvent("response.output_item.done", map[string]interface{}{
+		"type":         "response.output_item.done",
+		"item":         item,
+		"output_index": 0,
+	}) + "data: [DONE]\n\n"
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
@@ -229,24 +219,19 @@ func TestWorkflowClient_InvokeStreamReader_MessageDone(t *testing.T) {
 }
 
 func TestWorkflowClient_Invoke_FullResponse(t *testing.T) {
-	sseBody := strings.Join([]string{
-		makeSSEEvent("response.output_text.delta", map[string]interface{}{
-			"type":  "response.output_text.delta",
-			"delta": "Full ",
-		}),
-		makeSSEEvent("response.output_text.delta", map[string]interface{}{
-			"type":  "response.output_text.delta",
-			"delta": "response",
-		}),
-		makeSSEEvent("response.completed", map[string]interface{}{
-			"type": "response.completed",
-			"response": map[string]interface{}{
-				"id":     "resp-1",
-				"status": "completed",
-			},
-		}),
-		"data: [DONE]\n\n",
-	}, "")
+	sseBody := makeSSEEvent("response.output_text.delta", map[string]interface{}{
+		"type":  "response.output_text.delta",
+		"delta": "Full ",
+	}) + makeSSEEvent("response.output_text.delta", map[string]interface{}{
+		"type":  "response.output_text.delta",
+		"delta": "response",
+	}) + makeSSEEvent("response.completed", map[string]interface{}{
+		"type": "response.completed",
+		"response": map[string]interface{}{
+			"id":     "resp-1",
+			"status": "completed",
+		},
+	}) + "data: [DONE]\n\n"
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")

@@ -189,7 +189,7 @@ func (n *TraceImporter) Import(ctx context.Context, req *traceimport.ImportReque
 }
 
 // fetchExecution fetches execution details from N8N API.
-func (n *TraceImporter) fetchExecution(ctx context.Context, config *N8NConfig) (*ExecutionResponse, error) {
+func (n *TraceImporter) fetchExecution(ctx context.Context, config *Config) (*ExecutionResponse, error) {
 	// Build URL: {BASE_URL}/api/v1/executions/{EXECUTION_ID}?includeData=true
 	url := fmt.Sprintf("%s/api/v1/executions/%s?includeData=true",
 		config.BaseURL,
@@ -197,7 +197,7 @@ func (n *TraceImporter) fetchExecution(ctx context.Context, config *N8NConfig) (
 	)
 
 	// Create request
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -236,7 +236,7 @@ func (n *TraceImporter) fetchExecution(ctx context.Context, config *N8NConfig) (
 
 // findExecutionBySessionID searches for an execution with the given session ID.
 // This is used when the execution ID is not available in the stream response.
-func (n *TraceImporter) findExecutionBySessionID(ctx context.Context, config *N8NConfig) (string, error) {
+func (n *TraceImporter) findExecutionBySessionID(ctx context.Context, config *Config) (string, error) {
 	// Build URL for listing executions
 	// We'll fetch recent executions and filter by session ID
 	// If workflowId is available, use it to narrow down the search
@@ -248,7 +248,7 @@ func (n *TraceImporter) findExecutionBySessionID(ctx context.Context, config *N8
 	}
 
 	// Create request
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
@@ -283,10 +283,10 @@ func (n *TraceImporter) findExecutionBySessionID(ctx context.Context, config *N8
 	}
 
 	// Search for execution with matching session ID
-	for _, exec := range execList.Data {
-		sessionID := n.transformer.ExtractSessionID(&exec)
+	for i := range execList.Data {
+		sessionID := n.transformer.ExtractSessionID(&execList.Data[i])
 		if sessionID == config.SessionID {
-			return exec.ID, nil
+			return execList.Data[i].ID, nil
 		}
 	}
 

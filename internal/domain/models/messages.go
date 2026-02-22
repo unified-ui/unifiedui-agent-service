@@ -25,8 +25,8 @@ const (
 	MessageStatusSuccess MessageStatus = "success"
 	// MessageStatusFailed indicates the message processing failed.
 	MessageStatusFailed MessageStatus = "failed"
-	// MessageStatusCancelled indicates the message generation was cancelled by the user.
-	MessageStatusCancelled MessageStatus = "cancelled"
+	// MessageStatusCanceled indicates the message generation was canceled by the user.
+	MessageStatusCanceled MessageStatus = "cancelled" //nolint:misspell // value must stay "cancelled" for external API compatibility
 )
 
 // MessageRequest represents the original request that triggered a message.
@@ -180,10 +180,10 @@ func (m *Message) SetError(errorMessage string) {
 	m.UpdatedAt = time.Now().UTC()
 }
 
-// SetCancelled sets the content and updates the status to cancelled.
-func (m *Message) SetCancelled(content string) {
+// SetCanceled sets the content and updates the status to canceled.
+func (m *Message) SetCanceled(content string) {
 	m.Content = content
-	m.Status = MessageStatusCancelled
+	m.Status = MessageStatusCanceled
 	m.UpdatedAt = time.Now().UTC()
 }
 

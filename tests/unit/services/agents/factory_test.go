@@ -37,7 +37,7 @@ func TestCreateClients_N8N_Success(t *testing.T) {
 	assert.NotNil(t, clients)
 	assert.NotNil(t, clients.WorkflowClient)
 	assert.NotNil(t, clients.APIClient)
-	defer clients.Close()
+	clients.Close()
 }
 
 func TestCreateClients_Foundry_RequiresToken(t *testing.T) {
@@ -111,7 +111,7 @@ func TestCreateFoundryClients_Success(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, clients)
 	assert.NotNil(t, clients.WorkflowClient)
-	defer clients.Close()
+	clients.Close()
 }
 
 func TestCreateClients_N8N_MissingChatURL(t *testing.T) {

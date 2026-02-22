@@ -46,7 +46,7 @@ func (m *MockCollection) Find(ctx context.Context, filter interface{}, opts *doc
 }
 
 // UpdateOne updates a single document.
-func (m *MockCollection) UpdateOne(ctx context.Context, filter interface{}, update interface{}) (*docdb.UpdateResult, error) {
+func (m *MockCollection) UpdateOne(ctx context.Context, filter, update interface{}) (*docdb.UpdateResult, error) {
 	args := m.Called(ctx, filter, update)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -55,7 +55,7 @@ func (m *MockCollection) UpdateOne(ctx context.Context, filter interface{}, upda
 }
 
 // UpdateMany updates multiple documents.
-func (m *MockCollection) UpdateMany(ctx context.Context, filter interface{}, update interface{}) (*docdb.UpdateResult, error) {
+func (m *MockCollection) UpdateMany(ctx context.Context, filter, update interface{}) (*docdb.UpdateResult, error) {
 	args := m.Called(ctx, filter, update)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)

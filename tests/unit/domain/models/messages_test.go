@@ -58,11 +58,11 @@ func TestMessage_SetError(t *testing.T) {
 	require.Equal(t, "something broke", msg.ErrorMessage)
 }
 
-func TestMessage_SetCancelled(t *testing.T) {
+func TestMessage_SetCanceled(t *testing.T) {
 	msg := models.NewAssistantMessage("t", "c", "um", "a", "partial", models.MessageStatusPending)
-	msg.SetCancelled("partial content")
+	msg.SetCanceled("partial content")
 
-	require.Equal(t, models.MessageStatusCancelled, msg.Status)
+	require.Equal(t, models.MessageStatusCanceled, msg.Status)
 	require.Equal(t, "partial content", msg.Content)
 }
 

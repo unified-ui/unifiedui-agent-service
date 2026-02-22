@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -73,7 +74,7 @@ func (c *WorkflowClient) Invoke(ctx context.Context, req *InvokeRequest) (*Invok
 
 	for {
 		chunk, err := reader.Read()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -114,7 +115,7 @@ func (c *WorkflowClient) InvokeStream(ctx context.Context, req *InvokeRequest) (
 
 		for {
 			chunk, err := reader.Read()
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return
 			}
 			if err != nil {
@@ -148,8 +149,8 @@ func (c *WorkflowClient) InvokeStreamReader(ctx context.Context, req *InvokeRequ
 		input = req.Message
 	}
 
-	payload := &FoundryRequestPayload{
-		Agent: FoundryAgentPayload{
+	payload := &RequestPayload{
+		Agent: AgentPayload{
 			Type: "agent_reference",
 			Name: c.agentName,
 		},
@@ -203,7 +204,7 @@ type foundryStreamReader struct {
 	closed        bool
 	messages      []*MessageInfo
 	agentType     string
-	lastEvent     *FoundryEvent
+	lastEvent     *Event
 	lastMessageID string
 }
 
@@ -229,11 +230,12 @@ func (r *foundryStreamReader) Read() (*StreamChunk, error) {
 
 		// Handle data lines - can be "data: {...}" or just "{...}"
 		var jsonData string
-		if strings.HasPrefix(line, "data: ") {
+		switch {
+		case strings.HasPrefix(line, "data: "):
 			jsonData = strings.TrimPrefix(line, "data: ")
-		} else if strings.HasPrefix(line, "{") {
+		case strings.HasPrefix(line, "{"):
 			jsonData = line
-		} else {
+		default:
 			continue
 		}
 
@@ -243,7 +245,7 @@ func (r *foundryStreamReader) Read() (*StreamChunk, error) {
 		}
 
 		// Parse the JSON event
-		var event FoundryEvent
+		var event Event
 		if err := json.Unmarshal([]byte(jsonData), &event); err != nil {
 			// Skip malformed events
 			continue
@@ -264,7 +266,7 @@ func (r *foundryStreamReader) Read() (*StreamChunk, error) {
 }
 
 // processEvent processes a Foundry SSE event and returns a StreamChunk if applicable.
-func (r *foundryStreamReader) processEvent(event *FoundryEvent) *StreamChunk {
+func (r *foundryStreamReader) processEvent(event *Event) *StreamChunk {
 	r.lastEvent = event
 
 	switch event.Type {

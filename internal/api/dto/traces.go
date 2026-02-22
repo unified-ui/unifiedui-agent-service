@@ -219,8 +219,8 @@ func (r *TraceNodeRequest) ToTraceNode(createdBy string) models.TraceNode {
 	// Convert sub-nodes recursively
 	if len(r.Nodes) > 0 {
 		node.Nodes = make([]models.TraceNode, len(r.Nodes))
-		for i, subNode := range r.Nodes {
-			node.Nodes[i] = subNode.ToTraceNode(createdBy)
+		for i := range r.Nodes {
+			node.Nodes[i] = r.Nodes[i].ToTraceNode(createdBy)
 		}
 	}
 
@@ -267,8 +267,8 @@ func TraceNodeToResponse(node models.TraceNode) TraceNodeResponse {
 	// Convert sub-nodes recursively
 	if len(node.Nodes) > 0 {
 		resp.Nodes = make([]TraceNodeResponse, len(node.Nodes))
-		for i, subNode := range node.Nodes {
-			resp.Nodes[i] = TraceNodeToResponse(subNode)
+		for i := range node.Nodes {
+			resp.Nodes[i] = TraceNodeToResponse(node.Nodes[i])
 		}
 	}
 
@@ -301,8 +301,8 @@ func TraceToResponse(trace *models.Trace) *TraceResponse {
 	// Convert nodes
 	if len(trace.Nodes) > 0 {
 		resp.Nodes = make([]TraceNodeResponse, len(trace.Nodes))
-		for i, node := range trace.Nodes {
-			resp.Nodes[i] = TraceNodeToResponse(node)
+		for i := range trace.Nodes {
+			resp.Nodes[i] = TraceNodeToResponse(trace.Nodes[i])
 		}
 	}
 
@@ -329,8 +329,8 @@ func ConvertNodesToModel(nodes []TraceNodeRequest, createdBy string) []models.Tr
 	}
 
 	result := make([]models.TraceNode, len(nodes))
-	for i, node := range nodes {
-		result[i] = node.ToTraceNode(createdBy)
+	for i := range nodes {
+		result[i] = nodes[i].ToTraceNode(createdBy)
 	}
 	return result
 }

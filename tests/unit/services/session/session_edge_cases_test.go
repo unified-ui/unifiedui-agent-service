@@ -36,7 +36,7 @@ func TestSetSession_EncryptError(t *testing.T) {
 	svc, err := session.NewService(cfg)
 	require.NoError(t, err)
 
-	sessionData := &session.SessionData{
+	sessionData := &session.Data{
 		TenantID:       "tenant-123",
 		UserID:         "user-456",
 		ConversationID: "conv-789",
@@ -69,7 +69,7 @@ func TestSetSession_CacheSetError(t *testing.T) {
 	svc, err := session.NewService(cfg)
 	require.NoError(t, err)
 
-	sessionData := &session.SessionData{
+	sessionData := &session.Data{
 		TenantID:       "tenant-123",
 		UserID:         "user-456",
 		ConversationID: "conv-789",
@@ -106,7 +106,7 @@ func TestSetSession_SetsCreatedAtWhenZero(t *testing.T) {
 	require.NoError(t, err)
 
 	// Session with zero CreatedAt
-	sessionData := &session.SessionData{
+	sessionData := &session.Data{
 		TenantID:       "tenant-123",
 		UserID:         "user-456",
 		ConversationID: "conv-789",
@@ -146,7 +146,7 @@ func TestSetSession_UpdatesUpdatedAtWhenCreatedAtExists(t *testing.T) {
 	existingCreatedAt := time.Now().UTC().Add(-1 * time.Hour)
 
 	// Session with existing CreatedAt
-	sessionData := &session.SessionData{
+	sessionData := &session.Data{
 		TenantID:       "tenant-123",
 		UserID:         "user-456",
 		ConversationID: "conv-789",
@@ -213,7 +213,7 @@ func TestUpdateChatHistory_SetSessionError(t *testing.T) {
 	svc, err := session.NewService(cfg)
 	require.NoError(t, err)
 
-	existingSession := &session.SessionData{
+	existingSession := &session.Data{
 		Config:         &platform.AgentConfig{Settings: platform.AgentSettings{ChatHistoryCount: 10}},
 		ChatHistory:    []models.ChatHistoryEntry{},
 		TenantID:       "tenant",
@@ -257,7 +257,7 @@ func TestUpdateChatHistory_UsesDefaultHistoryCount_WhenNilConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	// Session with nil Config - should use DefaultChatHistoryCount (30)
-	existingSession := &session.SessionData{
+	existingSession := &session.Data{
 		Config:         nil, // nil config
 		ChatHistory:    []models.ChatHistoryEntry{},
 		TenantID:       "tenant",
@@ -298,7 +298,7 @@ func TestUpdateChatHistory_UsesDefaultHistoryCount_WhenZeroInConfig(t *testing.T
 	require.NoError(t, err)
 
 	// Session with Config but ChatHistoryCount = 0 - should use default (30)
-	existingSession := &session.SessionData{
+	existingSession := &session.Data{
 		Config: &platform.AgentConfig{
 			Settings: platform.AgentSettings{
 				ChatHistoryCount: 0, // Zero means use default
@@ -342,7 +342,7 @@ func TestUpdateChatHistory_DoesNotTrimWhenUnderLimit(t *testing.T) {
 	svc, err := session.NewService(cfg)
 	require.NoError(t, err)
 
-	existingSession := &session.SessionData{
+	existingSession := &session.Data{
 		Config: &platform.AgentConfig{
 			Settings: platform.AgentSettings{
 				ChatHistoryCount: 10,
@@ -378,7 +378,7 @@ func TestUpdateChatHistory_DoesNotTrimWhenUnderLimit(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify all 4 entries are preserved
-	var saved session.SessionData
+	var saved session.Data
 	err = json.Unmarshal(savedData, &saved)
 	require.NoError(t, err)
 	assert.Len(t, saved.ChatHistory, 4)
@@ -402,7 +402,7 @@ func TestUpdateChatHistory_TrimsOldestWhenOverLimit(t *testing.T) {
 	require.NoError(t, err)
 
 	// Start with 4 entries, limit is 5
-	existingSession := &session.SessionData{
+	existingSession := &session.Data{
 		Config: &platform.AgentConfig{
 			Settings: platform.AgentSettings{
 				ChatHistoryCount: 5,
@@ -440,7 +440,7 @@ func TestUpdateChatHistory_TrimsOldestWhenOverLimit(t *testing.T) {
 	// Assert
 	require.NoError(t, err)
 
-	var saved session.SessionData
+	var saved session.Data
 	err = json.Unmarshal(savedData, &saved)
 	require.NoError(t, err)
 
@@ -551,7 +551,7 @@ func TestBuildCacheKey_Format(t *testing.T) {
 // NewSessionData Tests
 // =============================================================================
 
-func TestNewSessionData_AllFieldsPopulated(t *testing.T) {
+func TestNewData_AllFieldsPopulated(t *testing.T) {
 	// Arrange
 	config := &platform.AgentConfig{
 		TenantID: "tenant-123",
@@ -570,7 +570,7 @@ func TestNewSessionData_AllFieldsPopulated(t *testing.T) {
 	before := time.Now().UTC()
 
 	// Act
-	sd := session.NewSessionData(config, history, tenantID, userID, conversationID)
+	sd := session.NewData(config, history, tenantID, userID, conversationID)
 
 	after := time.Now().UTC()
 
@@ -587,18 +587,18 @@ func TestNewSessionData_AllFieldsPopulated(t *testing.T) {
 	assert.Equal(t, sd.CreatedAt, sd.UpdatedAt)
 }
 
-func TestNewSessionData_NilConfig(t *testing.T) {
+func TestNewData_NilConfig(t *testing.T) {
 	// Act
-	sd := session.NewSessionData(nil, nil, "t", "u", "c")
+	sd := session.NewData(nil, nil, "t", "u", "c")
 
 	// Assert
 	assert.Nil(t, sd.Config)
 	assert.Nil(t, sd.ChatHistory)
 }
 
-func TestNewSessionData_EmptyHistory(t *testing.T) {
+func TestNewData_EmptyHistory(t *testing.T) {
 	// Act
-	sd := session.NewSessionData(nil, []models.ChatHistoryEntry{}, "t", "u", "c")
+	sd := session.NewData(nil, []models.ChatHistoryEntry{}, "t", "u", "c")
 
 	// Assert
 	assert.Empty(t, sd.ChatHistory)

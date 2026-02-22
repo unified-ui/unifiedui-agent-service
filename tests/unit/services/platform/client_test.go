@@ -164,7 +164,7 @@ func TestGetAgentConfigFromFile_Success(t *testing.T) {
 		TenantID: "tenant1",
 	}
 	data, _ := json.Marshal(config)
-	os.WriteFile(configFile, data, 0644)
+	os.WriteFile(configFile, data, 0o644)
 
 	client := platform.NewClient(&platform.ClientConfig{ConfigPath: configFile})
 	result, err := client.GetAgentConfigFromFile(context.Background(), "tenant1", "agent1")
@@ -188,7 +188,7 @@ func TestGetAgentConfigFromFile_FileNotFound(t *testing.T) {
 func TestGetAgentConfigFromFile_InvalidJSON(t *testing.T) {
 	tmpDir := t.TempDir()
 	configFile := filepath.Join(tmpDir, "config.json")
-	os.WriteFile(configFile, []byte("not json"), 0644)
+	os.WriteFile(configFile, []byte("not json"), 0o644)
 
 	client := platform.NewClient(&platform.ClientConfig{ConfigPath: configFile})
 	_, err := client.GetAgentConfigFromFile(context.Background(), "t", "a")
@@ -297,7 +297,7 @@ func TestValidateAutonomousAgent_MissingToken(t *testing.T) {
 
 func TestGetAutonomousAgentConfig_Success(t *testing.T) {
 	resp := platform.AutonomousAgentConfigResponse{
-		TenantID:         "tenant1",
+		TenantID:          "tenant1",
 		AutonomousAgentID: "aa1",
 	}
 	ts := httptest.NewServer(jsonHandler(resp))
@@ -325,7 +325,7 @@ func TestGetAutonomousAgentConfig_MissingAPIKey(t *testing.T) {
 
 func TestGetAutonomousAgentConfigWithBearer_Success(t *testing.T) {
 	resp := platform.AutonomousAgentConfigResponse{
-		TenantID:         "tenant1",
+		TenantID:          "tenant1",
 		AutonomousAgentID: "aa1",
 	}
 	ts := httptest.NewServer(jsonHandler(resp))

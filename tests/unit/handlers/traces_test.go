@@ -64,7 +64,7 @@ func TestTracesHandler_CreateTrace_Conversation_Success(t *testing.T) {
 	startAt := now.Add(-100 * time.Millisecond)
 
 	createReq := dto.CreateTraceRequest{
-		ChatAgentID:  testutils.TestChatAgentID,
+		ChatAgentID:    testutils.TestChatAgentID,
 		ConversationID: testutils.TestConversationID,
 		ReferenceID:    "workflow-123",
 		ReferenceName:  "Test Workflow",
@@ -156,7 +156,7 @@ func TestTracesHandler_CreateTrace_MixedContext_Error(t *testing.T) {
 	mockPlatform := &mocks.MockPlatformClient{}
 
 	createReq := dto.CreateTraceRequest{
-		ChatAgentID:     testutils.TestChatAgentID,
+		ChatAgentID:       testutils.TestChatAgentID,
 		ConversationID:    testutils.TestConversationID,
 		AutonomousAgentID: "auto-agent-123", // Both contexts - invalid
 	}
@@ -204,7 +204,7 @@ func TestTracesHandler_CreateTrace_ConversationAlreadyExists_Conflict(t *testing
 	mockPlatform := &mocks.MockPlatformClient{}
 
 	createReq := dto.CreateTraceRequest{
-		ChatAgentID:  testutils.TestChatAgentID,
+		ChatAgentID:    testutils.TestChatAgentID,
 		ConversationID: testutils.TestConversationID,
 		ReferenceID:    "workflow-123",
 		ReferenceName:  "Test Workflow",

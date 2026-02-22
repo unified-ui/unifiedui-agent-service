@@ -26,13 +26,13 @@ func (h *MessagesHandler) saveFailedAssistantMessage(ctx context.Context, assist
 	_ = h.docDBClient.Messages().Add(ctx, assistantMessage)
 }
 
-func (h *MessagesHandler) saveCancelledAssistantMessage(
+func (h *MessagesHandler) saveCanceledAssistantMessage(
 	msg *models.Message,
 	partialContent string,
 	agentConfig *platform.AgentConfig,
 	startTime time.Time,
 ) {
-	msg.SetCancelled(partialContent)
+	msg.SetCanceled(partialContent)
 
 	latencyMs := time.Since(startTime).Milliseconds()
 	if msg.Metadata == nil {
@@ -148,7 +148,7 @@ func (h *MessagesHandler) updateSessionCache(
 			userMessage.ToChatHistoryEntry(),
 			assistantMessage.ToChatHistoryEntry(),
 		}
-		sessionData = session.NewSessionData(
+		sessionData = session.NewData(
 			agentConfig,
 			chatHistory,
 			tenantCtx.TenantID,
@@ -177,7 +177,7 @@ func (h *MessagesHandler) updateSessionCacheConfigOnly(
 		return
 	}
 
-	sessionData := session.NewSessionData(
+	sessionData := session.NewData(
 		agentConfig,
 		[]models.ChatHistoryEntry{},
 		tenantCtx.TenantID,

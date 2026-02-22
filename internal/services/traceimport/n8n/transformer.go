@@ -45,8 +45,8 @@ func (t *Transformer) TransformExecution(execution *ExecutionResponse, createdBy
 			nodeType = wfNode.Type
 		}
 
-		for runIndex, nodeExec := range nodeExecutions {
-			traceNode := t.transformNodeExecution(nodeName, nodeType, runIndex, &nodeExec, createdBy)
+		for runIndex := range nodeExecutions {
+			traceNode := t.transformNodeExecution(nodeName, nodeType, runIndex, &nodeExecutions[runIndex], createdBy)
 			allNodes = append(allNodes, traceNode)
 		}
 	}
@@ -80,8 +80,8 @@ func (t *Transformer) buildWorkflowNodeMap(workflowData *WorkflowData) map[strin
 		return nodeMap
 	}
 
-	for _, node := range workflowData.Nodes {
-		nodeMap[node.Name] = node
+	for i := range workflowData.Nodes {
+		nodeMap[workflowData.Nodes[i].Name] = workflowData.Nodes[i]
 	}
 
 	return nodeMap
@@ -411,9 +411,9 @@ func (t *Transformer) ExtractSessionID(execution *ExecutionResponse) string {
 	// Look for chat trigger node
 	for nodeName, nodeExecutions := range runData {
 		if strings.Contains(strings.ToLower(nodeName), "chat") || strings.Contains(strings.ToLower(nodeName), "trigger") {
-			for _, nodeExec := range nodeExecutions {
-				if len(nodeExec.Data.Main) > 0 && len(nodeExec.Data.Main[0]) > 0 {
-					firstItem := nodeExec.Data.Main[0][0]
+			for j := range nodeExecutions {
+				if len(nodeExecutions[j].Data.Main) > 0 && len(nodeExecutions[j].Data.Main[0]) > 0 {
+					firstItem := nodeExecutions[j].Data.Main[0][0]
 					if sessionID, ok := firstItem.JSON["sessionId"].(string); ok {
 						return sessionID
 					}

@@ -84,7 +84,7 @@ func (w *Writer) WriteEvent(eventType EventType, data string) error {
 }
 
 // WriteEventWithID writes an SSE event with an ID.
-func (w *Writer) WriteEventWithID(eventType EventType, id string, data string) error {
+func (w *Writer) WriteEventWithID(eventType EventType, id, data string) error {
 	_, err := fmt.Fprintf(w.writer, "id: %s\nevent: %s\ndata: %s\n\n", id, eventType, data)
 	if err != nil {
 		return fmt.Errorf("failed to write event with id: %w", err)
@@ -199,7 +199,7 @@ type ErrorEvent struct {
 }
 
 // WriteError writes an error event.
-func (w *Writer) WriteError(code, message string, details string) error {
+func (w *Writer) WriteError(code, message, details string) error {
 	return w.WriteJSON(EventError, &ErrorEvent{
 		Code:    code,
 		Message: message,

@@ -35,8 +35,8 @@ func (t *Transformer) Transform(items []ConversationItem, createdBy string) []mo
 
 	// Reverse items to get chronological order (API returns newest first)
 	reversedItems := make([]ConversationItem, len(items))
-	for i, item := range items {
-		reversedItems[len(items)-1-i] = item
+	for i := range items {
+		reversedItems[len(items)-1-i] = items[i]
 	}
 
 	// Group items by response_id for turn-based grouping
@@ -66,10 +66,10 @@ func (t *Transformer) TransformInterface(items interface{}, createdBy string) []
 func (t *Transformer) groupByResponseID(items []ConversationItem) map[string][]ConversationItem {
 	groups := make(map[string][]ConversationItem)
 
-	for _, item := range items {
-		responseID := t.extractResponseID(item)
+	for i := range items {
+		responseID := t.extractResponseID(items[i])
 		if responseID != "" {
-			groups[responseID] = append(groups[responseID], item)
+			groups[responseID] = append(groups[responseID], items[i])
 		}
 	}
 
@@ -80,9 +80,9 @@ func (t *Transformer) groupByResponseID(items []ConversationItem) map[string][]C
 func (t *Transformer) groupByApprovalRequestID(items []ConversationItem) map[string][]ConversationItem {
 	groups := make(map[string][]ConversationItem)
 
-	for _, item := range items {
-		if item.ApprovalRequestID != "" {
-			groups[item.ApprovalRequestID] = append(groups[item.ApprovalRequestID], item)
+	for i := range items {
+		if items[i].ApprovalRequestID != "" {
+			groups[items[i].ApprovalRequestID] = append(groups[items[i].ApprovalRequestID], items[i])
 		}
 	}
 
@@ -106,11 +106,11 @@ func (t *Transformer) extractResponseID(item ConversationItem) string {
 func (t *Transformer) findSendActivityContainers(items []ConversationItem) map[string]ConversationItem {
 	containers := make(map[string]ConversationItem)
 
-	for _, item := range items {
-		if item.Type == "workflow_action" && item.Kind == "SendActivity" {
-			responseID := t.extractResponseID(item)
+	for i := range items {
+		if items[i].Type == "workflow_action" && items[i].Kind == "SendActivity" {
+			responseID := t.extractResponseID(items[i])
 			if responseID != "" {
-				containers[responseID] = item
+				containers[responseID] = items[i]
 			}
 		}
 	}
@@ -129,12 +129,13 @@ func (t *Transformer) buildTraceNodesWithHierarchy(
 	var nodes []models.TraceNode
 	processedIDs := make(map[string]bool)
 
-	for _, item := range items {
+	for idx := range items {
+		item := &items[idx]
 		if processedIDs[item.ID] {
 			continue
 		}
 
-		responseID := t.extractResponseID(item)
+		responseID := t.extractResponseID(*item)
 
 		// Check if this item belongs to a SendActivity container
 		if responseID != "" {
@@ -147,33 +148,33 @@ func (t *Transformer) buildTraceNodesWithHierarchy(
 
 		switch item.Type {
 		case "message":
-			node := t.transformMessage(item, createdBy)
+			node := t.transformMessage(*item, createdBy)
 			nodes = append(nodes, node)
 			processedIDs[item.ID] = true
 
 		case "workflow_action":
 			if item.Kind == "SendActivity" && responseID != "" {
-				node := t.transformSendActivityWithChildren(item, responseGroups, mcpApprovalGroups, processedIDs, createdBy)
+				node := t.transformSendActivityWithChildren(*item, responseGroups, mcpApprovalGroups, processedIDs, createdBy)
 				nodes = append(nodes, node)
 			} else {
-				node := t.transformWorkflowAction(item, createdBy)
+				node := t.transformWorkflowAction(*item, createdBy)
 				nodes = append(nodes, node)
 				processedIDs[item.ID] = true
 			}
 
 		case "mcp_approval_request":
-			node := t.transformMCPGroup(item, mcpApprovalGroups, createdBy)
+			node := t.transformMCPGroup(*item, mcpApprovalGroups, createdBy)
 			nodes = append(nodes, node)
 			processedIDs[item.ID] = true
 			if relatedItems, ok := mcpApprovalGroups[item.ID]; ok {
-				for _, related := range relatedItems {
-					processedIDs[related.ID] = true
+				for j := range relatedItems {
+					processedIDs[relatedItems[j].ID] = true
 				}
 			}
 
 		case "mcp_call":
 			if item.ApprovalRequestID == "" || !t.hasApprovalRequest(items, item.ApprovalRequestID) {
-				node := t.transformMCPCall(item, createdBy)
+				node := t.transformMCPCall(*item, createdBy)
 				nodes = append(nodes, node)
 			}
 			processedIDs[item.ID] = true
@@ -182,12 +183,12 @@ func (t *Transformer) buildTraceNodesWithHierarchy(
 			processedIDs[item.ID] = true
 
 		case "mcp_list_tools":
-			node := t.transformMCPListTools(item, createdBy)
+			node := t.transformMCPListTools(*item, createdBy)
 			nodes = append(nodes, node)
 			processedIDs[item.ID] = true
 
 		default:
-			node := t.transformUnknown(item, createdBy)
+			node := t.transformUnknown(*item, createdBy)
 			nodes = append(nodes, node)
 			processedIDs[item.ID] = true
 		}
@@ -211,7 +212,8 @@ func (t *Transformer) transformSendActivityWithChildren(
 
 	var childNodes []models.TraceNode
 	if groupItems, ok := responseGroups[responseID]; ok {
-		for _, groupItem := range groupItems {
+		for gi := range groupItems {
+			groupItem := &groupItems[gi]
 			if groupItem.ID == sendActivity.ID {
 				continue
 			}
@@ -222,22 +224,22 @@ func (t *Transformer) transformSendActivityWithChildren(
 			var childNode models.TraceNode
 			switch groupItem.Type {
 			case "message":
-				childNode = t.transformMessage(groupItem, createdBy)
+				childNode = t.transformMessage(*groupItem, createdBy)
 			case "workflow_action":
-				childNode = t.transformWorkflowAction(groupItem, createdBy)
+				childNode = t.transformWorkflowAction(*groupItem, createdBy)
 			case "mcp_approval_request":
-				childNode = t.transformMCPGroup(groupItem, mcpApprovalGroups, createdBy)
+				childNode = t.transformMCPGroup(*groupItem, mcpApprovalGroups, createdBy)
 				if relatedItems, ok := mcpApprovalGroups[groupItem.ID]; ok {
-					for _, related := range relatedItems {
-						processedIDs[related.ID] = true
+					for j := range relatedItems {
+						processedIDs[relatedItems[j].ID] = true
 					}
 				}
 			case "mcp_call":
-				childNode = t.transformMCPCall(groupItem, createdBy)
+				childNode = t.transformMCPCall(*groupItem, createdBy)
 			case "mcp_list_tools":
-				childNode = t.transformMCPListTools(groupItem, createdBy)
+				childNode = t.transformMCPListTools(*groupItem, createdBy)
 			default:
-				childNode = t.transformUnknown(groupItem, createdBy)
+				childNode = t.transformUnknown(*groupItem, createdBy)
 			}
 
 			childNodes = append(childNodes, childNode)
@@ -283,8 +285,8 @@ func (t *Transformer) transformSendActivityWithChildren(
 
 // hasApprovalRequest checks if there's an approval request item with the given ID.
 func (t *Transformer) hasApprovalRequest(items []ConversationItem, approvalRequestID string) bool {
-	for _, item := range items {
-		if item.Type == "mcp_approval_request" && item.ID == approvalRequestID {
+	for i := range items {
+		if items[i].Type == "mcp_approval_request" && items[i].ID == approvalRequestID {
 			return true
 		}
 	}
@@ -411,7 +413,7 @@ func (t *Transformer) transformMCPGroup(
 
 	status := models.NodeStatusCompleted
 	if mcpResponse != nil && mcpResponse.Approve != nil && !*mcpResponse.Approve {
-		status = models.NodeStatusCancelled
+		status = models.NodeStatusCanceled
 	}
 
 	var subNodes []models.TraceNode
@@ -491,7 +493,7 @@ func (t *Transformer) transformMCPApprovalResponse(item ConversationItem, create
 	if item.Approve != nil {
 		approved = *item.Approve
 		if !approved {
-			status = models.NodeStatusCancelled
+			status = models.NodeStatusCanceled
 		}
 	}
 
@@ -673,8 +675,8 @@ func (t *Transformer) mapStatus(status string) models.NodeStatus {
 		return models.NodeStatusCompleted
 	case "failed":
 		return models.NodeStatusFailed
-	case "cancelled":
-		return models.NodeStatusCancelled
+	case "cancelled": //nolint:misspell // value must stay "cancelled" for external API compatibility
+		return models.NodeStatusCanceled
 	case "pending":
 		return models.NodeStatusPending
 	case "running", "in_progress":

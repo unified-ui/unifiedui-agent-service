@@ -3,8 +3,8 @@ package n8n
 
 import "strings"
 
-// N8NConfig contains N8N-specific configuration for trace import.
-type N8NConfig struct {
+// Config contains N8N-specific configuration for trace import.
+type Config struct {
 	// ExecutionID is the N8N execution ID.
 	ExecutionID string `json:"executionId"`
 	// SessionID is the session ID used for fallback search.
@@ -27,12 +27,12 @@ const (
 )
 
 // ExtractConfig extracts N8N configuration from a BackendConfig map.
-func ExtractConfig(backendConfig map[string]interface{}) (*N8NConfig, bool) {
+func ExtractConfig(backendConfig map[string]interface{}) (*Config, bool) {
 	if backendConfig == nil {
 		return nil, false
 	}
 
-	config := &N8NConfig{}
+	config := &Config{}
 
 	if v, ok := backendConfig[ConfigKeyExecutionID].(string); ok {
 		config.ExecutionID = v

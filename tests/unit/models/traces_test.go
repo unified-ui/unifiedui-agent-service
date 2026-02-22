@@ -309,7 +309,7 @@ func TestNodeStatus_IsValid(t *testing.T) {
 		models.NodeStatusCompleted,
 		models.NodeStatusFailed,
 		models.NodeStatusSkipped,
-		models.NodeStatusCancelled,
+		models.NodeStatusCanceled,
 	}
 
 	for _, status := range validStatuses {

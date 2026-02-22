@@ -27,7 +27,7 @@ func TestTenantMiddleware_ExtractTenant(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/tenants/t-123/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/tenants/t-123/test", http.NoBody)
 	router.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusOK, w.Code)
@@ -37,7 +37,7 @@ func TestTenantMiddleware_ExtractTenant(t *testing.T) {
 func TestGetTenantID_FromContextFirstPriority(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+	c.Request = httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	// Set tenant_id directly in context (first branch)
 	c.Set("tenant_id", "context-tenant-123")
 	// Also set path param (should be ignored since context has it)
@@ -50,7 +50,7 @@ func TestGetTenantID_FromContextFirstPriority(t *testing.T) {
 func TestGetTenantID_FallbackToPathParam(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+	c.Request = httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	// Don't set tenant_id in context, only in path params
 	c.Params = []gin.Param{{Key: "tenantId", Value: "path-tenant-456"}}
 
@@ -61,7 +61,7 @@ func TestGetTenantID_FallbackToPathParam(t *testing.T) {
 func TestGetTenantID_Empty(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+	c.Request = httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	// Neither context nor path param set
 
 	tenantID := middleware.GetTenantID(c)
@@ -78,7 +78,7 @@ func TestGetTenantContext(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/tenants/t-1/conversations/c-2", nil)
+	req := httptest.NewRequest(http.MethodGet, "/tenants/t-1/conversations/c-2", http.NoBody)
 	router.ServeHTTP(w, req)
 
 	require.Equal(t, "t-1", tc.TenantID)
@@ -98,7 +98,7 @@ func TestAuthMiddleware_Authenticate_Success(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
 	req.Header.Set("Authorization", "Bearer my-token-123")
 	router.ServeHTTP(w, req)
 
@@ -113,7 +113,7 @@ func TestAuthMiddleware_Authenticate_MissingHeader(t *testing.T) {
 	router.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
 	router.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusUnauthorized, w.Code)
@@ -126,7 +126,7 @@ func TestAuthMiddleware_Authenticate_InvalidFormat(t *testing.T) {
 	router.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
 	req.Header.Set("Authorization", "Basic abc")
 	router.ServeHTTP(w, req)
 
@@ -140,7 +140,7 @@ func TestAuthMiddleware_Authenticate_EmptyToken(t *testing.T) {
 	router.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
 	req.Header.Set("Authorization", "Bearer ")
 	router.ServeHTTP(w, req)
 
@@ -158,7 +158,7 @@ func TestAuthMiddleware_AuthenticateFlexible_BearerToken(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
 	req.Header.Set("Authorization", "Bearer flex-token")
 	router.ServeHTTP(w, req)
 
@@ -177,7 +177,7 @@ func TestAuthMiddleware_AuthenticateFlexible_APIKey(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
 	req.Header.Set("X-Unified-UI-Autonomous-Agent-API-Key", "my-api-key")
 	router.ServeHTTP(w, req)
 
@@ -192,7 +192,7 @@ func TestAuthMiddleware_AuthenticateFlexible_NeitherPresent(t *testing.T) {
 	router.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
 	router.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusUnauthorized, w.Code)
@@ -207,7 +207,7 @@ func TestAuthMiddleware_AuthenticateFlexible_InvalidAuthHeader_NoAPIKey(t *testi
 	router.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
 	req.Header.Set("Authorization", "Basic invalid-token") // Not Bearer, and no API key
 	router.ServeHTTP(w, req)
 
@@ -222,7 +222,7 @@ func TestAuthMiddleware_AuthenticateFlexible_EmptyBearerToken_NoAPIKey(t *testin
 	router.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
 	req.Header.Set("Authorization", "Bearer ") // Empty token
 	router.ServeHTTP(w, req)
 
@@ -237,7 +237,7 @@ func TestAuthMiddleware_AuthenticateFlexible_SinglePartAuth_NoAPIKey(t *testing.
 	router.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
 	req.Header.Set("Authorization", "InvalidNoSpace")
 	router.ServeHTTP(w, req)
 
@@ -256,7 +256,7 @@ func TestAuthMiddleware_AuthenticateFlexible_InvalidAuthHeader_WithAPIKey(t *tes
 	})
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
 	req.Header.Set("Authorization", "Basic invalid")                        // Invalid auth header
 	req.Header.Set("X-Unified-UI-Autonomous-Agent-API-Key", "fallback-key") // But has API key
 	router.ServeHTTP(w, req)
@@ -276,7 +276,7 @@ func TestAuthMiddleware_AuthenticateAutonomousAgentAPIKey_Success(t *testing.T) 
 	})
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
 	req.Header.Set("X-Unified-UI-Autonomous-Agent-API-Key", "agent-key")
 	router.ServeHTTP(w, req)
 
@@ -291,7 +291,7 @@ func TestAuthMiddleware_AuthenticateAutonomousAgentAPIKey_Missing(t *testing.T) 
 	router.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
 	router.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusUnauthorized, w.Code)
@@ -300,13 +300,13 @@ func TestAuthMiddleware_AuthenticateAutonomousAgentAPIKey_Missing(t *testing.T) 
 func TestGetToken_NotSet(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+	c.Request = httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	require.Equal(t, "", middleware.GetToken(c))
 }
 
 func TestGetAutonomousAgentAPIKey_NotSet(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+	c.Request = httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	require.Equal(t, "", middleware.GetAutonomousAgentAPIKey(c))
 }

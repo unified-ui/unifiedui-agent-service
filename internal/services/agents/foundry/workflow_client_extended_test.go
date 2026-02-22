@@ -3,6 +3,7 @@ package foundry
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -166,9 +167,9 @@ func TestNewWorkflowClient_MultiAgent(t *testing.T) {
 // =============================================================================
 
 func TestInvoke_ValidResponse_SingleChunk(t *testing.T) {
-	events := []FoundryEvent{
+	events := []Event{
 		{Type: EventOutputTextDelta, Delta: "Hello from Foundry!"},
-		{Type: EventResponseCompleted, Response: &FoundryResponse{
+		{Type: EventResponseCompleted, Response: &Response{
 			ID:     "resp-123",
 			Status: "completed",
 		}},
@@ -209,11 +210,11 @@ func TestInvoke_ValidResponse_SingleChunk(t *testing.T) {
 }
 
 func TestInvoke_ValidResponse_MultipleChunks(t *testing.T) {
-	events := []FoundryEvent{
+	events := []Event{
 		{Type: EventOutputTextDelta, Delta: "Hello, "},
 		{Type: EventOutputTextDelta, Delta: "I am a "},
 		{Type: EventOutputTextDelta, Delta: "Foundry agent!"},
-		{Type: EventResponseCompleted, Response: &FoundryResponse{
+		{Type: EventResponseCompleted, Response: &Response{
 			ID:     "resp-456",
 			Status: "completed",
 		}},
@@ -252,20 +253,20 @@ func TestInvoke_ValidResponse_MultipleChunks(t *testing.T) {
 }
 
 func TestInvoke_WithMetadata(t *testing.T) {
-	events := []FoundryEvent{
+	events := []Event{
 		{Type: EventOutputTextDelta, Delta: "Response"},
-		{Type: EventResponseCompleted, Response: &FoundryResponse{
+		{Type: EventResponseCompleted, Response: &Response{
 			ID:     "resp-meta",
 			Status: "completed",
-			Usage: &FoundryUsage{
+			Usage: &Usage{
 				InputTokens:  100,
 				OutputTokens: 50,
 				TotalTokens:  150,
 			},
-			Agent: &FoundryAgentRef{
+			Agent: &AgentRef{
 				Name: "test-agent",
 			},
-			Conversation: &FoundryConversation{
+			Conversation: &Conversation{
 				ID: "conv-meta",
 			},
 		}},
@@ -309,11 +310,11 @@ func TestInvoke_WithMetadata(t *testing.T) {
 // =============================================================================
 
 func TestInvokeStream_ValidSSEResponse(t *testing.T) {
-	events := []FoundryEvent{
+	events := []Event{
 		{Type: EventOutputTextDelta, Delta: "First "},
 		{Type: EventOutputTextDelta, Delta: "Second "},
 		{Type: EventOutputTextDelta, Delta: "Third"},
-		{Type: EventResponseCompleted, Response: &FoundryResponse{
+		{Type: EventResponseCompleted, Response: &Response{
 			ID:     "resp-stream",
 			Status: "completed",
 		}},
@@ -349,7 +350,7 @@ func TestInvokeStream_ValidSSEResponse(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, ch)
 
-	var chunks []*StreamChunk
+	var chunks []*StreamChunk //nolint:prealloc // length unknown: reading from channel
 	for chunk := range ch {
 		chunks = append(chunks, chunk)
 	}
@@ -366,10 +367,10 @@ func TestInvokeStream_ValidSSEResponse(t *testing.T) {
 }
 
 func TestInvokeStream_WithNewMessage(t *testing.T) {
-	events := []FoundryEvent{
+	events := []Event{
 		{
 			Type: EventOutputItemAdded,
-			Item: &FoundryOutputItem{
+			Item: &OutputItem{
 				Type: "message",
 				ID:   "msg-1",
 				Role: "assistant",
@@ -378,14 +379,14 @@ func TestInvokeStream_WithNewMessage(t *testing.T) {
 		{Type: EventOutputTextDelta, Delta: "First message"},
 		{
 			Type: EventOutputItemAdded,
-			Item: &FoundryOutputItem{
+			Item: &OutputItem{
 				Type: "message",
 				ID:   "msg-2",
 				Role: "assistant",
 			},
 		},
 		{Type: EventOutputTextDelta, Delta: "Second message"},
-		{Type: EventResponseCompleted, Response: &FoundryResponse{
+		{Type: EventResponseCompleted, Response: &Response{
 			ID:     "resp-multi",
 			Status: "completed",
 		}},
@@ -419,7 +420,7 @@ func TestInvokeStream_WithNewMessage(t *testing.T) {
 	ch, err := client.InvokeStream(context.Background(), req)
 	require.NoError(t, err)
 
-	var chunks []*StreamChunk
+	var chunks []*StreamChunk //nolint:prealloc // length unknown: reading from channel
 	for chunk := range ch {
 		chunks = append(chunks, chunk)
 	}
@@ -441,7 +442,7 @@ func TestInvokeStream_ContextCancellation(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 		// Simulate slow response
 		time.Sleep(100 * time.Millisecond)
-		event := FoundryEvent{Type: EventOutputTextDelta, Delta: "Should not arrive"}
+		event := Event{Type: EventOutputTextDelta, Delta: "Should not arrive"}
 		w.Write([]byte(createSSEEvent("", event)))
 	})
 	defer server.Close()
@@ -595,7 +596,7 @@ func TestInvokeStream_InvalidJSON(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 		// Invalid JSON followed by valid event
 		w.Write([]byte("data: invalid json\n\n"))
-		event := FoundryEvent{Type: EventOutputTextDelta, Delta: "valid content"}
+		event := Event{Type: EventOutputTextDelta, Delta: "valid content"}
 		w.Write([]byte(createSSEEvent("", event)))
 		w.Write([]byte(createSSEDone()))
 	})
@@ -619,7 +620,7 @@ func TestInvokeStream_InvalidJSON(t *testing.T) {
 	ch, err := client.InvokeStream(context.Background(), req)
 	require.NoError(t, err)
 
-	var chunks []*StreamChunk
+	var chunks []*StreamChunk //nolint:prealloc // length unknown: reading from channel
 	for chunk := range ch {
 		chunks = append(chunks, chunk)
 	}
@@ -630,10 +631,10 @@ func TestInvokeStream_InvalidJSON(t *testing.T) {
 }
 
 func TestInvokeStream_EmptyDelta(t *testing.T) {
-	events := []FoundryEvent{
+	events := []Event{
 		{Type: EventOutputTextDelta, Delta: ""},
 		{Type: EventOutputTextDelta, Delta: "actual content"},
-		{Type: EventResponseCompleted, Response: &FoundryResponse{ID: "resp", Status: "completed"}},
+		{Type: EventResponseCompleted, Response: &Response{ID: "resp", Status: "completed"}},
 	}
 
 	server := createTestServer(func(w http.ResponseWriter, r *http.Request) {
@@ -687,7 +688,7 @@ func TestInvoke_BearerToken(t *testing.T) {
 		receivedAuth = r.Header.Get("Authorization")
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
-		event := FoundryEvent{Type: EventOutputTextDelta, Delta: "Response"}
+		event := Event{Type: EventOutputTextDelta, Delta: "Response"}
 		w.Write([]byte(createSSEEvent("", event)))
 		w.Write([]byte(createSSEDone()))
 	})
@@ -725,7 +726,7 @@ func TestInvoke_CorrectHeaders(t *testing.T) {
 		receivedHeaders = r.Header.Clone()
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
-		event := FoundryEvent{Type: EventOutputTextDelta, Delta: "Response"}
+		event := Event{Type: EventOutputTextDelta, Delta: "Response"}
 		w.Write([]byte(createSSEEvent("", event)))
 		w.Write([]byte(createSSEDone()))
 	})
@@ -765,7 +766,7 @@ func TestInvoke_CorrectRequestBody(t *testing.T) {
 		receivedBody, _ = io.ReadAll(r.Body)
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
-		event := FoundryEvent{Type: EventOutputTextDelta, Delta: "Response"}
+		event := Event{Type: EventOutputTextDelta, Delta: "Response"}
 		w.Write([]byte(createSSEEvent("", event)))
 		w.Write([]byte(createSSEDone()))
 	})
@@ -789,7 +790,7 @@ func TestInvoke_CorrectRequestBody(t *testing.T) {
 	_, err = client.Invoke(context.Background(), req)
 	require.NoError(t, err)
 
-	var payload FoundryRequestPayload
+	var payload RequestPayload
 	err = json.Unmarshal(receivedBody, &payload)
 	require.NoError(t, err)
 
@@ -807,7 +808,7 @@ func TestInvoke_RequestURL(t *testing.T) {
 		receivedURL = r.URL.String()
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
-		event := FoundryEvent{Type: EventOutputTextDelta, Delta: "Response"}
+		event := Event{Type: EventOutputTextDelta, Delta: "Response"}
 		w.Write([]byte(createSSEEvent("", event)))
 		w.Write([]byte(createSSEDone()))
 	})
@@ -843,7 +844,7 @@ func TestInvoke_WithMultimodalInput(t *testing.T) {
 		receivedBody, _ = io.ReadAll(r.Body)
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
-		event := FoundryEvent{Type: EventOutputTextDelta, Delta: "Response"}
+		event := Event{Type: EventOutputTextDelta, Delta: "Response"}
 		w.Write([]byte(createSSEEvent("", event)))
 		w.Write([]byte(createSSEDone()))
 	})
@@ -895,7 +896,7 @@ func TestInvoke_WithMultimodalInput(t *testing.T) {
 // =============================================================================
 
 func TestStreamReader_Read_ValidContent(t *testing.T) {
-	events := []FoundryEvent{
+	events := []Event{
 		{Type: EventOutputTextDelta, Delta: "Test content"},
 	}
 
@@ -973,7 +974,7 @@ func TestStreamReader_Close(t *testing.T) {
 	server := createTestServer(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
-		event := FoundryEvent{Type: EventOutputTextDelta, Delta: "Content"}
+		event := Event{Type: EventOutputTextDelta, Delta: "Content"}
 		w.Write([]byte(createSSEEvent("", event)))
 		w.Write([]byte(createSSEDone()))
 	})
@@ -1010,10 +1011,10 @@ func TestStreamReader_Close(t *testing.T) {
 // =============================================================================
 
 func TestStreamReader_ProcessEvent_WorkflowAction(t *testing.T) {
-	events := []FoundryEvent{
+	events := []Event{
 		{
 			Type: EventOutputItemAdded,
-			Item: &FoundryOutputItem{
+			Item: &OutputItem{
 				Type:     "workflow_action",
 				ID:       "action-1",
 				Kind:     "tool_call",
@@ -1022,7 +1023,7 @@ func TestStreamReader_ProcessEvent_WorkflowAction(t *testing.T) {
 			},
 		},
 		{Type: EventOutputTextDelta, Delta: "Action result"},
-		{Type: EventResponseCompleted, Response: &FoundryResponse{ID: "resp", Status: "completed"}},
+		{Type: EventResponseCompleted, Response: &Response{ID: "resp", Status: "completed"}},
 	}
 
 	server := createTestServer(func(w http.ResponseWriter, r *http.Request) {
@@ -1068,24 +1069,24 @@ func TestStreamReader_ProcessEvent_WorkflowAction(t *testing.T) {
 }
 
 func TestStreamReader_ProcessEvent_MessageDone(t *testing.T) {
-	events := []FoundryEvent{
+	events := []Event{
 		{
 			Type: EventOutputItemDone,
-			Item: &FoundryOutputItem{
+			Item: &OutputItem{
 				Type:   "message",
 				ID:     "msg-done",
 				Status: "completed",
 				Role:   "assistant",
-				Content: []FoundryContentPart{
+				Content: []ContentPart{
 					{Type: "output_text", Text: "Complete message"},
 				},
-				CreatedBy: &FoundryCreatedBy{
-					Agent:      &FoundryAgentRef{Name: "test-agent"},
+				CreatedBy: &CreatedBy{
+					Agent:      &AgentRef{Name: "test-agent"},
 					ResponseID: "resp-123",
 				},
 			},
 		},
-		{Type: EventResponseCompleted, Response: &FoundryResponse{ID: "resp-123", Status: "completed"}},
+		{Type: EventResponseCompleted, Response: &Response{ID: "resp-123", Status: "completed"}},
 	}
 
 	server := createTestServer(func(w http.ResponseWriter, r *http.Request) {
@@ -1116,7 +1117,7 @@ func TestStreamReader_ProcessEvent_MessageDone(t *testing.T) {
 	ch, err := client.InvokeStream(context.Background(), req)
 	require.NoError(t, err)
 
-	var chunks []*StreamChunk
+	var chunks []*StreamChunk //nolint:prealloc // length unknown: reading from channel
 	for chunk := range ch {
 		chunks = append(chunks, chunk)
 	}
@@ -1174,7 +1175,7 @@ func TestInvoke_EmptyConversationID(t *testing.T) {
 		receivedBody, _ = io.ReadAll(r.Body)
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
-		event := FoundryEvent{Type: EventOutputTextDelta, Delta: "Response"}
+		event := Event{Type: EventOutputTextDelta, Delta: "Response"}
 		w.Write([]byte(createSSEEvent("", event)))
 		w.Write([]byte(createSSEDone()))
 	})
@@ -1219,7 +1220,7 @@ func TestStreamReader_GetMessages_Empty(t *testing.T) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
 		// Only content chunks, no message_done events
-		event := FoundryEvent{Type: EventOutputTextDelta, Delta: "Some content"}
+		event := Event{Type: EventOutputTextDelta, Delta: "Some content"}
 		w.Write([]byte(createSSEEvent("", event)))
 		w.Write([]byte(createSSEDone()))
 	})
@@ -1247,7 +1248,7 @@ func TestStreamReader_GetMessages_Empty(t *testing.T) {
 	// Read all chunks to completion
 	for {
 		_, err := reader.Read()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		require.NoError(t, err)
@@ -1262,10 +1263,10 @@ func TestStreamReader_GetMessages_Empty(t *testing.T) {
 }
 
 func TestStreamReader_GetMessages_SingleMessage(t *testing.T) {
-	events := []FoundryEvent{
+	events := []Event{
 		{
 			Type: EventOutputItemAdded,
-			Item: &FoundryOutputItem{
+			Item: &OutputItem{
 				Type: "message",
 				ID:   "msg-single",
 				Role: "assistant",
@@ -1274,22 +1275,22 @@ func TestStreamReader_GetMessages_SingleMessage(t *testing.T) {
 		{Type: EventOutputTextDelta, Delta: "Hello there!"},
 		{
 			Type: EventOutputItemDone,
-			Item: &FoundryOutputItem{
+			Item: &OutputItem{
 				Type:   "message",
 				ID:     "msg-single",
 				Status: "completed",
 				Role:   "assistant",
-				Content: []FoundryContentPart{
+				Content: []ContentPart{
 					{Type: "output_text", Text: "Hello there!"},
 				},
-				CreatedBy: &FoundryCreatedBy{
-					Agent:      &FoundryAgentRef{Name: "test-agent"},
+				CreatedBy: &CreatedBy{
+					Agent:      &AgentRef{Name: "test-agent"},
 					ResponseID: "resp-single",
 				},
 			},
 			OutputIndex: 0,
 		},
-		{Type: EventResponseCompleted, Response: &FoundryResponse{ID: "resp-single", Status: "completed"}},
+		{Type: EventResponseCompleted, Response: &Response{ID: "resp-single", Status: "completed"}},
 	}
 
 	server := createTestServer(func(w http.ResponseWriter, r *http.Request) {
@@ -1324,7 +1325,7 @@ func TestStreamReader_GetMessages_SingleMessage(t *testing.T) {
 	// Read all chunks to completion
 	for {
 		_, err := reader.Read()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		require.NoError(t, err)
@@ -1346,11 +1347,11 @@ func TestStreamReader_GetMessages_SingleMessage(t *testing.T) {
 }
 
 func TestStreamReader_GetMessages_MultipleMessages(t *testing.T) {
-	events := []FoundryEvent{
+	events := []Event{
 		// First message
 		{
 			Type: EventOutputItemAdded,
-			Item: &FoundryOutputItem{
+			Item: &OutputItem{
 				Type: "message",
 				ID:   "msg-1",
 				Role: "assistant",
@@ -1359,16 +1360,16 @@ func TestStreamReader_GetMessages_MultipleMessages(t *testing.T) {
 		{Type: EventOutputTextDelta, Delta: "First message"},
 		{
 			Type: EventOutputItemDone,
-			Item: &FoundryOutputItem{
+			Item: &OutputItem{
 				Type:   "message",
 				ID:     "msg-1",
 				Status: "completed",
 				Role:   "assistant",
-				Content: []FoundryContentPart{
+				Content: []ContentPart{
 					{Type: "output_text", Text: "First message"},
 				},
-				CreatedBy: &FoundryCreatedBy{
-					Agent:      &FoundryAgentRef{Name: "agent-1"},
+				CreatedBy: &CreatedBy{
+					Agent:      &AgentRef{Name: "agent-1"},
 					ResponseID: "resp-1",
 				},
 			},
@@ -1377,7 +1378,7 @@ func TestStreamReader_GetMessages_MultipleMessages(t *testing.T) {
 		// Second message
 		{
 			Type: EventOutputItemAdded,
-			Item: &FoundryOutputItem{
+			Item: &OutputItem{
 				Type: "message",
 				ID:   "msg-2",
 				Role: "assistant",
@@ -1386,22 +1387,22 @@ func TestStreamReader_GetMessages_MultipleMessages(t *testing.T) {
 		{Type: EventOutputTextDelta, Delta: "Second message"},
 		{
 			Type: EventOutputItemDone,
-			Item: &FoundryOutputItem{
+			Item: &OutputItem{
 				Type:   "message",
 				ID:     "msg-2",
 				Status: "completed",
 				Role:   "assistant",
-				Content: []FoundryContentPart{
+				Content: []ContentPart{
 					{Type: "output_text", Text: "Second message"},
 				},
-				CreatedBy: &FoundryCreatedBy{
-					Agent:      &FoundryAgentRef{Name: "agent-2"},
+				CreatedBy: &CreatedBy{
+					Agent:      &AgentRef{Name: "agent-2"},
 					ResponseID: "resp-2",
 				},
 			},
 			OutputIndex: 1,
 		},
-		{Type: EventResponseCompleted, Response: &FoundryResponse{ID: "resp-2", Status: "completed"}},
+		{Type: EventResponseCompleted, Response: &Response{ID: "resp-2", Status: "completed"}},
 	}
 
 	server := createTestServer(func(w http.ResponseWriter, r *http.Request) {
@@ -1436,7 +1437,7 @@ func TestStreamReader_GetMessages_MultipleMessages(t *testing.T) {
 	// Read all chunks
 	for {
 		_, err := reader.Read()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		require.NoError(t, err)
@@ -1460,25 +1461,25 @@ func TestStreamReader_GetMessages_MultipleMessages(t *testing.T) {
 }
 
 func TestStreamReader_GetMessages_WithMetadata(t *testing.T) {
-	events := []FoundryEvent{
+	events := []Event{
 		{
 			Type: EventOutputItemDone,
-			Item: &FoundryOutputItem{
+			Item: &OutputItem{
 				Type:   "message",
 				ID:     "msg-meta",
 				Status: "completed",
 				Role:   "assistant",
-				Content: []FoundryContentPart{
+				Content: []ContentPart{
 					{Type: "output_text", Text: "Message with metadata"},
 				},
-				CreatedBy: &FoundryCreatedBy{
-					Agent:      &FoundryAgentRef{Name: "meta-agent"},
+				CreatedBy: &CreatedBy{
+					Agent:      &AgentRef{Name: "meta-agent"},
 					ResponseID: "resp-meta",
 				},
 			},
 			OutputIndex: 5,
 		},
-		{Type: EventResponseCompleted, Response: &FoundryResponse{ID: "resp-meta", Status: "completed"}},
+		{Type: EventResponseCompleted, Response: &Response{ID: "resp-meta", Status: "completed"}},
 	}
 
 	server := createTestServer(func(w http.ResponseWriter, r *http.Request) {
@@ -1512,7 +1513,7 @@ func TestStreamReader_GetMessages_WithMetadata(t *testing.T) {
 
 	for {
 		_, err := reader.Read()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		require.NoError(t, err)
@@ -1532,26 +1533,26 @@ func TestStreamReader_GetMessages_WithMetadata(t *testing.T) {
 }
 
 func TestStreamReader_GetMessages_MultipleContentParts(t *testing.T) {
-	events := []FoundryEvent{
+	events := []Event{
 		{
 			Type: EventOutputItemDone,
-			Item: &FoundryOutputItem{
+			Item: &OutputItem{
 				Type:   "message",
 				ID:     "msg-parts",
 				Status: "completed",
 				Role:   "assistant",
-				Content: []FoundryContentPart{
+				Content: []ContentPart{
 					{Type: "output_text", Text: "Part 1. "},
 					{Type: "output_text", Text: "Part 2. "},
 					{Type: "output_text", Text: "Part 3."},
 				},
-				CreatedBy: &FoundryCreatedBy{
-					Agent:      &FoundryAgentRef{Name: "parts-agent"},
+				CreatedBy: &CreatedBy{
+					Agent:      &AgentRef{Name: "parts-agent"},
 					ResponseID: "resp-parts",
 				},
 			},
 		},
-		{Type: EventResponseCompleted, Response: &FoundryResponse{ID: "resp-parts", Status: "completed"}},
+		{Type: EventResponseCompleted, Response: &Response{ID: "resp-parts", Status: "completed"}},
 	}
 
 	server := createTestServer(func(w http.ResponseWriter, r *http.Request) {
@@ -1585,7 +1586,7 @@ func TestStreamReader_GetMessages_MultipleContentParts(t *testing.T) {
 
 	for {
 		_, err := reader.Read()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		require.NoError(t, err)
@@ -1602,21 +1603,21 @@ func TestStreamReader_GetMessages_MultipleContentParts(t *testing.T) {
 }
 
 func TestStreamReader_GetMessages_NoCreatedBy(t *testing.T) {
-	events := []FoundryEvent{
+	events := []Event{
 		{
 			Type: EventOutputItemDone,
-			Item: &FoundryOutputItem{
+			Item: &OutputItem{
 				Type:   "message",
 				ID:     "msg-nocreator",
 				Status: "completed",
 				Role:   "assistant",
-				Content: []FoundryContentPart{
+				Content: []ContentPart{
 					{Type: "output_text", Text: "Message without creator"},
 				},
 				// No CreatedBy field
 			},
 		},
-		{Type: EventResponseCompleted, Response: &FoundryResponse{ID: "resp", Status: "completed"}},
+		{Type: EventResponseCompleted, Response: &Response{ID: "resp", Status: "completed"}},
 	}
 
 	server := createTestServer(func(w http.ResponseWriter, r *http.Request) {
@@ -1650,7 +1651,7 @@ func TestStreamReader_GetMessages_NoCreatedBy(t *testing.T) {
 
 	for {
 		_, err := reader.Read()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		require.NoError(t, err)

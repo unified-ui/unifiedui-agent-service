@@ -205,7 +205,7 @@ func TestFoundryTransformer_Transform_MCPCallDenied(t *testing.T) {
 	nodes := transformer.Transform(items, "test-user")
 
 	assert.Len(t, nodes, 1)
-	assert.Equal(t, models.NodeStatusCancelled, nodes[0].Status)
+	assert.Equal(t, models.NodeStatusCanceled, nodes[0].Status)
 }
 
 func TestFoundryTransformer_Transform_MCPListTools(t *testing.T) {
@@ -327,7 +327,7 @@ func TestFoundryTransformer_Transform_StatusMapping(t *testing.T) {
 	}{
 		{"completed", models.NodeStatusCompleted},
 		{"failed", models.NodeStatusFailed},
-		{"cancelled", models.NodeStatusCancelled},
+		{"cancelled", models.NodeStatusCanceled}, //nolint:misspell // value must stay "cancelled" for external API compatibility
 		{"pending", models.NodeStatusPending},
 		{"running", models.NodeStatusRunning},
 		{"in_progress", models.NodeStatusRunning},

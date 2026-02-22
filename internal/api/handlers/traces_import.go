@@ -205,7 +205,8 @@ func (h *TracesHandler) ImportAutonomousAgentTrace(c *gin.Context) {
 	var agentConfig *platform.AutonomousAgentConfigResponse
 	var userID string
 
-	if authToken != "" {
+	switch {
+	case authToken != "":
 		config, err := h.platformClient.GetAutonomousAgentConfigWithBearer(ctx, tenantID, agentID, authToken)
 		if err != nil {
 			errStr := err.Error()
@@ -232,7 +233,7 @@ func (h *TracesHandler) ImportAutonomousAgentTrace(c *gin.Context) {
 			return
 		}
 		userID = uid
-	} else if apiKey != "" {
+	case apiKey != "":
 		config, err := h.platformClient.GetAutonomousAgentConfig(ctx, tenantID, agentID, apiKey)
 		if err != nil {
 			errStr := err.Error()
@@ -249,7 +250,7 @@ func (h *TracesHandler) ImportAutonomousAgentTrace(c *gin.Context) {
 		}
 		agentConfig = config
 		userID = "autonomous-agent-" + agentID
-	} else {
+	default:
 		middleware.HandleError(c, errors.NewUnauthorizedError("Bearer token or X-Unified-UI-Autonomous-Agent-API-Key header required"))
 		return
 	}
@@ -339,7 +340,8 @@ func (h *TracesHandler) RefreshAutonomousAgentImportTrace(c *gin.Context) {
 	var agentConfig *platform.AutonomousAgentConfigResponse
 	var userID string
 
-	if authToken != "" {
+	switch {
+	case authToken != "":
 		config, err := h.platformClient.GetAutonomousAgentConfigWithBearer(ctx, tenantID, agentID, authToken)
 		if err != nil {
 			errStr := err.Error()
@@ -366,7 +368,7 @@ func (h *TracesHandler) RefreshAutonomousAgentImportTrace(c *gin.Context) {
 			return
 		}
 		userID = uid
-	} else if apiKey != "" {
+	case apiKey != "":
 		config, err := h.platformClient.GetAutonomousAgentConfig(ctx, tenantID, agentID, apiKey)
 		if err != nil {
 			errStr := err.Error()
@@ -383,7 +385,7 @@ func (h *TracesHandler) RefreshAutonomousAgentImportTrace(c *gin.Context) {
 		}
 		agentConfig = config
 		userID = "autonomous-agent-" + agentID
-	} else {
+	default:
 		middleware.HandleError(c, errors.NewUnauthorizedError("Bearer token or X-Unified-UI-Autonomous-Agent-API-Key header required"))
 		return
 	}

@@ -56,7 +56,7 @@ func NewAPIClient(config *APIClientConfig) (*APIClient, error) {
 func (c *APIClient) GetExecution(ctx context.Context, executionID string) (*ExecutionInfo, error) {
 	url := fmt.Sprintf("%s/api/v1/executions/%s", c.baseURL, executionID)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

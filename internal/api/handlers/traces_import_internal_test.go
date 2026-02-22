@@ -19,7 +19,7 @@ func setupTestContext(headers map[string]string) (*gin.Context, *httptest.Respon
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest(http.MethodPut, "/test", nil)
+	c.Request = httptest.NewRequest(http.MethodPut, "/test", http.NoBody)
 	for key, value := range headers {
 		c.Request.Header.Set(key, value)
 	}

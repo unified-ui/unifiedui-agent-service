@@ -96,7 +96,7 @@ func TestSetup_RegistersHealthRoutes(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			req := httptest.NewRequest(tc.method, tc.path, nil)
+			req := httptest.NewRequest(tc.method, tc.path, http.NoBody)
 			w := httptest.NewRecorder()
 
 			router.ServeHTTP(w, req)
@@ -126,7 +126,7 @@ func TestSetup_RegistersTenantRoutes(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			req := httptest.NewRequest(tc.method, tc.path, nil)
+			req := httptest.NewRequest(tc.method, tc.path, http.NoBody)
 			w := httptest.NewRecorder()
 
 			router.ServeHTTP(w, req)
@@ -156,7 +156,7 @@ func TestSetup_RegistersTraceRoutes(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			req := httptest.NewRequest(tc.method, tc.path, nil)
+			req := httptest.NewRequest(tc.method, tc.path, http.NoBody)
 			w := httptest.NewRecorder()
 
 			router.ServeHTTP(w, req)
@@ -184,7 +184,7 @@ func TestSetup_RegistersAutonomousAgentRoutes(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			req := httptest.NewRequest(tc.method, tc.path, nil)
+			req := httptest.NewRequest(tc.method, tc.path, http.NoBody)
 			w := httptest.NewRecorder()
 
 			router.ServeHTTP(w, req)
@@ -212,7 +212,7 @@ func TestSetup_HealthEndpointsAccessibleWithoutAuth(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, tc.path, nil)
+			req := httptest.NewRequest(http.MethodGet, tc.path, http.NoBody)
 			w := httptest.NewRecorder()
 
 			router.ServeHTTP(w, req)
@@ -240,7 +240,7 @@ func TestSetup_ProtectedRoutesRequireAuth(t *testing.T) {
 
 	for _, tc := range protectedPaths {
 		t.Run(tc.name, func(t *testing.T) {
-			req := httptest.NewRequest(tc.method, tc.path, nil)
+			req := httptest.NewRequest(tc.method, tc.path, http.NoBody)
 			w := httptest.NewRecorder()
 
 			router.ServeHTTP(w, req)
@@ -256,7 +256,7 @@ func TestSetup_NonExistentRouteReturns404(t *testing.T) {
 	cfg := createTestConfig()
 	routes.Setup(router, cfg)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/agent-service/non-existent-route", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/agent-service/non-existent-route", http.NoBody)
 	w := httptest.NewRecorder()
 
 	router.ServeHTTP(w, req)
@@ -276,7 +276,7 @@ func TestSetupWithMiddleware_AppliesMiddleware(t *testing.T) {
 	routes.SetupWithMiddleware(router, cfg, loggingMw, errorMw)
 
 	// Verify router is configured and routes work
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/agent-service/health", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/agent-service/health", http.NoBody)
 	w := httptest.NewRecorder()
 
 	router.ServeHTTP(w, req)
@@ -298,7 +298,7 @@ func TestSetupWithMiddleware_RecoverFromPanic(t *testing.T) {
 		panic("test panic")
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/test-panic", nil)
+	req := httptest.NewRequest(http.MethodGet, "/test-panic", http.NoBody)
 	w := httptest.NewRecorder()
 
 	// Should not panic, middleware should recover
@@ -334,7 +334,7 @@ func TestSetupWithMiddleware_RoutesStillWork(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			req := httptest.NewRequest(tc.method, tc.path, nil)
+			req := httptest.NewRequest(tc.method, tc.path, http.NoBody)
 			w := httptest.NewRecorder()
 
 			router.ServeHTTP(w, req)
@@ -356,7 +356,7 @@ func TestSetup_DoesNotRegisterAIRoutesWhenHandlerNil(t *testing.T) {
 	routes.Setup(router, cfg)
 
 	// AI routes should return 404 when AIHandler is nil
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/agent-service/tenants/test-tenant/ai/generate-description", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/agent-service/tenants/test-tenant/ai/generate-description", http.NoBody)
 	w := httptest.NewRecorder()
 
 	router.ServeHTTP(w, req)
@@ -372,7 +372,7 @@ func TestSetup_DoesNotRegisterReactionRoutesWhenHandlerNil(t *testing.T) {
 	routes.Setup(router, cfg)
 
 	// Reaction routes should return 404 when ReactionsHandler is nil
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/agent-service/tenants/test-tenant/conversations/conv-123/messages/msg-123/reactions", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/agent-service/tenants/test-tenant/conversations/conv-123/messages/msg-123/reactions", http.NoBody)
 	w := httptest.NewRecorder()
 
 	router.ServeHTTP(w, req)
@@ -389,7 +389,7 @@ func TestSetup_DoesNotRegisterServiceKeyRoutesWhenMiddlewareNil(t *testing.T) {
 	routes.Setup(router, cfg)
 
 	// Service key routes should return 404
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/agent-service/tenants/test-tenant/conversations/conv-123/data", nil)
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/agent-service/tenants/test-tenant/conversations/conv-123/data", http.NoBody)
 	w := httptest.NewRecorder()
 
 	router.ServeHTTP(w, req)

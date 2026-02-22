@@ -1,8 +1,8 @@
 // Package foundry provides Microsoft Foundry trace import functionality.
 package foundry
 
-// FoundryConfig contains Foundry-specific configuration for trace import.
-type FoundryConfig struct {
+// Config contains Foundry-specific configuration for trace import.
+type Config struct {
 	// FoundryConversationID is the external Foundry conversation ID.
 	FoundryConversationID string `json:"foundryConversationId"`
 	// ProjectEndpoint is the Foundry project endpoint.
@@ -55,19 +55,19 @@ const BackendConfigKey = "foundry"
 
 // BackendConfigKeys for accessing Foundry-specific config from BackendConfig map.
 const (
-	ConfigKeyConversationID = "ext_conversation_id"
+	ConfigKeyConversationID  = "ext_conversation_id"
 	ConfigKeyProjectEndpoint = "project_endpoint"
 	ConfigKeyAPIVersion      = "api_version"
 	ConfigKeyAPIToken        = "api_token"
 )
 
 // ExtractConfig extracts Foundry configuration from a BackendConfig map.
-func ExtractConfig(backendConfig map[string]interface{}) (*FoundryConfig, bool) {
+func ExtractConfig(backendConfig map[string]interface{}) (*Config, bool) {
 	if backendConfig == nil {
 		return nil, false
 	}
 
-	config := &FoundryConfig{}
+	config := &Config{}
 
 	if v, ok := backendConfig[ConfigKeyConversationID].(string); ok {
 		config.FoundryConversationID = v
