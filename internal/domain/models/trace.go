@@ -65,6 +65,14 @@ const (
 	NodeTypeDocument NodeType = "document"
 	// NodeTypeTextSplitter represents a text splitter node.
 	NodeTypeTextSplitter NodeType = "text_splitter"
+	// NodeTypeApp represents a SaaS/app integration node.
+	NodeTypeApp NodeType = "app"
+	// NodeTypeDataTransform represents a data transformation node.
+	NodeTypeDataTransform NodeType = "data_transform"
+	// NodeTypeQueue represents a message queue node.
+	NodeTypeQueue NodeType = "queue"
+	// NodeTypeDatabase represents a database node.
+	NodeTypeDatabase NodeType = "database"
 )
 
 // TraceContextType represents the context type of a trace.

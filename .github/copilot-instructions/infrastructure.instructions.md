@@ -482,6 +482,27 @@ traceID, err := importService.Import(ctx, agentType, importRequest)
 importService.EnqueueImport(agentType, importRequest)
 ```
 
+### Error Resilience (MANDATORY)
+
+All trace transformers **must** follow these rules:
+
+1. **Unsupported node types → default fallback**: When a node type is not in the mapper, map it to `NodeTypeCustom` and set metadata markers:
+   - `_unsupported_node_type: true`
+   - `_original_node_type: "{original_type}"`
+   - `_fallback_reason: "node_type_not_mapped"` or `"item_type_not_recognized"`
+   - Preserve all original input/output data unchanged
+
+2. **Per-node error recovery**: Wrap each individual node transformation in `defer/recover`. If a node panics, create a fallback `TraceNode` with `Type: NodeTypeCustom`, `Status: NodeStatusFailed`, and metadata:
+   - `_transformation_error: true`
+   - `_error_message: "{panic message}"`
+   - Continue processing remaining nodes — never let one bad node kill the entire trace
+
+3. **Importer-level recovery**: Wrap the transformer call in the `Import()` method with `defer/recover`. If the transformer itself panics, persist a trace with a single error node and `ReferenceMetadata["_import_error"] = true`
+
+4. **Metadata convention**: All fallback/error metadata keys use underscore prefix (`_`) to distinguish from business metadata
+
+See `design/TRACE_ALGORITHM_REVIEW.md` § 12 and `design/N8N_AUTOMATION_NODES_CONCEPT.md` § 8.7 for full specification.
+
 ### Adding a New Importer
 
 1. Create `internal/services/traceimport/{name}/` directory
@@ -489,3 +510,35 @@ importService.EnqueueImport(agentType, importRequest)
 3. Implement transformer (converts external format → `[]TraceNode`)
 4. Register in `main.go`: `importService.RegisterImporter(newImporter)`
 5. Add `JobType{Name}` constant in `types.go`
+6. Follow Error Resilience rules above (per-node recovery, unsupported type metadata)
+
+### Adding New N8N Node Types
+
+When N8N adds new nodes, extend the transformer in this order:
+
+1. **Add node type constant** in `internal/services/traceimport/n8n/types.go`:
+   ```go
+   N8NNodeTypeNewNode = "n8n-nodes-base.newNode"
+   ```
+
+2. **Add suffix to `GetNodeCategory()`** in `types.go` — place the new suffix in the matching category block (messaging, spreadsheet, project_mgmt, crm, storage, devops, database, queue, payment, support, marketing, data_transform, file_io, data_store, security, productivity, identity). For new categories, add BEFORE the `strings.HasSuffix(suffix, "Trigger")` catch-all line
+
+3. **Add suffix to `mapNodeType()`** in `transformer.go` — map to the correct `models.NodeType`:
+   - SaaS integrations (Slack, Jira, etc.) → `models.NodeTypeApp`
+   - Data transformation nodes → `models.NodeTypeDataTransform`
+   - Database nodes → `models.NodeTypeDatabase`
+   - Message queue nodes → `models.NodeTypeQueue`
+   - File/binary utilities → `models.NodeTypeTool`
+   - Workflow control → `models.NodeTypeWorkflow`
+
+4. **Trigger variants** (e.g., `newNodeTrigger`) automatically match the existing `strings.HasSuffix(suffix, "Trigger")` catch-all → `NodeTypeWorkflow`. No extra code needed unless override is required
+
+5. **Add tests** in `tests/unit/services/traceimport/n8n/types_test.go` (for `GetNodeCategory`) and `transformer_test.go` (for `mapNodeType`)
+
+6. **No output extraction changes needed** — all automation/SaaS nodes use `data.main` which `GetOutputItems()` already handles as first priority
+
+**Domain model NodeType constants** (`internal/domain/models/trace.go`):
+- 22 types: `agent`, `tool`, `llm`, `chain`, `retriever`, `workflow`, `function`, `http`, `code`, `conditional`, `loop`, `custom`, `memory`, `vector_store`, `embedding`, `output_parser`, `document`, `text_splitter`, `app`, `data_transform`, `queue`, `database`
+- Only add new NodeType constants when a genuinely distinct node category emerges (coordinate with frontend for icon/color support)
+
+**Reference docs**: `design/N8N_AUTOMATION_NODES_CONCEPT.md` (78 automation nodes), `design/N8N_NODE_TYPES_CONCEPT.md` (34 AI/LangChain nodes), `design/TRACE_ALGORITHM_REVIEW.md` (algorithm overview)

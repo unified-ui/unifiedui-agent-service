@@ -252,6 +252,7 @@ func (t *Transformer) mapNodeType(n8nType string) models.NodeType {
 	suffix := extractNodeSuffix(n8nType)
 
 	switch {
+	// AI/LangChain sub-node types
 	case strings.HasPrefix(suffix, "lmChat"):
 		return models.NodeTypeLLM
 	case strings.HasPrefix(suffix, "embeddings"):
@@ -268,8 +269,12 @@ func (t *Transformer) mapNodeType(n8nType string) models.NodeType {
 		return models.NodeTypeTextSplitter
 	case strings.HasPrefix(suffix, "retriever"):
 		return models.NodeTypeRetriever
+
+	// Trigger nodes (catch-all for *Trigger suffixes)
 	case strings.HasSuffix(suffix, "Trigger") || suffix == "webhook":
 		return models.NodeTypeWorkflow
+
+	// AI agent nodes
 	case suffix == "agent" || suffix == "information-extractor" ||
 		suffix == "text-classifier" || suffix == "textClassifier" ||
 		suffix == "sentimentAnalysis":
@@ -278,6 +283,8 @@ func (t *Transformer) mapNodeType(n8nType string) models.NodeType {
 		return models.NodeTypeChain
 	case strings.HasPrefix(suffix, "tool"):
 		return models.NodeTypeTool
+
+	// Core nodes
 	case suffix == "httpRequest":
 		return models.NodeTypeHTTP
 	case suffix == "code":
@@ -288,11 +295,66 @@ func (t *Transformer) mapNodeType(n8nType string) models.NodeType {
 		return models.NodeTypeConditional
 	case suffix == "splitInBatches":
 		return models.NodeTypeLoop
+
+	// Database nodes
 	case suffix == "postgres" || suffix == "mongoDb" || suffix == "mySql" ||
-		suffix == "redis" || suffix == "executeCommand" || suffix == "readWriteFile":
+		suffix == "redis" || suffix == "microsoftSql" || suffix == "elasticsearch" ||
+		suffix == "supabase" || suffix == "snowflake" || suffix == "azureCosmosDb":
+		return models.NodeTypeDatabase
+
+	// Message Queue nodes
+	case suffix == "kafka" || suffix == "rabbitMq" || suffix == "amqp" || suffix == "mqtt":
+		return models.NodeTypeQueue
+
+	// Data Transformation nodes
+	case suffix == "dateTime" || suffix == "crypto" || suffix == "xml" ||
+		suffix == "markdown" || suffix == "html" || suffix == "sort" || suffix == "limit" ||
+		suffix == "splitOut" || suffix == "summarize" || suffix == "compareDatasets" ||
+		suffix == "removeDuplicates" || suffix == "renameKeys" || suffix == "convertToFile" ||
+		suffix == "compression" || suffix == "itemLists" || suffix == "rssFeedRead":
+		return models.NodeTypeDataTransform
+
+	// File I/O & Binary Operations
+	case suffix == "extractFromFile" || suffix == "spreadsheetFile" ||
+		suffix == "moveBinaryData" || suffix == "editImage" || suffix == "ftp":
 		return models.NodeTypeTool
-	case suffix == "merge" || suffix == "executeWorkflow" || suffix == "respondToWebhook":
+
+	// Workflow Data nodes
+	case suffix == "dataTable":
+		return models.NodeTypeTool
+	case suffix == "executeWorkflowTrigger":
 		return models.NodeTypeWorkflow
+
+	// App integrations (SaaS)
+	case suffix == "slack" || suffix == "discord" || suffix == "telegram" ||
+		suffix == "microsoftTeams" || suffix == "gmail" || suffix == "microsoftOutlook" ||
+		suffix == "sendEmail" || suffix == "twilio" || suffix == "whatsApp" ||
+		suffix == "googleSheets" || suffix == "airtable" || suffix == "notion" ||
+		suffix == "microsoftExcel" || suffix == "googleDocs" || suffix == "googleCalendar" ||
+		suffix == "jira" || suffix == "trello" || suffix == "asana" ||
+		suffix == "linear" || suffix == "mondayCom" ||
+		suffix == "hubSpot" || suffix == "salesforce" || suffix == "pipedrive" ||
+		suffix == "googleDrive" || suffix == "microsoftOneDrive" || suffix == "s3" ||
+		suffix == "dropbox" || suffix == "box" || suffix == "azureStorage" ||
+		suffix == "microsoftSharePoint" ||
+		suffix == "github" || suffix == "gitlab" || suffix == "git" ||
+		suffix == "stripe" || suffix == "shopify" || suffix == "wooCommerce" ||
+		suffix == "zendesk" || suffix == "serviceNow" ||
+		suffix == "mailchimp" || suffix == "sendGrid" ||
+		suffix == "microsoftGraphSecurity" || suffix == "microsoftToDo" ||
+		suffix == "microsoftEntra":
+		return models.NodeTypeApp
+
+	// Utility tool nodes
+	case suffix == "graphQl" || suffix == "ssh" || suffix == "executeCommand" ||
+		suffix == "readWriteFile":
+		return models.NodeTypeTool
+
+	// Workflow control nodes
+	case suffix == "merge" || suffix == "executeWorkflow" || suffix == "respondToWebhook" ||
+		suffix == "stopAndError":
+		return models.NodeTypeWorkflow
+
 	default:
 		return models.NodeTypeCustom
 	}

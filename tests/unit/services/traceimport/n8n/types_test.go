@@ -137,7 +137,7 @@ func TestGetNodeCategory(t *testing.T) {
 		{"@n8n/n8n-nodes-langchain.toolCode", "tool"},
 		{"@n8n/n8n-nodes-langchain.toolMcp", "tool"},
 		{"n8n-nodes-base.httpRequest", "tool"},
-		{"n8n-nodes-base.postgres", "tool"},
+		{"n8n-nodes-base.postgres", "database"},
 		{"n8n-nodes-base.executeWorkflow", "tool"},
 		{"n8n-nodes-base.executeCommand", "tool"},
 		// Vector stores
@@ -165,6 +165,78 @@ func TestGetNodeCategory(t *testing.T) {
 		{"n8n-nodes-base.merge", "conditional"},
 		// Loop
 		{"n8n-nodes-base.splitInBatches", "loop"},
+		// Communication & Messaging
+		{"n8n-nodes-base.slack", "messaging"},
+		{"n8n-nodes-base.discord", "messaging"},
+		{"n8n-nodes-base.telegram", "messaging"},
+		{"n8n-nodes-base.microsoftTeams", "messaging"},
+		{"n8n-nodes-base.gmail", "messaging"},
+		{"n8n-nodes-base.sendEmail", "messaging"},
+		// Productivity & Spreadsheets
+		{"n8n-nodes-base.googleSheets", "spreadsheet"},
+		{"n8n-nodes-base.airtable", "spreadsheet"},
+		{"n8n-nodes-base.notion", "spreadsheet"},
+		{"n8n-nodes-base.microsoftExcel", "spreadsheet"},
+		// Project Management
+		{"n8n-nodes-base.jira", "project_mgmt"},
+		{"n8n-nodes-base.trello", "project_mgmt"},
+		{"n8n-nodes-base.linear", "project_mgmt"},
+		// CRM & Sales
+		{"n8n-nodes-base.hubSpot", "crm"},
+		{"n8n-nodes-base.salesforce", "crm"},
+		// File Storage & Cloud
+		{"n8n-nodes-base.googleDrive", "storage"},
+		{"n8n-nodes-base.s3", "storage"},
+		{"n8n-nodes-base.azureStorage", "storage"},
+		// Developer Tools
+		{"n8n-nodes-base.github", "devops"},
+		{"n8n-nodes-base.gitlab", "devops"},
+		// Additional Database
+		{"n8n-nodes-base.microsoftSql", "database"},
+		{"n8n-nodes-base.elasticsearch", "database"},
+		{"n8n-nodes-base.azureCosmosDb", "database"},
+		// Message Queues
+		{"n8n-nodes-base.kafka", "queue"},
+		{"n8n-nodes-base.rabbitMq", "queue"},
+		// E-Commerce & Payments
+		{"n8n-nodes-base.stripe", "payment"},
+		{"n8n-nodes-base.shopify", "payment"},
+		// Customer Support
+		{"n8n-nodes-base.zendesk", "support"},
+		{"n8n-nodes-base.serviceNow", "support"},
+		// Marketing
+		{"n8n-nodes-base.mailchimp", "marketing"},
+		{"n8n-nodes-base.sendGrid", "marketing"},
+		// Data Transformation
+		{"n8n-nodes-base.dateTime", "data_transform"},
+		{"n8n-nodes-base.crypto", "data_transform"},
+		{"n8n-nodes-base.xml", "data_transform"},
+		{"n8n-nodes-base.html", "data_transform"},
+		{"n8n-nodes-base.sort", "data_transform"},
+		{"n8n-nodes-base.splitOut", "data_transform"},
+		{"n8n-nodes-base.summarize", "data_transform"},
+		{"n8n-nodes-base.itemLists", "data_transform"},
+		{"n8n-nodes-base.rssFeedRead", "data_transform"},
+		// File I/O
+		{"n8n-nodes-base.extractFromFile", "file_io"},
+		{"n8n-nodes-base.spreadsheetFile", "file_io"},
+		{"n8n-nodes-base.ftp", "file_io"},
+		// Workflow Data
+		{"n8n-nodes-base.dataTable", "data_store"},
+		// Utility
+		{"n8n-nodes-base.graphQl", "tool"},
+		{"n8n-nodes-base.ssh", "tool"},
+		// Core/Workflow
+		{"n8n-nodes-base.stopAndError", "core"},
+		{"n8n-nodes-base.executeWorkflowTrigger", "core"},
+		// Microsoft & Azure
+		{"n8n-nodes-base.microsoftGraphSecurity", "security"},
+		{"n8n-nodes-base.microsoftToDo", "productivity"},
+		{"n8n-nodes-base.microsoftEntra", "identity"},
+		// Trigger variants use existing trigger catch-all
+		{"n8n-nodes-base.slackTrigger", "trigger"},
+		{"n8n-nodes-base.kafkaTrigger", "trigger"},
+		{"n8n-nodes-base.githubTrigger", "trigger"},
 		// Custom/default
 		{"n8n-nodes-base.set", "custom"},
 		{"n8n-nodes-base.noOp", "custom"},

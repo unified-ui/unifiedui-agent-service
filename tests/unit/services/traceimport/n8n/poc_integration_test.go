@@ -202,7 +202,7 @@ func TestPOC_Execution1713_FormWorkflow(t *testing.T) {
 
 	postgres := findNode(nodes, "Execute a SQL query")
 	require.NotNil(t, postgres)
-	assert.Equal(t, models.NodeTypeTool, postgres.Type)
+	assert.Equal(t, models.NodeTypeDatabase, postgres.Type)
 
 	code := findNode(nodes, "Code in JavaScript")
 	require.NotNil(t, code)
@@ -268,7 +268,7 @@ func TestPOC_Execution1716_ScrapingWorkflow(t *testing.T) {
 
 	htmlNode := findNode(nodes, "HTML")
 	require.NotNil(t, htmlNode)
-	assert.Equal(t, models.NodeTypeCustom, htmlNode.Type)
+	assert.Equal(t, models.NodeTypeDataTransform, htmlNode.Type)
 
 	httpNode := findNode(nodes, "HTTP Request")
 	require.NotNil(t, httpNode)

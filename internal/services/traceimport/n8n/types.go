@@ -429,6 +429,115 @@ const (
 
 	// Form nodes
 	N8NNodeTypeForm = "n8n-nodes-base.form"
+
+	// Communication & Messaging nodes
+	N8NNodeTypeSlack            = "n8n-nodes-base.slack"
+	N8NNodeTypeDiscord          = "n8n-nodes-base.discord"
+	N8NNodeTypeTelegram         = "n8n-nodes-base.telegram"
+	N8NNodeTypeMicrosoftTeams   = "n8n-nodes-base.microsoftTeams"
+	N8NNodeTypeGmail            = "n8n-nodes-base.gmail"
+	N8NNodeTypeMicrosoftOutlook = "n8n-nodes-base.microsoftOutlook"
+	N8NNodeTypeSendEmail        = "n8n-nodes-base.sendEmail"
+	N8NNodeTypeTwilio           = "n8n-nodes-base.twilio"
+	N8NNodeTypeWhatsApp         = "n8n-nodes-base.whatsApp"
+
+	// Productivity & Spreadsheet nodes
+	N8NNodeTypeGoogleSheets   = "n8n-nodes-base.googleSheets"
+	N8NNodeTypeAirtable       = "n8n-nodes-base.airtable"
+	N8NNodeTypeNotion         = "n8n-nodes-base.notion"
+	N8NNodeTypeMicrosoftExcel = "n8n-nodes-base.microsoftExcel"
+	N8NNodeTypeGoogleDocs     = "n8n-nodes-base.googleDocs"
+	N8NNodeTypeGoogleCalendar = "n8n-nodes-base.googleCalendar"
+
+	// Project Management nodes
+	N8NNodeTypeJira      = "n8n-nodes-base.jira"
+	N8NNodeTypeTrello    = "n8n-nodes-base.trello"
+	N8NNodeTypeAsana     = "n8n-nodes-base.asana"
+	N8NNodeTypeLinear    = "n8n-nodes-base.linear"
+	N8NNodeTypeMondayCom = "n8n-nodes-base.mondayCom"
+
+	// CRM & Sales nodes
+	N8NNodeTypeHubSpot    = "n8n-nodes-base.hubSpot"
+	N8NNodeTypeSalesforce = "n8n-nodes-base.salesforce"
+	N8NNodeTypePipedrive  = "n8n-nodes-base.pipedrive"
+
+	// File Storage & Cloud nodes
+	N8NNodeTypeGoogleDrive       = "n8n-nodes-base.googleDrive"
+	N8NNodeTypeMicrosoftOneDrive = "n8n-nodes-base.microsoftOneDrive"
+	N8NNodeTypeS3                = "n8n-nodes-base.s3"
+	N8NNodeTypeDropbox           = "n8n-nodes-base.dropbox"
+	N8NNodeTypeBox               = "n8n-nodes-base.box"
+
+	// Developer Tools nodes
+	N8NNodeTypeGitHub = "n8n-nodes-base.github"
+	N8NNodeTypeGitLab = "n8n-nodes-base.gitlab"
+	N8NNodeTypeGit    = "n8n-nodes-base.git"
+
+	// Additional Database nodes
+	N8NNodeTypeMicrosoftSQL  = "n8n-nodes-base.microsoftSql"
+	N8NNodeTypeElasticsearch = "n8n-nodes-base.elasticsearch"
+	N8NNodeTypeSupabase      = "n8n-nodes-base.supabase"
+	N8NNodeTypeSnowflake     = "n8n-nodes-base.snowflake"
+
+	// Message Queue nodes
+	N8NNodeTypeKafka    = "n8n-nodes-base.kafka"
+	N8NNodeTypeRabbitMQ = "n8n-nodes-base.rabbitMq"
+	N8NNodeTypeAMQP     = "n8n-nodes-base.amqp"
+	N8NNodeTypeMQTT     = "n8n-nodes-base.mqtt"
+
+	// E-Commerce & Payment nodes
+	N8NNodeTypeStripe      = "n8n-nodes-base.stripe"
+	N8NNodeTypeShopify     = "n8n-nodes-base.shopify"
+	N8NNodeTypeWooCommerce = "n8n-nodes-base.wooCommerce"
+
+	// Customer Support nodes
+	N8NNodeTypeZendesk    = "n8n-nodes-base.zendesk"
+	N8NNodeTypeServiceNow = "n8n-nodes-base.serviceNow"
+
+	// Marketing nodes
+	N8NNodeTypeMailchimp = "n8n-nodes-base.mailchimp"
+	N8NNodeTypeSendGrid  = "n8n-nodes-base.sendGrid"
+
+	// Data Transformation nodes
+	N8NNodeTypeDateTime         = "n8n-nodes-base.dateTime"
+	N8NNodeTypeCrypto           = "n8n-nodes-base.crypto"
+	N8NNodeTypeXML              = "n8n-nodes-base.xml"
+	N8NNodeTypeMarkdown         = "n8n-nodes-base.markdown"
+	N8NNodeTypeSort             = "n8n-nodes-base.sort"
+	N8NNodeTypeLimit            = "n8n-nodes-base.limit"
+	N8NNodeTypeSplitOut         = "n8n-nodes-base.splitOut"
+	N8NNodeTypeSummarize        = "n8n-nodes-base.summarize"
+	N8NNodeTypeCompareDatasets  = "n8n-nodes-base.compareDatasets"
+	N8NNodeTypeRemoveDuplicates = "n8n-nodes-base.removeDuplicates"
+	N8NNodeTypeRenameKeys       = "n8n-nodes-base.renameKeys"
+	N8NNodeTypeConvertToFile    = "n8n-nodes-base.convertToFile"
+	N8NNodeTypeCompression      = "n8n-nodes-base.compression"
+	N8NNodeTypeItemLists        = "n8n-nodes-base.itemLists"
+	N8NNodeTypeRSSFeedRead      = "n8n-nodes-base.rssFeedRead"
+
+	// File I/O & Binary Operation nodes
+	N8NNodeTypeExtractFromFile = "n8n-nodes-base.extractFromFile"
+	N8NNodeTypeSpreadsheetFile = "n8n-nodes-base.spreadsheetFile"
+	N8NNodeTypeMoveBinaryData  = "n8n-nodes-base.moveBinaryData"
+	N8NNodeTypeEditImage       = "n8n-nodes-base.editImage"
+	N8NNodeTypeFTP             = "n8n-nodes-base.ftp"
+
+	// Workflow Data & Trigger nodes
+	N8NNodeTypeDataTable              = "n8n-nodes-base.dataTable"
+	N8NNodeTypeExecuteWorkflowTrigger = "n8n-nodes-base.executeWorkflowTrigger"
+
+	// Utility nodes
+	N8NNodeTypeGraphQL      = "n8n-nodes-base.graphQl"
+	N8NNodeTypeSSH          = "n8n-nodes-base.ssh"
+	N8NNodeTypeStopAndError = "n8n-nodes-base.stopAndError"
+
+	// Microsoft & Azure nodes
+	N8NNodeTypeAzureCosmosDB          = "n8n-nodes-base.azureCosmosDb"
+	N8NNodeTypeAzureStorage           = "n8n-nodes-base.azureStorage"
+	N8NNodeTypeMicrosoftSharePoint    = "n8n-nodes-base.microsoftSharePoint"
+	N8NNodeTypeMicrosoftGraphSecurity = "n8n-nodes-base.microsoftGraphSecurity"
+	N8NNodeTypeMicrosoftToDo          = "n8n-nodes-base.microsoftToDo"
+	N8NNodeTypeMicrosoftEntra         = "n8n-nodes-base.microsoftEntra"
 )
 
 // extractNodeSuffix extracts the suffix after the last dot from an N8N node type identifier.
@@ -464,8 +573,93 @@ func GetNodeCategory(nodeType string) string {
 		return "textSplitter"
 	case strings.HasPrefix(suffix, "retriever"):
 		return "retriever"
+
+	// Communication & Messaging
+	case suffix == "slack" || suffix == "discord" || suffix == "telegram" ||
+		suffix == "microsoftTeams" || suffix == "gmail" || suffix == "microsoftOutlook" ||
+		suffix == "sendEmail" || suffix == "twilio" || suffix == "whatsApp":
+		return "messaging"
+
+	// Productivity & Spreadsheets
+	case suffix == "googleSheets" || suffix == "airtable" || suffix == "notion" ||
+		suffix == "microsoftExcel" || suffix == "googleDocs" || suffix == "googleCalendar":
+		return "spreadsheet"
+
+	// Project Management
+	case suffix == "jira" || suffix == "trello" || suffix == "asana" ||
+		suffix == "linear" || suffix == "mondayCom":
+		return "project_mgmt"
+
+	// CRM & Sales
+	case suffix == "hubSpot" || suffix == "salesforce" || suffix == "pipedrive":
+		return "crm"
+
+	// File Storage & Cloud
+	case suffix == "googleDrive" || suffix == "microsoftOneDrive" || suffix == "s3" ||
+		suffix == "dropbox" || suffix == "box" || suffix == "azureStorage" ||
+		suffix == "microsoftSharePoint":
+		return "storage"
+
+	// Developer Tools
+	case suffix == "github" || suffix == "gitlab" || suffix == "git":
+		return "devops"
+
+	// Database
+	case suffix == "postgres" || suffix == "mongoDb" || suffix == "mySql" ||
+		suffix == "redis" || suffix == "microsoftSql" || suffix == "elasticsearch" ||
+		suffix == "supabase" || suffix == "snowflake" || suffix == "azureCosmosDb":
+		return "database"
+
+	// Message Queues
+	case suffix == "kafka" || suffix == "rabbitMq" || suffix == "amqp" || suffix == "mqtt":
+		return "queue"
+
+	// E-Commerce & Payments
+	case suffix == "stripe" || suffix == "shopify" || suffix == "wooCommerce":
+		return "payment"
+
+	// Customer Support
+	case suffix == "zendesk" || suffix == "serviceNow":
+		return "support"
+
+	// Marketing
+	case suffix == "mailchimp" || suffix == "sendGrid":
+		return "marketing"
+
+	// Data Transformation
+	case suffix == "dateTime" || suffix == "crypto" || suffix == "xml" ||
+		suffix == "markdown" || suffix == "html" || suffix == "sort" || suffix == "limit" ||
+		suffix == "splitOut" || suffix == "summarize" || suffix == "compareDatasets" ||
+		suffix == "removeDuplicates" || suffix == "renameKeys" || suffix == "convertToFile" ||
+		suffix == "compression" || suffix == "itemLists" || suffix == "rssFeedRead":
+		return "data_transform"
+
+	// File I/O & Binary Operations
+	case suffix == "extractFromFile" || suffix == "spreadsheetFile" ||
+		suffix == "moveBinaryData" || suffix == "editImage" || suffix == "ftp":
+		return "file_io"
+
+	// Workflow Data
+	case suffix == "dataTable":
+		return "data_store"
+
+	// Microsoft & Azure (app integrations)
+	case suffix == "microsoftGraphSecurity":
+		return "security"
+	case suffix == "microsoftToDo":
+		return "productivity"
+	case suffix == "microsoftEntra":
+		return "identity"
+
+	// Core workflow nodes (must be before trigger catch-all)
+	case suffix == "stopAndError" || suffix == "respondToWebhook" ||
+		suffix == "executeWorkflowTrigger":
+		return "core"
+
+	// Trigger nodes (catch-all for *Trigger suffixes)
 	case strings.HasSuffix(suffix, "Trigger") || suffix == "webhook":
 		return "trigger"
+
 	case suffix == "agent" || suffix == "information-extractor" ||
 		suffix == "text-classifier" || suffix == "textClassifier" ||
 		suffix == "sentimentAnalysis":
@@ -474,9 +668,9 @@ func GetNodeCategory(nodeType string) string {
 		return "chain"
 	case strings.HasPrefix(suffix, "tool"):
 		return "tool"
-	case suffix == "httpRequest" || suffix == "postgres" || suffix == "mongoDb" ||
-		suffix == "mySql" || suffix == "redis" || suffix == "executeCommand" ||
-		suffix == "readWriteFile" || suffix == "executeWorkflow":
+	case suffix == "httpRequest" || suffix == "executeCommand" ||
+		suffix == "readWriteFile" || suffix == "executeWorkflow" ||
+		suffix == "graphQl" || suffix == "ssh":
 		return "tool"
 	case suffix == "code" || strings.HasPrefix(suffix, "function"):
 		return "code"

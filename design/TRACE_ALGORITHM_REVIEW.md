@@ -13,7 +13,8 @@
 9. [Konzept — Neuer Foundry Algorithmus](#9-konzept--neuer-foundry-algorithmus)
 10. [Konzept — Neuer N8N Algorithmus](#10-konzept--neuer-n8n-algorithmus)
 11. [Frontend-Auswirkungen](#11-frontend-auswirkungen)
-12. [Empfehlungen & Priorisierung](#12-empfehlungen--priorisierung)
+12. [Default Fallback & Error Resilience](#12-default-fallback--error-resilience)
+13. [Empfehlungen & Priorisierung](#13-empfehlungen--priorisierung)
 
 ---
 
@@ -79,8 +80,16 @@ TransformExecution(execution, config) → Trace
 ### 3.2 Kern-Logik
 
 - **Komplett flat**: Keine Nutzung von `WorkflowData.Connections` oder `Source`-Feldern für Hierarchie
-- **mapNodeType()**: String-Matching-Heuristik auf N8N-Typ-Namen:
-  - `trigger` → `workflow`, `agent` → `agent`, `lmChat` → `llm`, `httpRequest` → `http`, etc.
+- **mapNodeType()**: Suffix-basiertes Mapping auf N8N-Typ-Namen:
+  - `*Trigger` → `workflow`, `agent` → `agent`, `lmChat*` → `llm`, `httpRequest` → `http`
+  - `memory*` → `memory`, `vectorStore*` → `vectorStore`, `embeddings*` → `embedding`
+  - `outputParser*` → `outputParser`, `document*` → `document`, `textSplitter*` → `textSplitter`
+  - `retriever*` → `retriever`, `chain*` → `chain`, `tool*` → `tool`
+  - `postgres|mongoDb|mySql|redis|microsoftSql|elasticsearch|supabase|snowflake|azureCosmosDb` → `database`
+  - `kafka|rabbitMq|amqp|mqtt` → `queue`
+  - `dateTime|crypto|xml|markdown|html|sort|limit|splitOut|summarize|...` → `data_transform`
+  - `slack|telegram|googleSheets|jira|hubSpot|github|stripe|zendesk|...` → `app` (78 SaaS nodes)
+  - `switch|if|filter` → `conditional`, `splitInBatches` → `loop`, default → `custom`
 - **buildNodeData()**: Extrahiert Input aus `inputOverride`/Chat-Trigger-Daten, Output aus `Main`-Branches
 - **buildNodeMetadata()**: Speichert `n8n_node_type`, `run_index`, `token_usage`, `sub_execution`, `error`, `source` (als JSON-String)
 
@@ -333,7 +342,7 @@ Das `Source`-Feld (previousNode, previousNodeRun, previousNodeOutput) wird als J
 type TraceNode struct {
     ID          string            // UUID
     Name        string
-    Type        NodeType          // agent|tool|llm|chain|retriever|workflow|function|http|code|conditional|loop|custom
+    Type        NodeType          // agent|tool|llm|chain|retriever|workflow|function|http|code|conditional|loop|custom|memory|vector_store|embedding|output_parser|document|text_splitter|app|data_transform|queue|database
     ReferenceID string
     StartAt     *time.Time
     EndAt       *time.Time
@@ -350,7 +359,7 @@ type TraceNode struct {
 
 **Stärken**:
 - Rekursive `Nodes`-Struktur ermöglicht beliebig tiefe Hierarchien
-- `NodeType`-Enum deckt die meisten Use Cases ab
+- `NodeType`-Enum deckt alle aktuellen Use Cases ab (22 Typen inkl. app, data_transform, queue, database)
 - `NodeData` mit Input/Output ist flexibel
 
 **Schwächen / Mögliche Verbesserungen**:
@@ -567,7 +576,72 @@ Das Frontend nutzt die rekursive `TraceNode.Nodes`-Struktur für die Baum-Visual
 
 ---
 
-## 12. Empfehlungen & Priorisierung
+## 12. Default Fallback & Error Resilience
+
+Both transformers (Foundry and N8N) **must** guarantee that unsupported node types and transformation errors never cause the entire trace import to fail. The system must always produce a usable trace, even if parts of the data cannot be fully interpreted.
+
+### 12.1 Current State
+
+| Aspect | N8N | Foundry |
+|--------|-----|--------|
+| Unsupported node type fallback | `mapNodeType()` → `NodeTypeCustom` (no metadata hint) | `transformUnknown()` → `NodeTypeCustom` with `original_type` in metadata |
+| Unknown status fallback | `mapNodeStatus()` → `NodeStatusCompleted` | `mapStatus()` → `NodeStatusCompleted` |
+| Per-node error recovery | None — panic kills entire transform | None — panic kills entire transform |
+| Importer-level recovery | None — panic kills entire import | None — panic kills entire import |
+
+### 12.2 Required Behavior
+
+**Unsupported Node Types:**
+When a node type is not recognized, the transformer MUST:
+1. Map to `NodeTypeCustom`
+2. Set `Metadata["_unsupported_node_type"] = true`
+3. Set `Metadata["_original_node_type"]` with the original type string
+4. Set `Metadata["_fallback_reason"]` describing why the fallback was used
+5. Preserve all original data (input/output) unchanged
+
+**Per-Node Error Recovery:**
+Each individual node transformation MUST be wrapped in a `defer/recover` block. On panic:
+1. Create a fallback `TraceNode` with `Type: NodeTypeCustom`, `Status: NodeStatusFailed`
+2. Set `Name: "Error: {nodeName}"` and error details in `Metadata["_transformation_error"]`, `Metadata["_error_message"]`
+3. Continue processing remaining nodes
+
+**Importer-Level Recovery:**
+The importer MUST wrap the entire transformer call. On panic:
+1. Create a trace with a single error node containing panic details
+2. Set `ReferenceMetadata["_import_error"] = true`
+3. Still persist the trace so the user sees an error state rather than nothing
+
+### 12.3 Metadata Convention
+
+All fallback/error metadata keys use underscore prefix (`_`) to distinguish them from business metadata:
+
+| Key | Type | When Set |
+|-----|------|----------|
+| `_unsupported_node_type` | `bool` | Node type not in mapper |
+| `_original_node_type` | `string` | Original type identifier before fallback |
+| `_fallback_reason` | `string` | Reason: `node_type_not_mapped`, `item_type_not_recognized`, `transformation_error` |
+| `_transformation_error` | `bool` | Node transformation panicked |
+| `_error_message` | `string` | Error/panic message |
+| `_import_error` | `bool` | Entire transformer panicked |
+
+### 12.4 Frontend Implications
+
+The frontend trace visualization should:
+- Show a warning badge on nodes with `_unsupported_node_type: true`
+- Show an error state on nodes with `_transformation_error: true`
+- Show a global error banner on traces with `_import_error: true` in `ReferenceMetadata`
+
+---
+
+## 13. Empfehlungen & Priorisierung
+
+### Phase 0 — Error Resilience (Prerequisite)
+
+| # | Aufgabe | Aufwand | Impact |
+|---|---|---|---|
+| 0a | **Both: Per-Node Error Recovery** — Wrap each node transformation in `defer/recover`, create fallback node on panic | Niedrig | Hoch |
+| 0b | **Both: Unsupported Node Type Metadata** — Add `_unsupported_node_type`, `_original_node_type`, `_fallback_reason` to fallback nodes | Niedrig | Mittel |
+| 0c | **Both: Importer-Level Panic Recovery** — Wrap transformer call in recovery, persist error trace on panic | Niedrig | Hoch |
 
 ### Phase 1 — Kritische Fixes (Empfohlen als erstes)
 
@@ -595,7 +669,8 @@ Das Frontend nutzt die rekursive `TraceNode.Nodes`-Struktur für die Baum-Visual
 
 ### Zusammenfassung der Empfehlung
 
-1. **N8N zuerst** — Der Fix ist klarer definiert (Connections-Graph ist eindeutig) und hat sofortigen visuellen Impact
+0. **Error Resilience zuerst** — Prerequisite für alle weiteren Änderungen. Per-Node Recovery und Unsupported-Node-Type-Metadata sind einfach umzusetzen und schützen vor Datenverlust
+1. **N8N danach** — Der Fix ist klarer definiert (Connections-Graph ist eindeutig) und hat sofortigen visuellen Impact
 2. **Foundry danach** — Komplexer wegen der Message-Zuordnungs-Logik und fehlender offizieller Dokumentation der action_id-Semantik
 3. **Domain-Modell beibehalten** — Das aktuelle `TraceNode`-Modell ist ausreichend flexibel. Erweiterte Informationen über `Metadata`-Map transportieren
 4. **POC-Daten als Test-Fixtures** — Die vorhandenen POC-JSON-Dateien sollten als Grundlage für Unit-Test-Fixtures verwendet werden
