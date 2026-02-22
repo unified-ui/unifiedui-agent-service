@@ -372,19 +372,74 @@ func TestN8NTransformer_MapNodeType(t *testing.T) {
 		n8nType      string
 		expectedType models.NodeType
 	}{
+		// Triggers
 		{"n8n-nodes-base.manualTrigger", models.NodeTypeWorkflow},
 		{"@n8n/n8n-nodes-langchain.chatTrigger", models.NodeTypeWorkflow},
+		{"n8n-nodes-base.webhook", models.NodeTypeWorkflow},
+		{"n8n-nodes-base.scheduleTrigger", models.NodeTypeWorkflow},
+		// Agents
 		{"@n8n/n8n-nodes-langchain.agent", models.NodeTypeAgent},
+		{"@n8n/n8n-nodes-langchain.information-extractor", models.NodeTypeAgent},
+		{"@n8n/n8n-nodes-langchain.text-classifier", models.NodeTypeAgent},
+		{"@n8n/n8n-nodes-langchain.sentimentAnalysis", models.NodeTypeAgent},
+		// Chains
+		{"@n8n/n8n-nodes-langchain.chainLlm", models.NodeTypeChain},
+		{"@n8n/n8n-nodes-langchain.chainRetrievalQa", models.NodeTypeChain},
+		{"@n8n/n8n-nodes-langchain.chainSummarization", models.NodeTypeChain},
+		// LLM models
 		{"@n8n/n8n-nodes-langchain.lmChatAzureOpenAi", models.NodeTypeLLM},
 		{"@n8n/n8n-nodes-langchain.lmChatOpenAi", models.NodeTypeLLM},
+		{"@n8n/n8n-nodes-langchain.lmChatAnthropic", models.NodeTypeLLM},
+		{"@n8n/n8n-nodes-langchain.lmChatGoogleGemini", models.NodeTypeLLM},
+		{"@n8n/n8n-nodes-langchain.lmChatGroq", models.NodeTypeLLM},
+		{"@n8n/n8n-nodes-langchain.lmChatOllama", models.NodeTypeLLM},
+		{"@n8n/n8n-nodes-langchain.lmChatDeepSeek", models.NodeTypeLLM},
+		{"@n8n/n8n-nodes-langchain.lmChatMistralCloud", models.NodeTypeLLM},
+		// Memory
+		{"@n8n/n8n-nodes-langchain.memoryBufferWindow", models.NodeTypeMemory},
+		{"@n8n/n8n-nodes-langchain.memoryPostgresChat", models.NodeTypeMemory},
+		{"@n8n/n8n-nodes-langchain.memoryRedisChat", models.NodeTypeMemory},
+		// Tools (langchain)
+		{"@n8n/n8n-nodes-langchain.toolWorkflow", models.NodeTypeTool},
+		{"@n8n/n8n-nodes-langchain.toolCode", models.NodeTypeTool},
+		{"@n8n/n8n-nodes-langchain.toolMcp", models.NodeTypeTool},
+		{"@n8n/n8n-nodes-langchain.toolThink", models.NodeTypeTool},
+		// Vector stores
+		{"@n8n/n8n-nodes-langchain.vectorStorePinecone", models.NodeTypeVectorStore},
+		{"@n8n/n8n-nodes-langchain.vectorStorePgVector", models.NodeTypeVectorStore},
+		{"@n8n/n8n-nodes-langchain.vectorStoreQdrant", models.NodeTypeVectorStore},
+		// Embeddings
+		{"@n8n/n8n-nodes-langchain.embeddingsOpenAi", models.NodeTypeEmbedding},
+		{"@n8n/n8n-nodes-langchain.embeddingsAzureOpenAi", models.NodeTypeEmbedding},
+		// Output parsers
+		{"@n8n/n8n-nodes-langchain.outputParserStructured", models.NodeTypeOutputParser},
+		{"@n8n/n8n-nodes-langchain.outputParserAutofixing", models.NodeTypeOutputParser},
+		// Document loaders
+		{"@n8n/n8n-nodes-langchain.documentDefaultDataLoader", models.NodeTypeDocument},
+		// Text splitters
+		{"@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter", models.NodeTypeTextSplitter},
+		// Retrievers
+		{"@n8n/n8n-nodes-langchain.retrieverVectorStore", models.NodeTypeRetriever},
+		{"@n8n/n8n-nodes-langchain.retrieverMultiQuery", models.NodeTypeRetriever},
+		// Core nodes
 		{"n8n-nodes-base.httpRequest", models.NodeTypeHTTP},
 		{"n8n-nodes-base.code", models.NodeTypeCode},
+		{"@n8n/n8n-nodes-langchain.code", models.NodeTypeCode},
 		{"n8n-nodes-base.function", models.NodeTypeCode},
 		{"n8n-nodes-base.switch", models.NodeTypeConditional},
 		{"n8n-nodes-base.if", models.NodeTypeConditional},
+		{"n8n-nodes-base.filter", models.NodeTypeConditional},
+		{"n8n-nodes-base.merge", models.NodeTypeWorkflow},
+		{"n8n-nodes-base.executeWorkflow", models.NodeTypeWorkflow},
+		{"n8n-nodes-base.respondToWebhook", models.NodeTypeWorkflow},
+		{"n8n-nodes-base.splitInBatches", models.NodeTypeLoop},
 		{"n8n-nodes-base.postgres", models.NodeTypeTool},
 		{"n8n-nodes-base.mongoDb", models.NodeTypeTool},
-		{"@n8n/n8n-nodes-langchain.toolWorkflow", models.NodeTypeTool},
+		{"n8n-nodes-base.executeCommand", models.NodeTypeTool},
+		{"n8n-nodes-base.readWriteFile", models.NodeTypeTool},
+		{"n8n-nodes-base.set", models.NodeTypeCustom},
+		{"n8n-nodes-base.noOp", models.NodeTypeCustom},
+		{"n8n-nodes-base.html", models.NodeTypeCustom},
 		{"unknown-node-type", models.NodeTypeCustom},
 	}
 
@@ -867,4 +922,470 @@ func TestN8NTransformer_SubNodeNotInRunDataIgnored(t *testing.T) {
 	require.Len(t, nodes, 1)
 	assert.Equal(t, "AI Agent", nodes[0].Name)
 	assert.Empty(t, nodes[0].Nodes)
+}
+
+func TestN8NTransformer_LLMSubNodeOutputExtraction(t *testing.T) {
+	transformer := n8n.NewTransformer()
+
+	execution := &n8n.ExecutionResponse{
+		ID:     "300",
+		Status: n8n.ExecutionStatusSuccess,
+		Data: &n8n.ExecutionData{
+			ResultData: &n8n.ResultData{
+				RunData: map[string][]n8n.NodeExecution{
+					"Chat Trigger": {
+						{
+							StartTime:       1735900000000,
+							ExecutionTime:   5,
+							ExecutionStatus: n8n.NodeExecutionStatusSuccess,
+							Data: n8n.NodeOutputData{
+								Main: [][]n8n.NodeOutputItem{
+									{{JSON: map[string]interface{}{"chatInput": "Hello", "sessionId": "sess-1"}}},
+								},
+							},
+						},
+					},
+					"AI Agent": {
+						{
+							StartTime:       1735900000010,
+							ExecutionTime:   5000,
+							ExecutionStatus: n8n.NodeExecutionStatusSuccess,
+							Data: n8n.NodeOutputData{
+								Main: [][]n8n.NodeOutputItem{
+									{{JSON: map[string]interface{}{"output": "Agent response"}}},
+								},
+							},
+							Metadata: &n8n.NodeExecutionMetadata{
+								TokenUsage: &n8n.TokenUsage{
+									PromptTokens: 100, CompletionTokens: 50, TotalTokens: 150,
+								},
+							},
+						},
+					},
+					"OpenAI Chat Model": {
+						{
+							StartTime:       1735900000015,
+							ExecutionTime:   4500,
+							ExecutionStatus: n8n.NodeExecutionStatusSuccess,
+							Data: n8n.NodeOutputData{
+								AILanguageModel: [][]n8n.NodeOutputItem{
+									{{JSON: map[string]interface{}{
+										"response": map[string]interface{}{
+											"generations": []interface{}{
+												[]interface{}{
+													map[string]interface{}{
+														"text":           "LLM generated text",
+														"generationInfo": map[string]interface{}{"finish_reason": "stop"},
+													},
+												},
+											},
+										},
+										"tokenUsage": map[string]interface{}{
+											"completionTokens": 50,
+											"promptTokens":     100,
+											"totalTokens":      150,
+										},
+									}}},
+								},
+							},
+							InputOverride: map[string]interface{}{
+								"ai_languageModel": []interface{}{
+									[]interface{}{
+										map[string]interface{}{
+											"json": map[string]interface{}{
+												"messages": []interface{}{"Human: Hello"},
+											},
+										},
+									},
+								},
+							},
+							Metadata: &n8n.NodeExecutionMetadata{
+								SubRun: []interface{}{
+									map[string]interface{}{"node": "OpenAI Chat Model", "runIndex": 0},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		WorkflowData: &n8n.WorkflowData{
+			Nodes: []n8n.WorkflowNode{
+				{Name: "Chat Trigger", Type: "@n8n/n8n-nodes-langchain.chatTrigger"},
+				{Name: "AI Agent", Type: "@n8n/n8n-nodes-langchain.agent"},
+				{Name: "OpenAI Chat Model", Type: "@n8n/n8n-nodes-langchain.lmChatOpenAi"},
+			},
+			Connections: map[string]interface{}{
+				"Chat Trigger": map[string]interface{}{
+					"main": []interface{}{
+						[]interface{}{map[string]interface{}{"node": "AI Agent", "type": "main", "index": 0}},
+					},
+				},
+				"OpenAI Chat Model": map[string]interface{}{
+					"ai_languageModel": []interface{}{
+						[]interface{}{map[string]interface{}{"node": "AI Agent", "type": "ai_languageModel", "index": 0}},
+					},
+				},
+			},
+		},
+	}
+
+	nodes := transformer.TransformExecution(execution, "test-user")
+
+	require.Len(t, nodes, 2)
+	assert.Equal(t, "Chat Trigger", nodes[0].Name)
+	assert.Equal(t, "AI Agent", nodes[1].Name)
+
+	// AI Agent should have output text
+	require.NotNil(t, nodes[1].Data)
+	require.NotNil(t, nodes[1].Data.Output)
+	assert.Equal(t, "Agent response", nodes[1].Data.Output.Text)
+
+	// LLM should be a child of AI Agent
+	require.Len(t, nodes[1].Nodes, 1)
+	llmNode := nodes[1].Nodes[0]
+	assert.Equal(t, "OpenAI Chat Model", llmNode.Name)
+	assert.Equal(t, models.NodeTypeLLM, llmNode.Type)
+	assert.Equal(t, "ai_languageModel", llmNode.Metadata["connection_type"])
+
+	// LLM should have extracted output text from generations
+	require.NotNil(t, llmNode.Data)
+	require.NotNil(t, llmNode.Data.Output)
+	assert.Equal(t, "LLM generated text", llmNode.Data.Output.Text)
+
+	// LLM should have input override captured
+	require.NotNil(t, llmNode.Data.Input)
+	assert.NotNil(t, llmNode.Data.Input.ExtraData)
+}
+
+func TestN8NTransformer_ToolSubNodeOutputExtraction(t *testing.T) {
+	transformer := n8n.NewTransformer()
+
+	execution := &n8n.ExecutionResponse{
+		ID:     "301",
+		Status: n8n.ExecutionStatusSuccess,
+		Data: &n8n.ExecutionData{
+			ResultData: &n8n.ResultData{
+				RunData: map[string][]n8n.NodeExecution{
+					"AI Agent": {
+						{
+							StartTime:       1735900000000,
+							ExecutionTime:   5000,
+							ExecutionStatus: n8n.NodeExecutionStatusSuccess,
+							Data: n8n.NodeOutputData{
+								Main: [][]n8n.NodeOutputItem{
+									{{JSON: map[string]interface{}{"output": "Agent used a tool"}}},
+								},
+							},
+						},
+					},
+					"Search Tool": {
+						{
+							StartTime:       1735900000100,
+							ExecutionTime:   1000,
+							ExecutionStatus: n8n.NodeExecutionStatusSuccess,
+							Data: n8n.NodeOutputData{
+								AITool: [][]n8n.NodeOutputItem{
+									{{JSON: map[string]interface{}{"response": "Search result text"}}},
+								},
+							},
+							Metadata: &n8n.NodeExecutionMetadata{
+								SubRun: []interface{}{
+									map[string]interface{}{"node": "Search Tool", "runIndex": 0},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		WorkflowData: &n8n.WorkflowData{
+			Nodes: []n8n.WorkflowNode{
+				{Name: "AI Agent", Type: "@n8n/n8n-nodes-langchain.agent"},
+				{Name: "Search Tool", Type: "@n8n/n8n-nodes-langchain.toolSerpApi"},
+			},
+			Connections: map[string]interface{}{
+				"Search Tool": map[string]interface{}{
+					"ai_tool": []interface{}{
+						[]interface{}{map[string]interface{}{"node": "AI Agent", "type": "ai_tool", "index": 0}},
+					},
+				},
+			},
+		},
+	}
+
+	nodes := transformer.TransformExecution(execution, "test-user")
+
+	require.Len(t, nodes, 1)
+	assert.Equal(t, "AI Agent", nodes[0].Name)
+
+	// Tool should be a child of AI Agent
+	require.Len(t, nodes[0].Nodes, 1)
+	toolNode := nodes[0].Nodes[0]
+	assert.Equal(t, "Search Tool", toolNode.Name)
+	assert.Equal(t, models.NodeTypeTool, toolNode.Type)
+	assert.Equal(t, "ai_tool", toolNode.Metadata["connection_type"])
+
+	// Tool should have extracted response text
+	require.NotNil(t, toolNode.Data)
+	require.NotNil(t, toolNode.Data.Output)
+	assert.Equal(t, "Search result text", toolNode.Data.Output.Text)
+}
+
+func TestN8NTransformer_MemorySubNodeOutputExtraction(t *testing.T) {
+	transformer := n8n.NewTransformer()
+
+	execution := &n8n.ExecutionResponse{
+		ID:     "302",
+		Status: n8n.ExecutionStatusSuccess,
+		Data: &n8n.ExecutionData{
+			ResultData: &n8n.ResultData{
+				RunData: map[string][]n8n.NodeExecution{
+					"AI Agent": {
+						{
+							StartTime:       1735900000000,
+							ExecutionTime:   5000,
+							ExecutionStatus: n8n.NodeExecutionStatusSuccess,
+						},
+					},
+					"Memory Buffer": {
+						{
+							StartTime:       1735900000010,
+							ExecutionTime:   50,
+							ExecutionStatus: n8n.NodeExecutionStatusSuccess,
+							Data: n8n.NodeOutputData{
+								AIMemory: [][]n8n.NodeOutputItem{
+									{{JSON: map[string]interface{}{
+										"action": "load",
+										"chatHistory": []interface{}{
+											map[string]interface{}{"type": "human", "data": map[string]interface{}{"content": "Hello"}},
+										},
+									}}},
+								},
+							},
+						},
+						{
+							StartTime:       1735900005000,
+							ExecutionTime:   30,
+							ExecutionStatus: n8n.NodeExecutionStatusSuccess,
+							Data: n8n.NodeOutputData{
+								AIMemory: [][]n8n.NodeOutputItem{
+									{{JSON: map[string]interface{}{"action": "save"}}},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		WorkflowData: &n8n.WorkflowData{
+			Nodes: []n8n.WorkflowNode{
+				{Name: "AI Agent", Type: "@n8n/n8n-nodes-langchain.agent"},
+				{Name: "Memory Buffer", Type: "@n8n/n8n-nodes-langchain.memoryBufferWindow"},
+			},
+			Connections: map[string]interface{}{
+				"Memory Buffer": map[string]interface{}{
+					"ai_memory": []interface{}{
+						[]interface{}{map[string]interface{}{"node": "AI Agent", "type": "ai_memory", "index": 0}},
+					},
+				},
+			},
+		},
+	}
+
+	nodes := transformer.TransformExecution(execution, "test-user")
+
+	require.Len(t, nodes, 1)
+	assert.Equal(t, "AI Agent", nodes[0].Name)
+
+	// Memory should be child nodes (2 runs: load + save)
+	require.Len(t, nodes[0].Nodes, 2)
+	memLoadNode := nodes[0].Nodes[0]
+	assert.Equal(t, "Memory Buffer", memLoadNode.Name)
+	assert.Equal(t, models.NodeTypeMemory, memLoadNode.Type)
+	assert.Equal(t, "ai_memory", memLoadNode.Metadata["connection_type"])
+
+	// Memory load should have output data with action
+	require.NotNil(t, memLoadNode.Data)
+	require.NotNil(t, memLoadNode.Data.Output)
+	assert.NotNil(t, memLoadNode.Data.Output.ExtraData)
+	assert.Equal(t, "load", memLoadNode.Data.Output.ExtraData["action"])
+
+	// Second memory run (save)
+	memSaveNode := nodes[0].Nodes[1]
+	assert.Equal(t, "Memory Buffer", memSaveNode.Name)
+	require.NotNil(t, memSaveNode.Data)
+	require.NotNil(t, memSaveNode.Data.Output)
+	assert.Equal(t, "save", memSaveNode.Data.Output.ExtraData["action"])
+}
+
+func TestN8NTransformer_ChainNodeTypes(t *testing.T) {
+	transformer := n8n.NewTransformer()
+
+	chainTypes := []struct {
+		nodeType     string
+		expectedType models.NodeType
+	}{
+		{"@n8n/n8n-nodes-langchain.chainLlm", models.NodeTypeChain},
+		{"@n8n/n8n-nodes-langchain.chainRetrievalQa", models.NodeTypeChain},
+		{"@n8n/n8n-nodes-langchain.chainSummarization", models.NodeTypeChain},
+	}
+
+	for _, tc := range chainTypes {
+		t.Run(tc.nodeType, func(t *testing.T) {
+			execution := &n8n.ExecutionResponse{
+				Data: &n8n.ExecutionData{
+					ResultData: &n8n.ResultData{
+						RunData: map[string][]n8n.NodeExecution{
+							"Chain Node": {
+								{
+									StartTime: 1735900000000, ExecutionTime: 1000,
+									ExecutionStatus: n8n.NodeExecutionStatusSuccess,
+									Data: n8n.NodeOutputData{
+										Main: [][]n8n.NodeOutputItem{
+											{{JSON: map[string]interface{}{
+												"response": map[string]interface{}{"text": "Chain output"},
+											}}},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				WorkflowData: &n8n.WorkflowData{
+					Nodes: []n8n.WorkflowNode{
+						{Name: "Chain Node", Type: tc.nodeType},
+					},
+				},
+			}
+
+			nodes := transformer.TransformExecution(execution, "test-user")
+			require.Len(t, nodes, 1)
+			assert.Equal(t, tc.expectedType, nodes[0].Type)
+		})
+	}
+}
+
+func TestNodeOutputData_GetOutputItems(t *testing.T) {
+	t.Run("returns main when present", func(t *testing.T) {
+		data := n8n.NodeOutputData{
+			Main: [][]n8n.NodeOutputItem{{{JSON: map[string]interface{}{"key": "val"}}}},
+		}
+		items := data.GetOutputItems()
+		require.Len(t, items, 1)
+		assert.Equal(t, "val", items[0][0].JSON["key"])
+	})
+
+	t.Run("returns ai_languageModel when main is empty", func(t *testing.T) {
+		data := n8n.NodeOutputData{
+			AILanguageModel: [][]n8n.NodeOutputItem{{{JSON: map[string]interface{}{"llm": true}}}},
+		}
+		items := data.GetOutputItems()
+		require.Len(t, items, 1)
+		assert.Equal(t, true, items[0][0].JSON["llm"])
+	})
+
+	t.Run("returns ai_tool when main is empty", func(t *testing.T) {
+		data := n8n.NodeOutputData{
+			AITool: [][]n8n.NodeOutputItem{{{JSON: map[string]interface{}{"response": "tool output"}}}},
+		}
+		items := data.GetOutputItems()
+		require.Len(t, items, 1)
+		assert.Equal(t, "tool output", items[0][0].JSON["response"])
+	})
+
+	t.Run("returns ai_memory when main is empty", func(t *testing.T) {
+		data := n8n.NodeOutputData{
+			AIMemory: [][]n8n.NodeOutputItem{{{JSON: map[string]interface{}{"action": "load"}}}},
+		}
+		items := data.GetOutputItems()
+		require.Len(t, items, 1)
+		assert.Equal(t, "load", items[0][0].JSON["action"])
+	})
+
+	t.Run("returns ai_retriever when main is empty", func(t *testing.T) {
+		data := n8n.NodeOutputData{
+			AIRetriever: [][]n8n.NodeOutputItem{{{JSON: map[string]interface{}{"docs": "retrieved"}}}},
+		}
+		items := data.GetOutputItems()
+		require.Len(t, items, 1)
+	})
+
+	t.Run("returns ai_vectorStore when main is empty", func(t *testing.T) {
+		data := n8n.NodeOutputData{
+			AIVectorStore: [][]n8n.NodeOutputItem{{{JSON: map[string]interface{}{"vs": true}}}},
+		}
+		items := data.GetOutputItems()
+		require.Len(t, items, 1)
+	})
+
+	t.Run("returns ai_embedding when main is empty", func(t *testing.T) {
+		data := n8n.NodeOutputData{
+			AIEmbedding: [][]n8n.NodeOutputItem{{{JSON: map[string]interface{}{"emb": true}}}},
+		}
+		items := data.GetOutputItems()
+		require.Len(t, items, 1)
+	})
+
+	t.Run("returns nil when all empty", func(t *testing.T) {
+		data := n8n.NodeOutputData{}
+		items := data.GetOutputItems()
+		assert.Nil(t, items)
+	})
+
+	t.Run("main takes priority over sub-node keys", func(t *testing.T) {
+		data := n8n.NodeOutputData{
+			Main:            [][]n8n.NodeOutputItem{{{JSON: map[string]interface{}{"from": "main"}}}},
+			AILanguageModel: [][]n8n.NodeOutputItem{{{JSON: map[string]interface{}{"from": "llm"}}}},
+		}
+		items := data.GetOutputItems()
+		require.Len(t, items, 1)
+		assert.Equal(t, "main", items[0][0].JSON["from"])
+	})
+}
+
+func TestN8NTransformer_StructuredOutputExtraction(t *testing.T) {
+	transformer := n8n.NewTransformer()
+
+	execution := &n8n.ExecutionResponse{
+		Data: &n8n.ExecutionData{
+			ResultData: &n8n.ResultData{
+				RunData: map[string][]n8n.NodeExecution{
+					"Info Extractor": {
+						{
+							StartTime: 1735900000000, ExecutionTime: 2000,
+							ExecutionStatus: n8n.NodeExecutionStatusSuccess,
+							Data: n8n.NodeOutputData{
+								Main: [][]n8n.NodeOutputItem{
+									{{JSON: map[string]interface{}{
+										"output": map[string]interface{}{
+											"name":  "John Doe",
+											"email": "john@example.com",
+										},
+									}}},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		WorkflowData: &n8n.WorkflowData{
+			Nodes: []n8n.WorkflowNode{
+				{Name: "Info Extractor", Type: "@n8n/n8n-nodes-langchain.information-extractor"},
+			},
+		},
+	}
+
+	nodes := transformer.TransformExecution(execution, "test-user")
+
+	require.Len(t, nodes, 1)
+	assert.Equal(t, models.NodeTypeAgent, nodes[0].Type)
+	require.NotNil(t, nodes[0].Data)
+	require.NotNil(t, nodes[0].Data.Output)
+	// Structured output goes to ExtraData
+	outputMap, ok := nodes[0].Data.Output.ExtraData["output"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "John Doe", outputMap["name"])
 }

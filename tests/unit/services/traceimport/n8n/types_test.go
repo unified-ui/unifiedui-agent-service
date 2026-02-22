@@ -107,20 +107,67 @@ func TestGetNodeCategory(t *testing.T) {
 		nodeType string
 		expected string
 	}{
+		// Triggers
 		{"n8n-nodes-base.manualTrigger", "trigger"},
 		{"@n8n/n8n-nodes-langchain.chatTrigger", "trigger"},
-		{"@n8n/n8n-nodes-langchain.agent", "agent"},
-		{"@n8n/n8n-nodes-langchain.lmChatAzureOpenAi", "llm"},
-		{"n8n-nodes-base.httpRequest", "tool"},
-		{"n8n-nodes-base.postgres", "tool"},
-		{"n8n-nodes-base.code", "code"},
-		{"n8n-nodes-base.function", "code"},
-		{"n8n-nodes-base.switch", "conditional"},
-		{"n8n-nodes-base.if", "conditional"},
+		{"n8n-nodes-base.webhook", "trigger"},
+		{"n8n-nodes-base.scheduleTrigger", "trigger"},
+		// Forms
 		{"n8n-nodes-base.form", "form"},
 		{"n8n-nodes-base.formTrigger", "form"},
+		// Agents
+		{"@n8n/n8n-nodes-langchain.agent", "agent"},
+		{"@n8n/n8n-nodes-langchain.information-extractor", "agent"},
+		{"@n8n/n8n-nodes-langchain.text-classifier", "agent"},
+		{"@n8n/n8n-nodes-langchain.sentimentAnalysis", "agent"},
+		// Chains
+		{"@n8n/n8n-nodes-langchain.chainLlm", "chain"},
+		{"@n8n/n8n-nodes-langchain.chainRetrievalQa", "chain"},
+		{"@n8n/n8n-nodes-langchain.chainSummarization", "chain"},
+		// LLM
+		{"@n8n/n8n-nodes-langchain.lmChatAzureOpenAi", "llm"},
+		{"@n8n/n8n-nodes-langchain.lmChatOpenAi", "llm"},
+		{"@n8n/n8n-nodes-langchain.lmChatAnthropic", "llm"},
+		{"@n8n/n8n-nodes-langchain.lmChatGoogleGemini", "llm"},
+		// Memory
 		{"@n8n/n8n-nodes-langchain.memoryBufferWindow", "memory"},
+		{"@n8n/n8n-nodes-langchain.memoryPostgresChat", "memory"},
+		// Tools
 		{"@n8n/n8n-nodes-langchain.toolWorkflow", "tool"},
+		{"@n8n/n8n-nodes-langchain.toolCode", "tool"},
+		{"@n8n/n8n-nodes-langchain.toolMcp", "tool"},
+		{"n8n-nodes-base.httpRequest", "tool"},
+		{"n8n-nodes-base.postgres", "tool"},
+		{"n8n-nodes-base.executeWorkflow", "tool"},
+		{"n8n-nodes-base.executeCommand", "tool"},
+		// Vector stores
+		{"@n8n/n8n-nodes-langchain.vectorStorePinecone", "vectorStore"},
+		{"@n8n/n8n-nodes-langchain.vectorStorePgVector", "vectorStore"},
+		// Embeddings
+		{"@n8n/n8n-nodes-langchain.embeddingsOpenAi", "embedding"},
+		{"@n8n/n8n-nodes-langchain.embeddingsAzureOpenAi", "embedding"},
+		// Output parsers
+		{"@n8n/n8n-nodes-langchain.outputParserStructured", "outputParser"},
+		// Document loaders
+		{"@n8n/n8n-nodes-langchain.documentDefaultDataLoader", "document"},
+		// Text splitters
+		{"@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter", "textSplitter"},
+		// Retrievers
+		{"@n8n/n8n-nodes-langchain.retrieverVectorStore", "retriever"},
+		// Code
+		{"n8n-nodes-base.code", "code"},
+		{"n8n-nodes-base.function", "code"},
+		{"@n8n/n8n-nodes-langchain.code", "code"},
+		// Conditional
+		{"n8n-nodes-base.switch", "conditional"},
+		{"n8n-nodes-base.if", "conditional"},
+		{"n8n-nodes-base.filter", "conditional"},
+		{"n8n-nodes-base.merge", "conditional"},
+		// Loop
+		{"n8n-nodes-base.splitInBatches", "loop"},
+		// Custom/default
+		{"n8n-nodes-base.set", "custom"},
+		{"n8n-nodes-base.noOp", "custom"},
 		{"some-unknown-type", "custom"},
 	}
 
@@ -130,4 +177,37 @@ func TestGetNodeCategory(t *testing.T) {
 			assert.Equal(t, tc.expected, result)
 		})
 	}
+}
+
+func TestGetNodeCategory_EmbeddingsNotLLM(t *testing.T) {
+	assert.Equal(t, "embedding", n8n.GetNodeCategory("@n8n/n8n-nodes-langchain.embeddingsOpenAi"))
+	assert.Equal(t, "llm", n8n.GetNodeCategory("@n8n/n8n-nodes-langchain.lmChatOpenAi"))
+}
+
+func TestNodeOutputData_GetOutputItems_AllKeys(t *testing.T) {
+	t.Run("ai_outputParser", func(t *testing.T) {
+		data := n8n.NodeOutputData{
+			AIOutputParser: [][]n8n.NodeOutputItem{{{JSON: map[string]interface{}{"parsed": true}}}},
+		}
+		items := data.GetOutputItems()
+		require.NotNil(t, items)
+		assert.Equal(t, true, items[0][0].JSON["parsed"])
+	})
+
+	t.Run("ai_document", func(t *testing.T) {
+		data := n8n.NodeOutputData{
+			AIDocument: [][]n8n.NodeOutputItem{{{JSON: map[string]interface{}{"pageContent": "doc text"}}}},
+		}
+		items := data.GetOutputItems()
+		require.NotNil(t, items)
+		assert.Equal(t, "doc text", items[0][0].JSON["pageContent"])
+	})
+
+	t.Run("ai_textSplitter", func(t *testing.T) {
+		data := n8n.NodeOutputData{
+			AITextSplitter: [][]n8n.NodeOutputItem{{{JSON: map[string]interface{}{"chunks": 5}}}},
+		}
+		items := data.GetOutputItems()
+		require.NotNil(t, items)
+	})
 }

@@ -53,6 +53,18 @@ const (
 	NodeTypeLoop NodeType = "loop"
 	// NodeTypeCustom represents a custom node type.
 	NodeTypeCustom NodeType = "custom"
+	// NodeTypeMemory represents a memory node.
+	NodeTypeMemory NodeType = "memory"
+	// NodeTypeVectorStore represents a vector store node.
+	NodeTypeVectorStore NodeType = "vector_store"
+	// NodeTypeEmbedding represents an embedding node.
+	NodeTypeEmbedding NodeType = "embedding"
+	// NodeTypeOutputParser represents an output parser node.
+	NodeTypeOutputParser NodeType = "output_parser"
+	// NodeTypeDocument represents a document loader node.
+	NodeTypeDocument NodeType = "document"
+	// NodeTypeTextSplitter represents a text splitter node.
+	NodeTypeTextSplitter NodeType = "text_splitter"
 )
 
 // TraceContextType represents the context type of a trace.

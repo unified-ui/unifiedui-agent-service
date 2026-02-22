@@ -249,60 +249,53 @@ func (t *Transformer) transformNodeExecution(
 
 // mapNodeType converts N8N node type to our internal NodeType.
 func (t *Transformer) mapNodeType(n8nType string) models.NodeType {
-	// Check for trigger nodes
-	if strings.Contains(n8nType, "Trigger") || strings.Contains(n8nType, "trigger") {
-		return models.NodeTypeWorkflow
-	}
+	suffix := extractNodeSuffix(n8nType)
 
-	// Check for agent nodes (AI Agents)
-	if strings.Contains(n8nType, "agent") || strings.Contains(n8nType, "Agent") {
-		return models.NodeTypeAgent
-	}
-
-	// Check for LLM nodes
-	if strings.Contains(n8nType, "lmChat") || strings.Contains(n8nType, "LmChat") ||
-		strings.Contains(n8nType, "openAi") || strings.Contains(n8nType, "OpenAi") ||
-		strings.Contains(n8nType, "anthropic") || strings.Contains(n8nType, "Anthropic") {
+	switch {
+	case strings.HasPrefix(suffix, "lmChat"):
 		return models.NodeTypeLLM
-	}
-
-	// Check for HTTP request nodes
-	if strings.Contains(n8nType, "httpRequest") || strings.Contains(n8nType, "HttpRequest") {
-		return models.NodeTypeHTTP
-	}
-
-	// Check for code/function nodes
-	if strings.Contains(n8nType, "code") || strings.Contains(n8nType, "Code") ||
-		strings.Contains(n8nType, "function") || strings.Contains(n8nType, "Function") {
-		return models.NodeTypeCode
-	}
-
-	// Check for conditional nodes
-	if strings.Contains(n8nType, "switch") || strings.Contains(n8nType, "Switch") ||
-		strings.Contains(n8nType, "if") || strings.Contains(n8nType, "If") {
-		return models.NodeTypeConditional
-	}
-
-	// Check for merge nodes
-	if strings.Contains(n8nType, "merge") || strings.Contains(n8nType, "Merge") {
+	case strings.HasPrefix(suffix, "embeddings"):
+		return models.NodeTypeEmbedding
+	case strings.HasPrefix(suffix, "memory"):
+		return models.NodeTypeMemory
+	case strings.HasPrefix(suffix, "vectorStore"):
+		return models.NodeTypeVectorStore
+	case strings.HasPrefix(suffix, "outputParser"):
+		return models.NodeTypeOutputParser
+	case strings.HasPrefix(suffix, "document"):
+		return models.NodeTypeDocument
+	case strings.HasPrefix(suffix, "textSplitter"):
+		return models.NodeTypeTextSplitter
+	case strings.HasPrefix(suffix, "retriever"):
+		return models.NodeTypeRetriever
+	case strings.HasSuffix(suffix, "Trigger") || suffix == "webhook":
 		return models.NodeTypeWorkflow
-	}
-
-	// Check for database nodes
-	if strings.Contains(n8nType, "postgres") || strings.Contains(n8nType, "Postgres") ||
-		strings.Contains(n8nType, "mongo") || strings.Contains(n8nType, "Mongo") ||
-		strings.Contains(n8nType, "mysql") || strings.Contains(n8nType, "MySql") ||
-		strings.Contains(n8nType, "redis") || strings.Contains(n8nType, "Redis") {
+	case suffix == "agent" || suffix == "information-extractor" ||
+		suffix == "text-classifier" || suffix == "textClassifier" ||
+		suffix == "sentimentAnalysis":
+		return models.NodeTypeAgent
+	case strings.HasPrefix(suffix, "chain"):
+		return models.NodeTypeChain
+	case strings.HasPrefix(suffix, "tool"):
 		return models.NodeTypeTool
-	}
-
-	// Check for tool nodes
-	if strings.Contains(n8nType, "tool") || strings.Contains(n8nType, "Tool") {
+	case suffix == "httpRequest":
+		return models.NodeTypeHTTP
+	case suffix == "code":
+		return models.NodeTypeCode
+	case strings.HasPrefix(suffix, "function"):
+		return models.NodeTypeCode
+	case suffix == "switch" || suffix == "if" || suffix == "filter":
+		return models.NodeTypeConditional
+	case suffix == "splitInBatches":
+		return models.NodeTypeLoop
+	case suffix == "postgres" || suffix == "mongoDb" || suffix == "mySql" ||
+		suffix == "redis" || suffix == "executeCommand" || suffix == "readWriteFile":
 		return models.NodeTypeTool
+	case suffix == "merge" || suffix == "executeWorkflow" || suffix == "respondToWebhook":
+		return models.NodeTypeWorkflow
+	default:
+		return models.NodeTypeCustom
 	}
-
-	// Default to custom type
-	return models.NodeTypeCustom
 }
 
 // mapNodeStatus converts N8N execution status to our internal NodeStatus.
@@ -382,7 +375,8 @@ func (t *Transformer) extractInputData(nodeExec *NodeExecution, nodeType string)
 
 // extractOutputData extracts output data from node execution.
 func (t *Transformer) extractOutputData(nodeExec *NodeExecution, _ string) *models.NodeDataIO {
-	if len(nodeExec.Data.Main) == 0 {
+	outputItems := nodeExec.Data.GetOutputItems()
+	if len(outputItems) == 0 {
 		return nil
 	}
 
@@ -390,7 +384,7 @@ func (t *Transformer) extractOutputData(nodeExec *NodeExecution, _ string) *mode
 	var outputTexts []string
 	var extraData map[string]interface{}
 
-	for _, outputBranch := range nodeExec.Data.Main {
+	for _, outputBranch := range outputItems {
 		for _, item := range outputBranch {
 			// Check for text field first
 			if item.Text != "" {
@@ -410,9 +404,26 @@ func (t *Transformer) extractOutputData(nodeExec *NodeExecution, _ string) *mode
 				continue
 			}
 
-			// Check for response field in JSON
+			// Check for response field in JSON (string)
 			if response, ok := item.JSON["response"].(string); ok {
 				outputTexts = append(outputTexts, response)
+				continue
+			}
+
+			// Check for LLM response structure: response.generations[0][0].text
+			if responseMap, ok := item.JSON["response"].(map[string]interface{}); ok {
+				if text := extractLLMResponseText(responseMap); text != "" {
+					outputTexts = append(outputTexts, text)
+					continue
+				}
+			}
+
+			// Check for structured output (map)
+			if output, ok := item.JSON["output"].(map[string]interface{}); ok {
+				if extraData == nil {
+					extraData = make(map[string]interface{})
+				}
+				extraData["output"] = output
 				continue
 			}
 
@@ -444,6 +455,24 @@ func (t *Transformer) extractOutputData(nodeExec *NodeExecution, _ string) *mode
 	}
 
 	return nil
+}
+
+// extractLLMResponseText extracts text from the N8N LLM response.generations structure.
+func extractLLMResponseText(response map[string]interface{}) string {
+	generations, ok := response["generations"].([]interface{})
+	if !ok || len(generations) == 0 {
+		return ""
+	}
+	firstGen, ok := generations[0].([]interface{})
+	if !ok || len(firstGen) == 0 {
+		return ""
+	}
+	genItem, ok := firstGen[0].(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	text, _ := genItem["text"].(string)
+	return text
 }
 
 // buildNodeMetadata constructs metadata from node execution.
