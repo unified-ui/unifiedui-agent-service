@@ -12,6 +12,7 @@ import (
 // APIVersion represents the N8N API version.
 type APIVersion string
 
+// APIVersion constants define the supported N8N API versions.
 const (
 	APIVersionV1 APIVersion = "v1"
 )
@@ -19,6 +20,7 @@ const (
 // WorkflowType represents the type of N8N workflow.
 type WorkflowType string
 
+// WorkflowType constants define the types of N8N workflows.
 const (
 	WorkflowTypeChatAgent   WorkflowType = "N8N_CHAT_AGENT_WORKFLOW"
 	WorkflowTypeHumanInLoop WorkflowType = "N8N_HUMAN_IN_THE_LOOP"
@@ -48,6 +50,7 @@ type ChatRequestWithFiles struct {
 // StreamType represents the type of N8N stream event.
 type StreamType string
 
+// StreamType constants define the types of N8N stream events.
 const (
 	StreamTypeBegin StreamType = "begin"
 	StreamTypeItem  StreamType = "item"

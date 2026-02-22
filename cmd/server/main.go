@@ -77,25 +77,25 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("failed to initialize app vault client: %w", err)
 	}
-	defer appVaultClient.Close()
+	defer func() { _ = appVaultClient.Close() }()
 
 	secretsVaultClient, err := createVaultClient(cfg.Vaults.ResolvedSecretsVaultType(), cfg.Vaults.Secrets)
 	if err != nil {
 		return fmt.Errorf("failed to initialize secrets vault client: %w", err)
 	}
-	defer secretsVaultClient.Close()
+	defer func() { _ = secretsVaultClient.Close() }()
 
 	cacheClient, err := createCacheClient(cfg.Cache)
 	if err != nil {
 		return fmt.Errorf("failed to initialize cache client: %w", err)
 	}
-	defer cacheClient.Close()
+	defer func() { _ = cacheClient.Close() }()
 
 	docDBClient, err := createDocDBClient(ctx, cfg.DocDB)
 	if err != nil {
 		return fmt.Errorf("failed to initialize document db client: %w", err)
 	}
-	defer docDBClient.Close(ctx)
+	defer func() { _ = docDBClient.Close(ctx) }()
 
 	if err := docDBClient.EnsureIndexes(ctx); err != nil {
 		log.Printf("warning: failed to ensure indexes: %v", err)

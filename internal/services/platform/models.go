@@ -4,6 +4,7 @@ package platform
 // AgentType represents the type of agent backend.
 type AgentType string
 
+// AgentType constants define the supported agent backend types.
 const (
 	AgentTypeN8N     AgentType = "N8N"
 	AgentTypeFoundry AgentType = "MICROSOFT_FOUNDRY"
@@ -14,6 +15,7 @@ const (
 // CredentialType represents the type of credentials.
 type CredentialType string
 
+// CredentialType constants define the supported credential types.
 const (
 	CredentialTypeN8NAPIKey    CredentialType = "N8N_API_KEY"    //nolint:gosec // credential type name, not a credential
 	CredentialTypeN8NBasicAuth CredentialType = "N8N_BASIC_AUTH" //nolint:gosec // credential type name, not a credential
@@ -23,6 +25,7 @@ const (
 // N8NWorkflowType represents the type of N8N workflow.
 type N8NWorkflowType string
 
+// N8NWorkflowType constants define the types of N8N workflows.
 const (
 	N8NWorkflowTypeChatAgent   N8NWorkflowType = "N8N_CHAT_AGENT_WORKFLOW"
 	N8NWorkflowTypeHumanInLoop N8NWorkflowType = "N8N_HUMAN_IN_THE_LOOP"

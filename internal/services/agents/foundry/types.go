@@ -8,6 +8,7 @@ import (
 // InputType represents the type of multimodal input content.
 type InputType string
 
+// InputType constants define the supported multimodal input types.
 const (
 	InputTypeText  InputType = "input_text"
 	InputTypeImage InputType = "input_image"
@@ -44,6 +45,7 @@ type InputMessage struct {
 // ChunkType represents the type of stream chunk.
 type ChunkType string
 
+// ChunkType constants define the types of stream chunks.
 const (
 	ChunkTypeContent    ChunkType = "content"
 	ChunkTypeMetadata   ChunkType = "metadata"
@@ -93,6 +95,7 @@ type StreamReader interface {
 // EventType represents the type of SSE event from Foundry.
 type EventType string
 
+// EventType constants define the SSE event types from Foundry.
 const (
 	EventResponseCreated    EventType = "response.created"
 	EventResponseInProgress EventType = "response.in_progress"

@@ -100,7 +100,7 @@ func (c *ReactionsCollection) ListByMessage(ctx context.Context, opts *docdb.Lis
 	if err != nil {
 		return nil, fmt.Errorf("failed to list reactions: %w", err)
 	}
-	defer cursor.Close(ctx)
+	defer func() { _ = cursor.Close(ctx) }()
 
 	var reactions []*models.MessageReaction
 	if err := cursor.All(ctx, &reactions); err != nil {

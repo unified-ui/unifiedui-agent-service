@@ -11,6 +11,7 @@ import (
 // ChunkType represents the type of stream chunk.
 type ChunkType string
 
+// ChunkType constants define the types of stream chunks.
 const (
 	ChunkTypeContent    ChunkType = "content"
 	ChunkTypeMetadata   ChunkType = "metadata"

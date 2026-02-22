@@ -114,7 +114,7 @@ func (c *TracesCollection) ListByConversation(ctx context.Context, tenantID, con
 	if err != nil {
 		return nil, fmt.Errorf("failed to list traces by conversation: %w", err)
 	}
-	defer cursor.Close(ctx)
+	defer func() { _ = cursor.Close(ctx) }()
 
 	var traces []*models.Trace
 	if err := cursor.All(ctx, &traces); err != nil {
@@ -160,7 +160,7 @@ func (c *TracesCollection) ListByAutonomousAgent(ctx context.Context, tenantID, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to list traces by autonomous agent: %w", err)
 	}
-	defer cursor.Close(ctx)
+	defer func() { _ = cursor.Close(ctx) }()
 
 	var traces []*models.Trace
 	if err := cursor.All(ctx, &traces); err != nil {
@@ -179,7 +179,7 @@ func (c *TracesCollection) List(ctx context.Context, opts *docdb.ListTracesOptio
 	if err != nil {
 		return nil, fmt.Errorf("failed to list traces: %w", err)
 	}
-	defer cursor.Close(ctx)
+	defer func() { _ = cursor.Close(ctx) }()
 
 	var traces []*models.Trace
 	if err := cursor.All(ctx, &traces); err != nil {

@@ -109,9 +109,10 @@ func TestN8NTransformer_TransformExecution_SimpleWorkflow(t *testing.T) {
 	// Find nodes by name (they should be sorted by start time)
 	var triggerNode, httpNode *models.TraceNode
 	for i := range nodes {
-		if nodes[i].Name == "When clicking 'Test workflow'" {
+		switch nodes[i].Name {
+		case "When clicking 'Test workflow'":
 			triggerNode = &nodes[i]
-		} else if nodes[i].Name == "HTTP Request" {
+		case "HTTP Request":
 			httpNode = &nodes[i]
 		}
 	}

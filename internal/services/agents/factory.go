@@ -79,7 +79,7 @@ func (f *Factory) createN8NClients(config *platform.AgentConfig) (*AgentClients,
 	apiClient, err := n8nFactory.CreateAPIClient(config)
 	if err != nil {
 		// Clean up workflow client if API client creation fails
-		workflowClient.Close()
+		_ = workflowClient.Close()
 		return nil, fmt.Errorf("failed to create N8N API client: %w", err)
 	}
 

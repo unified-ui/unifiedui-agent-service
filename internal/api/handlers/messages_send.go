@@ -141,7 +141,7 @@ func (h *MessagesHandler) SendMessage(c *gin.Context) {
 		middleware.HandleError(c, errors.NewInternalError("failed to create agent clients", createErr))
 		return
 	}
-	defer agentClients.Close()
+	defer func() { _ = agentClients.Close() }()
 
 	assistantMessage := models.NewAssistantMessage(
 		tenantCtx.TenantID,
@@ -213,7 +213,7 @@ func (h *MessagesHandler) handleStreamingResponse(
 		_ = writer.WriteMessageComplete(assistantMessage)
 		return
 	}
-	defer streamReader.Close()
+	defer func() { _ = streamReader.Close() }()
 
 	startTime := time.Now()
 
@@ -256,7 +256,7 @@ func (h *MessagesHandler) handleDefaultStreaming(
 	for {
 		select {
 		case <-ctx.Done():
-			streamReader.Close()
+			_ = streamReader.Close()
 			_ = writer.WriteStreamEnd()
 			h.saveCanceledAssistantMessage(assistantMessage, fullContent, agentConfig, startTime)
 			return executionID
@@ -269,7 +269,7 @@ func (h *MessagesHandler) handleDefaultStreaming(
 		}
 		if err != nil {
 			if ctx.Err() != nil {
-				streamReader.Close()
+				_ = streamReader.Close()
 				h.saveCanceledAssistantMessage(assistantMessage, fullContent, agentConfig, startTime)
 				return executionID
 			}
@@ -366,7 +366,7 @@ func (h *MessagesHandler) handleFoundryStreaming(
 	for {
 		select {
 		case <-ctx.Done():
-			streamReader.Close()
+			_ = streamReader.Close()
 			_ = writer.WriteStreamEnd()
 			h.saveCanceledAssistantMessage(currentMessage, currentContent, agentConfig, startTime)
 			return
@@ -379,7 +379,7 @@ func (h *MessagesHandler) handleFoundryStreaming(
 		}
 		if err != nil {
 			if ctx.Err() != nil {
-				streamReader.Close()
+				_ = streamReader.Close()
 				h.saveCanceledAssistantMessage(currentMessage, currentContent, agentConfig, startTime)
 				return
 			}

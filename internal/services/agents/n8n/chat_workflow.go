@@ -19,6 +19,7 @@ import (
 // ChunkType represents the type of stream chunk.
 type ChunkType string
 
+// ChunkType constants define the types of stream chunks.
 const (
 	ChunkTypeContent  ChunkType = "content"
 	ChunkTypeMetadata ChunkType = "metadata"
@@ -109,7 +110,7 @@ func (c *ChatWorkflowClient) Invoke(ctx context.Context, req *InvokeRequest) (*I
 	if err != nil {
 		return nil, err
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	var fullContent string
 	var lastChunk *StreamChunk
@@ -153,7 +154,7 @@ func (c *ChatWorkflowClient) InvokeStream(ctx context.Context, req *InvokeReques
 
 	go func() {
 		defer close(ch)
-		defer reader.Close()
+		defer func() { _ = reader.Close() }()
 
 		for {
 			chunk, err := reader.Read()
@@ -231,7 +232,7 @@ func (c *ChatWorkflowClient) InvokeStreamReader(ctx context.Context, req *Invoke
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 

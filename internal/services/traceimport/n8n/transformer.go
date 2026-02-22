@@ -113,7 +113,7 @@ func (t *Transformer) buildWorkflowNodeMap(workflowData *WorkflowData) map[strin
 // parseConnectionGraph extracts parent-child relationships from WorkflowData.Connections.
 // Non-main connections (ai_languageModel, ai_tool, ai_memory) indicate sub-node
 // relationships where the source node is a child of the target node.
-func (t *Transformer) parseConnectionGraph(workflowData *WorkflowData) (parentOf map[string]string, connectionTypes map[string]string) {
+func (t *Transformer) parseConnectionGraph(workflowData *WorkflowData) (parentOf, connectionTypes map[string]string) {
 	parentOf = make(map[string]string)
 	connectionTypes = make(map[string]string)
 

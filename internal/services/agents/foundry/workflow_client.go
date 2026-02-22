@@ -67,7 +67,7 @@ func (c *WorkflowClient) Invoke(ctx context.Context, req *InvokeRequest) (*Invok
 	if err != nil {
 		return nil, err
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	var fullContent string
 	var lastChunk *StreamChunk
@@ -111,7 +111,7 @@ func (c *WorkflowClient) InvokeStream(ctx context.Context, req *InvokeRequest) (
 
 	go func() {
 		defer close(ch)
-		defer reader.Close()
+		defer func() { _ = reader.Close() }()
 
 		for {
 			chunk, err := reader.Read()
@@ -179,7 +179,7 @@ func (c *WorkflowClient) InvokeStreamReader(ctx context.Context, req *InvokeRequ
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		bodyBytes, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("foundry API error: status=%d, body=%s", resp.StatusCode, string(bodyBytes))
 	}

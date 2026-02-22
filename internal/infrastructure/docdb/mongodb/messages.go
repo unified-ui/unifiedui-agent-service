@@ -90,7 +90,7 @@ func (c *MessagesCollection) List(ctx context.Context, opts *docdb.ListMessagesO
 	if err != nil {
 		return nil, fmt.Errorf("failed to list messages: %w", err)
 	}
-	defer cursor.Close(ctx)
+	defer func() { _ = cursor.Close(ctx) }()
 
 	var messages []*models.Message
 	if err := cursor.All(ctx, &messages); err != nil {

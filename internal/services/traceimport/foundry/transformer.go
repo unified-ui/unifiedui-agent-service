@@ -70,18 +70,18 @@ func (t *Transformer) buildActionAssignment(items []ConversationItem) actionAssi
 	}
 
 	messageActionByRespID := make(map[string]int)
-	for i, item := range items {
-		if item.Type == "workflow_action" && t.isMessageProducingAction(item) {
-			if respID := t.extractResponseID(item); respID != "" {
+	for i := range items {
+		if items[i].Type == "workflow_action" && t.isMessageProducingAction(items[i]) {
+			if respID := t.extractResponseID(items[i]); respID != "" {
 				messageActionByRespID[respID] = i
 			}
 		}
 	}
 
 	actionByRespID := make(map[string]int)
-	for i, item := range items {
-		if item.Type == "workflow_action" {
-			if respID := t.extractResponseID(item); respID != "" {
+	for i := range items {
+		if items[i].Type == "workflow_action" {
+			if respID := t.extractResponseID(items[i]); respID != "" {
 				if _, exists := actionByRespID[respID]; !exists {
 					actionByRespID[respID] = i
 				}
@@ -90,43 +90,43 @@ func (t *Transformer) buildActionAssignment(items []ConversationItem) actionAssi
 	}
 
 	lastInvokeIdx := -1
-	for i, item := range items {
-		if item.Type == "workflow_action" && t.isInvokeAction(item) {
+	for i := range items {
+		if items[i].Type == "workflow_action" && t.isInvokeAction(items[i]) {
 			lastInvokeIdx = i
 		}
 
-		if item.Type != "message" || item.Role == "user" {
+		if items[i].Type != "message" || items[i].Role == "user" {
 			continue
 		}
 
-		respID := t.extractResponseID(item)
+		respID := t.extractResponseID(items[i])
 		if respID != "" {
 			if actionIdx, ok := messageActionByRespID[respID]; ok {
-				a.messageParent[item.ID] = actionIdx
+				a.messageParent[items[i].ID] = actionIdx
 				continue
 			}
 		}
 
-		if respID == "" && lastInvokeIdx >= 0 && t.isSubAgentMessage(item) {
-			a.messageParent[item.ID] = lastInvokeIdx
+		if respID == "" && lastInvokeIdx >= 0 && t.isSubAgentMessage(items[i]) {
+			a.messageParent[items[i].ID] = lastInvokeIdx
 		}
 	}
 
-	for _, item := range items {
-		if item.Type == "mcp_approval_request" {
-			if respID := t.extractResponseID(item); respID != "" {
+	for i := range items {
+		if items[i].Type == "mcp_approval_request" {
+			if respID := t.extractResponseID(items[i]); respID != "" {
 				if actionIdx, ok := actionByRespID[respID]; ok {
-					a.mcpParent[item.ID] = actionIdx
+					a.mcpParent[items[i].ID] = actionIdx
 				}
 			}
 		}
 	}
 
-	for _, item := range items {
-		if item.Type == "mcp_call" && item.ApprovalRequestID == "" {
-			if respID := t.extractResponseID(item); respID != "" {
+	for i := range items {
+		if items[i].Type == "mcp_call" && items[i].ApprovalRequestID == "" {
+			if respID := t.extractResponseID(items[i]); respID != "" {
 				if actionIdx, ok := actionByRespID[respID]; ok {
-					a.mcpCallParent[item.ID] = actionIdx
+					a.mcpCallParent[items[i].ID] = actionIdx
 				}
 			}
 		}
@@ -145,71 +145,71 @@ func (t *Transformer) buildNodeList(
 	actionChildren := make(map[int][]models.TraceNode)
 	processedIDs := make(map[string]bool)
 
-	for _, item := range items {
-		if actionIdx, ok := assignment.messageParent[item.ID]; ok {
-			actionChildren[actionIdx] = append(actionChildren[actionIdx], t.transformMessage(item, createdBy))
-			processedIDs[item.ID] = true
+	for i := range items {
+		if actionIdx, ok := assignment.messageParent[items[i].ID]; ok {
+			actionChildren[actionIdx] = append(actionChildren[actionIdx], t.transformMessage(items[i], createdBy))
+			processedIDs[items[i].ID] = true
 		}
 	}
 
-	for _, item := range items {
-		if item.Type != "mcp_approval_request" {
+	for i := range items {
+		if items[i].Type != "mcp_approval_request" {
 			continue
 		}
-		if actionIdx, ok := assignment.mcpParent[item.ID]; ok {
-			actionChildren[actionIdx] = append(actionChildren[actionIdx], t.transformMCPGroup(item, mcpApprovalGroups, createdBy))
-			processedIDs[item.ID] = true
-			t.markMCPGroupProcessed(item.ID, mcpApprovalGroups, processedIDs)
+		if actionIdx, ok := assignment.mcpParent[items[i].ID]; ok {
+			actionChildren[actionIdx] = append(actionChildren[actionIdx], t.transformMCPGroup(items[i], mcpApprovalGroups, createdBy))
+			processedIDs[items[i].ID] = true
+			t.markMCPGroupProcessed(items[i].ID, mcpApprovalGroups, processedIDs)
 		}
 	}
 
-	for _, item := range items {
-		if item.Type != "mcp_call" || item.ApprovalRequestID != "" {
+	for i := range items {
+		if items[i].Type != "mcp_call" || items[i].ApprovalRequestID != "" {
 			continue
 		}
-		if actionIdx, ok := assignment.mcpCallParent[item.ID]; ok {
-			actionChildren[actionIdx] = append(actionChildren[actionIdx], t.transformMCPCall(item, createdBy))
-			processedIDs[item.ID] = true
+		if actionIdx, ok := assignment.mcpCallParent[items[i].ID]; ok {
+			actionChildren[actionIdx] = append(actionChildren[actionIdx], t.transformMCPCall(items[i], createdBy))
+			processedIDs[items[i].ID] = true
 		}
 	}
 
 	var nodes []models.TraceNode
-	for i, item := range items {
-		if processedIDs[item.ID] {
+	for i := range items {
+		if processedIDs[items[i].ID] {
 			continue
 		}
 
-		switch item.Type {
+		switch items[i].Type {
 		case "message":
-			nodes = append(nodes, t.transformMessage(item, createdBy))
+			nodes = append(nodes, t.transformMessage(items[i], createdBy))
 
 		case "workflow_action":
-			node := t.transformWorkflowAction(item, createdBy)
+			node := t.transformWorkflowAction(items[i], createdBy)
 			if children, ok := actionChildren[i]; ok {
 				node.Nodes = children
 			}
 			nodes = append(nodes, node)
 
 		case "mcp_approval_request":
-			nodes = append(nodes, t.transformMCPGroup(item, mcpApprovalGroups, createdBy))
-			t.markMCPGroupProcessed(item.ID, mcpApprovalGroups, processedIDs)
+			nodes = append(nodes, t.transformMCPGroup(items[i], mcpApprovalGroups, createdBy))
+			t.markMCPGroupProcessed(items[i].ID, mcpApprovalGroups, processedIDs)
 
 		case "mcp_call":
-			if item.ApprovalRequestID == "" || !t.hasApprovalRequest(items, item.ApprovalRequestID) {
-				nodes = append(nodes, t.transformMCPCall(item, createdBy))
+			if items[i].ApprovalRequestID == "" || !t.hasApprovalRequest(items, items[i].ApprovalRequestID) {
+				nodes = append(nodes, t.transformMCPCall(items[i], createdBy))
 			}
 
 		case "mcp_approval_response":
 			// Handled as part of MCP group
 
 		case "mcp_list_tools":
-			nodes = append(nodes, t.transformMCPListTools(item, createdBy))
+			nodes = append(nodes, t.transformMCPListTools(items[i], createdBy))
 
 		default:
-			nodes = append(nodes, t.transformUnknown(item, createdBy))
+			nodes = append(nodes, t.transformUnknown(items[i], createdBy))
 		}
 
-		processedIDs[item.ID] = true
+		processedIDs[items[i].ID] = true
 	}
 
 	return nodes

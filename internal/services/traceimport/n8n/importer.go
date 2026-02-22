@@ -212,7 +212,7 @@ func (n *TraceImporter) fetchExecution(ctx context.Context, config *Config) (*Ex
 	if err != nil {
 		return nil, fmt.Errorf("failed to call N8N API: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Read response body
 	body, err := io.ReadAll(resp.Body)
@@ -263,7 +263,7 @@ func (n *TraceImporter) findExecutionBySessionID(ctx context.Context, config *Co
 	if err != nil {
 		return "", fmt.Errorf("failed to call N8N API: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Read response body
 	body, err := io.ReadAll(resp.Body)

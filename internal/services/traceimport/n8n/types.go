@@ -65,6 +65,7 @@ func ExtractConfig(backendConfig map[string]interface{}) (*Config, bool) {
 // ExecutionStatus represents the status of an N8N execution.
 type ExecutionStatus string
 
+// ExecutionStatus constants define the possible statuses of an N8N execution.
 const (
 	ExecutionStatusSuccess ExecutionStatus = "success"
 	ExecutionStatusError   ExecutionStatus = "error"
@@ -77,6 +78,7 @@ const (
 // NodeExecutionStatus represents the status of a node execution within an N8N workflow.
 type NodeExecutionStatus string
 
+// NodeExecutionStatus constants define the possible statuses of a node execution.
 const (
 	NodeExecutionStatusSuccess NodeExecutionStatus = "success"
 	NodeExecutionStatusError   NodeExecutionStatus = "error"
@@ -390,7 +392,7 @@ const (
 	// Text splitter sub-nodes
 	N8NNodeTypeTextSplitterRecursive = "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter"
 	N8NNodeTypeTextSplitterCharacter = "@n8n/n8n-nodes-langchain.textSplitterCharacterTextSplitter"
-	N8NNodeTypeTextSplitterToken     = "@n8n/n8n-nodes-langchain.textSplitterTokenSplitter"
+	N8NNodeTypeTextSplitterToken     = "@n8n/n8n-nodes-langchain.textSplitterTokenSplitter" //nolint:gosec // node type constant, not a credential
 
 	// Retriever sub-nodes
 	N8NNodeTypeRetrieverVectorStore = "@n8n/n8n-nodes-langchain.retrieverVectorStore"
