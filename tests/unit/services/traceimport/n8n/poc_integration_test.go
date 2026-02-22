@@ -24,6 +24,9 @@ func pocFilePath(filename string) string {
 func loadExecution(t *testing.T, filename string) *n8n.ExecutionResponse {
 	t.Helper()
 	path := pocFilePath(filename)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		t.Skipf("skipping: fixture file %s not found (POC local-only data)", filename)
+	}
 	data, err := os.ReadFile(path)
 	require.NoError(t, err, "failed to read %s", filename)
 

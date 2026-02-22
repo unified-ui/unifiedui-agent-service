@@ -10,7 +10,13 @@ import (
 )
 
 func TestLoad_Defaults(t *testing.T) {
-	for _, key := range []string{"SERVER_HOST", "SERVER_PORT", "REDIS_HOST", "MONGODB_URI"} {
+	for _, key := range []string{
+		"SERVER_HOST", "SERVER_PORT", "GIN_MODE",
+		"CACHE_TYPE", "REDIS_HOST", "REDIS_PORT",
+		"DOCDB_TYPE", "MONGODB_URI", "MONGODB_DATABASE",
+		"VAULT_TYPE", "LOG_LEVEL", "LOG_FORMAT",
+	} {
+		t.Setenv(key, "")
 		os.Unsetenv(key)
 	}
 
