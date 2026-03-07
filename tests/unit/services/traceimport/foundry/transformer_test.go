@@ -1552,3 +1552,244 @@ func TestFoundryTransformer_Transform_FunctionCallPreferWorkflowActionOverMessag
 		}
 	}
 }
+
+// ─── MCP hierarchy tests: MCP items as children of assistant messages ────────
+
+// TestFoundryTransformer_Transform_MCPListToolsAsChildOfAssistantMessage tests that
+// mcp_list_tools items with the same response_id as an assistant message become children
+// of that message (WordAgent / simple MCP agent scenario).
+func TestFoundryTransformer_Transform_MCPListToolsAsChildOfAssistantMessage(t *testing.T) {
+	transformer := foundry.NewTransformer()
+
+	items := []foundry.ConversationItem{
+		// Newest first (API order)
+		{
+			ID:   "msg_assistant",
+			Type: "message",
+			Role: "assistant",
+			Content: []interface{}{
+				map[string]interface{}{"type": "text", "text": "Dynamics ist eine Suite von Microsoft..."},
+			},
+			CreatedBy: map[string]interface{}{
+				"response_id": "resp_mcp_001",
+				"agent": map[string]interface{}{
+					"type": "agent_id",
+					"name": "WordAgent",
+				},
+			},
+		},
+		{
+			ID:          "mcpl_001",
+			Type:        "mcp_list_tools",
+			ServerLabel: "MicrosoftLearnMCPserver",
+			CreatedBy: map[string]interface{}{
+				"response_id": "resp_mcp_001",
+			},
+		},
+		{
+			ID:   "msg_user",
+			Type: "message",
+			Role: "user",
+			Content: []interface{}{
+				map[string]interface{}{"type": "input_text", "text": "was ist dynamics?"},
+			},
+		},
+	}
+
+	nodes := transformer.Transform(items, "test-user")
+
+	// Should have 2 top-level nodes: user message + assistant message (MCP list tools nested inside)
+	assert.Len(t, nodes, 2, "expected user msg + assistant msg, MCP list tools should be a child of assistant msg")
+
+	assert.Equal(t, "User Message", nodes[0].Name)
+	assert.Len(t, nodes[0].Nodes, 0)
+
+	assert.Equal(t, "Assistant Response", nodes[1].Name)
+	assert.Len(t, nodes[1].Nodes, 1, "assistant message should have 1 MCP list tools child")
+	assert.Equal(t, "MCP List Tools: MicrosoftLearnMCPserver", nodes[1].Nodes[0].Name)
+	assert.Equal(t, models.NodeTypeTool, nodes[1].Nodes[0].Type)
+}
+
+// TestFoundryTransformer_Transform_MCPCallAsChildOfAssistantMessage tests that
+// standalone mcp_call items (without approval) with the same response_id as an assistant
+// message become children of that message.
+func TestFoundryTransformer_Transform_MCPCallAsChildOfAssistantMessage(t *testing.T) {
+	transformer := foundry.NewTransformer()
+
+	items := []foundry.ConversationItem{
+		{
+			ID:   "msg_assistant",
+			Type: "message",
+			Role: "assistant",
+			Content: []interface{}{
+				map[string]interface{}{"type": "text", "text": "Here's the result."},
+			},
+			CreatedBy: map[string]interface{}{
+				"response_id": "resp_mcp_call_001",
+			},
+		},
+		{
+			ID:          "mcp_call_001",
+			Type:        "mcp_call",
+			Name:        "search_docs",
+			ServerLabel: "LearnMCP",
+			Arguments:   json.RawMessage(`{"query":"dynamics"}`),
+			Output:      json.RawMessage(`{"results":["doc1","doc2"]}`),
+			CreatedBy: map[string]interface{}{
+				"response_id": "resp_mcp_call_001",
+			},
+		},
+		{
+			ID:   "msg_user",
+			Type: "message",
+			Role: "user",
+			Content: []interface{}{
+				map[string]interface{}{"type": "input_text", "text": "search for dynamics"},
+			},
+		},
+	}
+
+	nodes := transformer.Transform(items, "test-user")
+
+	assert.Len(t, nodes, 2, "expected user msg + assistant msg with MCP call nested")
+	assert.Equal(t, "Assistant Response", nodes[1].Name)
+	assert.Len(t, nodes[1].Nodes, 1, "assistant message should have 1 MCP call child")
+	assert.Equal(t, "MCP Call: search_docs", nodes[1].Nodes[0].Name)
+	assert.Equal(t, models.NodeTypeTool, nodes[1].Nodes[0].Type)
+}
+
+// TestFoundryTransformer_Transform_MCPApprovalGroupAsChildOfAssistantMessage tests that
+// mcp_approval_request groups with the same response_id as an assistant message become
+// children of that message.
+func TestFoundryTransformer_Transform_MCPApprovalGroupAsChildOfAssistantMessage(t *testing.T) {
+	transformer := foundry.NewTransformer()
+
+	items := []foundry.ConversationItem{
+		{
+			ID:   "msg_assistant",
+			Type: "message",
+			Role: "assistant",
+			Content: []interface{}{
+				map[string]interface{}{"type": "text", "text": "Done."},
+			},
+			CreatedBy: map[string]interface{}{
+				"response_id": "resp_approve_001",
+			},
+		},
+		{
+			ID:                "mcp_call_appr",
+			Type:              "mcp_call",
+			Name:              "run_query",
+			ServerLabel:       "DBServer",
+			ApprovalRequestID: "mcp_req_001",
+			Arguments:         json.RawMessage(`{"sql":"SELECT 1"}`),
+			Output:            json.RawMessage(`{"rows":1}`),
+			CreatedBy: map[string]interface{}{
+				"response_id": "resp_approve_001",
+			},
+		},
+		{
+			ID:                "mcp_resp_001",
+			Type:              "mcp_approval_response",
+			ApprovalRequestID: "mcp_req_001",
+			Approve:           boolPtr(true),
+			CreatedBy: map[string]interface{}{
+				"response_id": "resp_approve_001",
+			},
+		},
+		{
+			ID:          "mcp_req_001",
+			Type:        "mcp_approval_request",
+			Name:        "run_query",
+			ServerLabel: "DBServer",
+			Arguments:   json.RawMessage(`{"sql":"SELECT 1"}`),
+			CreatedBy: map[string]interface{}{
+				"response_id": "resp_approve_001",
+			},
+		},
+		{
+			ID:   "msg_user",
+			Type: "message",
+			Role: "user",
+			Content: []interface{}{
+				map[string]interface{}{"type": "input_text", "text": "run a query"},
+			},
+		},
+	}
+
+	nodes := transformer.Transform(items, "test-user")
+
+	assert.Len(t, nodes, 2, "expected user msg + assistant msg with MCP group nested")
+	assert.Equal(t, "Assistant Response", nodes[1].Name)
+	assert.Len(t, nodes[1].Nodes, 1, "assistant message should have 1 MCP approval group child")
+	assert.Equal(t, "run_query", nodes[1].Nodes[0].Name)
+	assert.Equal(t, models.NodeTypeTool, nodes[1].Nodes[0].Type)
+}
+
+// TestFoundryTransformer_Transform_MCPAndFunctionCallAsChildOfAssistantMessage tests that
+// both MCP items and function calls with the same response_id are nested under the assistant message.
+func TestFoundryTransformer_Transform_MCPAndFunctionCallAsChildOfAssistantMessage(t *testing.T) {
+	transformer := foundry.NewTransformer()
+
+	items := []foundry.ConversationItem{
+		{
+			ID:   "msg_assistant",
+			Type: "message",
+			Role: "assistant",
+			Content: []interface{}{
+				map[string]interface{}{"type": "text", "text": "Here's the info."},
+			},
+			CreatedBy: map[string]interface{}{
+				"response_id": "resp_mixed_001",
+			},
+		},
+		{
+			ID:     "fco_001",
+			Type:   "remote_function_call_output",
+			CallID: "call_api_1",
+			Output: json.RawMessage(`{"data":"result"}`),
+		},
+		{
+			ID:        "fc_001",
+			Type:      "remote_function_call",
+			Status:    "completed",
+			Name:      "API_getData",
+			CallID:    "call_api_1",
+			Arguments: json.RawMessage(`{}`),
+			CreatedBy: map[string]interface{}{
+				"response_id": "resp_mixed_001",
+			},
+		},
+		{
+			ID:          "mcpl_001",
+			Type:        "mcp_list_tools",
+			ServerLabel: "LearnMCP",
+			CreatedBy: map[string]interface{}{
+				"response_id": "resp_mixed_001",
+			},
+		},
+		{
+			ID:   "msg_user",
+			Type: "message",
+			Role: "user",
+			Content: []interface{}{
+				map[string]interface{}{"type": "input_text", "text": "get data"},
+			},
+		},
+	}
+
+	nodes := transformer.Transform(items, "test-user")
+
+	assert.Len(t, nodes, 2, "expected user msg + assistant msg with children")
+	assert.Equal(t, "Assistant Response", nodes[1].Name)
+	assert.Len(t, nodes[1].Nodes, 2, "assistant should have function call + MCP list tools as children")
+
+	childNames := []string{nodes[1].Nodes[0].Name, nodes[1].Nodes[1].Name}
+	assert.Contains(t, childNames, "API_getData")
+	assert.Contains(t, childNames, "MCP List Tools: LearnMCP")
+}
+
+// boolPtr is a helper to create a pointer to a bool value.
+func boolPtr(b bool) *bool {
+	return &b
+}

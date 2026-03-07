@@ -53,9 +53,10 @@ func (t *Transformer) Transform(items []ConversationItem, createdBy string) []mo
 	mcpApprovalGroups := t.groupByApprovalRequestID(chronological)
 	functionCallOutputs := t.groupFunctionCallOutputsByCallID(chronological)
 	functionCallsByRespID := t.groupFunctionCallsByResponseID(chronological)
+	mcpItemsByRespID := t.groupMCPItemsByResponseID(chronological)
 	assignment := t.buildActionAssignment(chronological)
 
-	return t.buildNodeList(chronological, mcpApprovalGroups, functionCallOutputs, functionCallsByRespID, assignment, createdBy)
+	return t.buildNodeList(chronological, mcpApprovalGroups, functionCallOutputs, functionCallsByRespID, mcpItemsByRespID, assignment, createdBy)
 }
 
 // TransformInterface implements TraceTransformer interface.
@@ -166,6 +167,7 @@ func (t *Transformer) buildNodeList(
 	mcpApprovalGroups map[string][]ConversationItem,
 	functionCallOutputs map[string]*ConversationItem,
 	functionCallsByRespID map[string][]ConversationItem,
+	mcpItemsByRespID map[string][]ConversationItem,
 	assignment actionAssignment,
 	createdBy string,
 ) []models.TraceNode {
@@ -215,8 +217,8 @@ func (t *Transformer) buildNodeList(
 	var nodes []models.TraceNode
 
 	// Build set of response_ids that have assistant messages.
-	// Function calls with these response_ids will be nested under the assistant message
-	// instead of appearing as standalone top-level nodes.
+	// Function calls and MCP items with these response_ids will be nested under the
+	// assistant message instead of appearing as standalone top-level nodes.
 	messageRespIDs := make(map[string]bool)
 	for i := range items {
 		if items[i].Type == "message" && items[i].Role != "user" {
@@ -234,15 +236,29 @@ func (t *Transformer) buildNodeList(
 		switch {
 		case items[i].Type == "message":
 			node := t.transformMessage(items[i], createdBy)
-			// For assistant messages, attach function calls with the same response_id as children
+			// For assistant messages, attach function calls and MCP items with the same response_id as children
 			if items[i].Role != "user" {
 				if respID := t.extractResponseID(items[i]); respID != "" {
+					// Attach function calls
 					if fcItems, ok := functionCallsByRespID[respID]; ok {
 						for _, fcItem := range fcItems {
 							if !processedIDs[fcItem.ID] {
 								node.Nodes = append(node.Nodes, t.transformFunctionCall(fcItem, functionCallOutputs, createdBy))
 								processedIDs[fcItem.ID] = true
 								t.markFunctionCallOutputProcessed(fcItem, functionCallOutputs, processedIDs)
+							}
+						}
+					}
+					// Attach MCP items (mcp_list_tools, mcp_call, mcp_approval_request)
+					if mcpItems, ok := mcpItemsByRespID[respID]; ok {
+						for _, mcpItem := range mcpItems {
+							if !processedIDs[mcpItem.ID] {
+								mcpNode := t.transformMCPItemForNesting(mcpItem, mcpApprovalGroups, createdBy)
+								node.Nodes = append(node.Nodes, mcpNode)
+								processedIDs[mcpItem.ID] = true
+								if mcpItem.Type == "mcp_approval_request" {
+									t.markMCPGroupProcessed(mcpItem.ID, mcpApprovalGroups, processedIDs)
+								}
 							}
 						}
 					}
@@ -258,10 +274,19 @@ func (t *Transformer) buildNodeList(
 			nodes = append(nodes, node)
 
 		case items[i].Type == "mcp_approval_request":
+			// Skip if will be nested under an assistant message
+			if respID := t.extractResponseID(items[i]); respID != "" && messageRespIDs[respID] {
+				t.markMCPGroupProcessed(items[i].ID, mcpApprovalGroups, processedIDs)
+				continue
+			}
 			nodes = append(nodes, t.transformMCPGroup(items[i], mcpApprovalGroups, createdBy))
 			t.markMCPGroupProcessed(items[i].ID, mcpApprovalGroups, processedIDs)
 
 		case items[i].Type == "mcp_call":
+			// Skip if will be nested under an assistant message
+			if respID := t.extractResponseID(items[i]); respID != "" && messageRespIDs[respID] {
+				continue
+			}
 			if items[i].ApprovalRequestID == "" || !t.hasApprovalRequest(items, items[i].ApprovalRequestID) {
 				nodes = append(nodes, t.transformMCPCall(items[i], createdBy))
 			}
@@ -270,6 +295,10 @@ func (t *Transformer) buildNodeList(
 			// Handled as part of MCP group
 
 		case items[i].Type == "mcp_list_tools":
+			// Skip if will be nested under an assistant message
+			if respID := t.extractResponseID(items[i]); respID != "" && messageRespIDs[respID] {
+				continue
+			}
 			nodes = append(nodes, t.transformMCPListTools(items[i], createdBy))
 
 		case isFunctionCallType(items[i].Type):
@@ -752,6 +781,45 @@ func (t *Transformer) groupFunctionCallsByResponseID(items []ConversationItem) m
 	}
 
 	return groups
+}
+
+// isMCPItemType returns true if the item type is an MCP item that can be nested.
+func isMCPItemType(itemType string) bool {
+	return itemType == "mcp_list_tools" || itemType == "mcp_call" || itemType == "mcp_approval_request"
+}
+
+// groupMCPItemsByResponseID groups MCP items (mcp_list_tools, mcp_call, mcp_approval_request)
+// by their response_id. This is used to nest MCP items under the assistant message that triggered them.
+func (t *Transformer) groupMCPItemsByResponseID(items []ConversationItem) map[string][]ConversationItem {
+	groups := make(map[string][]ConversationItem)
+
+	for i := range items {
+		if isMCPItemType(items[i].Type) {
+			if respID := t.extractResponseID(items[i]); respID != "" {
+				groups[respID] = append(groups[respID], items[i])
+			}
+		}
+	}
+
+	return groups
+}
+
+// transformMCPItemForNesting transforms an MCP item into a TraceNode for nesting under an assistant message.
+func (t *Transformer) transformMCPItemForNesting(
+	item ConversationItem,
+	mcpApprovalGroups map[string][]ConversationItem,
+	createdBy string,
+) models.TraceNode {
+	switch item.Type {
+	case "mcp_list_tools":
+		return t.transformMCPListTools(item, createdBy)
+	case "mcp_approval_request":
+		return t.transformMCPGroup(item, mcpApprovalGroups, createdBy)
+	case "mcp_call":
+		return t.transformMCPCall(item, createdBy)
+	default:
+		return t.transformUnknown(item, createdBy)
+	}
 }
 
 // transformFunctionCall transforms a function_call item and its matching function_call_output into a TraceNode.
