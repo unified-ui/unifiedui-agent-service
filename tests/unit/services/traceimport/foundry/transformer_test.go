@@ -168,17 +168,22 @@ func TestFoundryTransformer_Transform_MCPCallWithApproval(t *testing.T) {
 
 	nodes := transformer.Transform(items, "test-user")
 
-	// Should create one parent node with sub-nodes
+	// Items have response_id but no assistant message → synthetic assistant wraps them
 	assert.Len(t, nodes, 1)
-	assert.Equal(t, "WordCreateNewDocument", nodes[0].Name)
-	assert.Equal(t, models.NodeTypeTool, nodes[0].Type)
-	assert.Equal(t, models.NodeStatusCompleted, nodes[0].Status)
-	assert.NotNil(t, nodes[0].Data)
-	assert.Equal(t, `{"fileName":"test.docx"}`, nodes[0].Data.Input.Text)
-	assert.Equal(t, `{"result":"success"}`, nodes[0].Data.Output.Text)
+	assert.Equal(t, "Assistant Response", nodes[0].Name)
+	assert.Equal(t, models.NodeTypeLLM, nodes[0].Type)
+	assert.Len(t, nodes[0].Nodes, 1)
+
+	mcpGroup := nodes[0].Nodes[0]
+	assert.Equal(t, "WordCreateNewDocument", mcpGroup.Name)
+	assert.Equal(t, models.NodeTypeTool, mcpGroup.Type)
+	assert.Equal(t, models.NodeStatusCompleted, mcpGroup.Status)
+	assert.NotNil(t, mcpGroup.Data)
+	assert.Equal(t, `{"fileName":"test.docx"}`, mcpGroup.Data.Input.Text)
+	assert.Equal(t, `{"result":"success"}`, mcpGroup.Data.Output.Text)
 
 	// Check sub-nodes
-	assert.Len(t, nodes[0].Nodes, 3) // approval_request, approval_response, mcp_call
+	assert.Len(t, mcpGroup.Nodes, 3) // approval_request, approval_response, mcp_call
 }
 
 func TestFoundryTransformer_Transform_MCPCallDenied(t *testing.T) {
@@ -232,13 +237,19 @@ func TestFoundryTransformer_Transform_MCPListTools(t *testing.T) {
 
 	nodes := transformer.Transform(items, "test-user")
 
+	// mcp_list_tools has response_id but no assistant message → synthetic assistant wraps it
 	assert.Len(t, nodes, 1)
-	assert.Equal(t, "MCP List Tools: MicrosoftWordFrontier", nodes[0].Name)
-	assert.Equal(t, models.NodeTypeTool, nodes[0].Type)
-	assert.Equal(t, models.NodeStatusCompleted, nodes[0].Status)
-	assert.NotNil(t, nodes[0].Data)
-	assert.NotNil(t, nodes[0].Data.Output)
-	assert.Contains(t, nodes[0].Data.Output.Text, "WordCreateNewDocument")
+	assert.Equal(t, "Assistant Response", nodes[0].Name)
+	assert.Equal(t, models.NodeTypeLLM, nodes[0].Type)
+	assert.Len(t, nodes[0].Nodes, 1)
+
+	mcpListTools := nodes[0].Nodes[0]
+	assert.Equal(t, "MCP List Tools: MicrosoftWordFrontier", mcpListTools.Name)
+	assert.Equal(t, models.NodeTypeTool, mcpListTools.Type)
+	assert.Equal(t, models.NodeStatusCompleted, mcpListTools.Status)
+	assert.NotNil(t, mcpListTools.Data)
+	assert.NotNil(t, mcpListTools.Data.Output)
+	assert.Contains(t, mcpListTools.Data.Output.Text, "WordCreateNewDocument")
 }
 
 func TestFoundryTransformer_Transform_MixedConversation(t *testing.T) {
@@ -965,15 +976,20 @@ func TestFoundryTransformer_Transform_FunctionCall(t *testing.T) {
 
 	nodes := transformer.Transform(items, "test-user")
 
-	// function_call should create one node, function_call_output should be absorbed
+	// function_call has response_id but no assistant message → synthetic assistant wraps it
 	assert.Len(t, nodes, 1)
-	assert.Equal(t, "get_weather", nodes[0].Name)
-	assert.Equal(t, models.NodeTypeTool, nodes[0].Type)
-	assert.Equal(t, models.NodeStatusCompleted, nodes[0].Status)
-	assert.Equal(t, "fc_001", nodes[0].ReferenceID)
-	assert.NotNil(t, nodes[0].Data)
-	assert.Equal(t, `{"location":"Berlin"}`, nodes[0].Data.Input.Text)
-	assert.Equal(t, `{"temperature":"22°C","condition":"sunny"}`, nodes[0].Data.Output.Text)
+	assert.Equal(t, "Assistant Response", nodes[0].Name)
+	assert.Equal(t, models.NodeTypeLLM, nodes[0].Type)
+	assert.Len(t, nodes[0].Nodes, 1)
+
+	fcNode := nodes[0].Nodes[0]
+	assert.Equal(t, "get_weather", fcNode.Name)
+	assert.Equal(t, models.NodeTypeTool, fcNode.Type)
+	assert.Equal(t, models.NodeStatusCompleted, fcNode.Status)
+	assert.Equal(t, "fc_001", fcNode.ReferenceID)
+	assert.NotNil(t, fcNode.Data)
+	assert.Equal(t, `{"location":"Berlin"}`, fcNode.Data.Input.Text)
+	assert.Equal(t, `{"temperature":"22°C","condition":"sunny"}`, fcNode.Data.Output.Text)
 }
 
 // TestFoundryTransformer_Transform_FunctionCallWithObjectArguments tests that
@@ -1136,14 +1152,20 @@ func TestFoundryTransformer_Transform_RemoteFunctionCall(t *testing.T) {
 
 	nodes := transformer.Transform(items, "test-user")
 
+	// remote_function_call has response_id but no assistant message → synthetic assistant wraps it
 	assert.Len(t, nodes, 1)
-	assert.Equal(t, "StarWarsAPI_listPlanets", nodes[0].Name)
-	assert.Equal(t, models.NodeTypeTool, nodes[0].Type)
-	assert.Equal(t, models.NodeStatusCompleted, nodes[0].Status)
-	assert.Equal(t, "rfc_001", nodes[0].ReferenceID)
-	assert.NotNil(t, nodes[0].Data)
-	assert.Equal(t, `{}`, nodes[0].Data.Input.Text)
-	assert.Equal(t, `{"planets":["Tatooine","Hoth"]}`, nodes[0].Data.Output.Text)
+	assert.Equal(t, "Assistant Response", nodes[0].Name)
+	assert.Equal(t, models.NodeTypeLLM, nodes[0].Type)
+	assert.Len(t, nodes[0].Nodes, 1)
+
+	rfcNode := nodes[0].Nodes[0]
+	assert.Equal(t, "StarWarsAPI_listPlanets", rfcNode.Name)
+	assert.Equal(t, models.NodeTypeTool, rfcNode.Type)
+	assert.Equal(t, models.NodeStatusCompleted, rfcNode.Status)
+	assert.Equal(t, "rfc_001", rfcNode.ReferenceID)
+	assert.NotNil(t, rfcNode.Data)
+	assert.Equal(t, `{}`, rfcNode.Data.Input.Text)
+	assert.Equal(t, `{"planets":["Tatooine","Hoth"]}`, rfcNode.Data.Output.Text)
 }
 
 // TestFoundryTransformer_Transform_RemoteFunctionCallWithObjectArguments tests that
@@ -1792,4 +1814,267 @@ func TestFoundryTransformer_Transform_MCPAndFunctionCallAsChildOfAssistantMessag
 // boolPtr is a helper to create a pointer to a bool value.
 func boolPtr(b bool) *bool {
 	return &b
+}
+
+// TestFoundryTransformer_Transform_SyntheticAssistantForOrphanedMCPApprovalGroup tests that
+// MCP approval groups with a response_id but no matching assistant message get a synthetic
+// "Assistant Response" node created for them instead of appearing as top-level nodes.
+func TestFoundryTransformer_Transform_SyntheticAssistantForOrphanedMCPApprovalGroup(t *testing.T) {
+	transformer := foundry.NewTransformer()
+
+	items := []foundry.ConversationItem{
+		{
+			ID:          "mcp_req_orphan",
+			Type:        "mcp_approval_request",
+			Name:        "microsoft_docs_search",
+			ServerLabel: "MicrosoftLearnMCPserver",
+			Arguments:   json.RawMessage(`{"query":"word agent"}`),
+			CreatedBy: map[string]interface{}{
+				"response_id": "resp_no_assistant",
+			},
+		},
+		{
+			ID:                "mcp_call_orphan",
+			Type:              "mcp_call",
+			Name:              "microsoft_docs_search",
+			ServerLabel:       "MicrosoftLearnMCPserver",
+			ApprovalRequestID: "mcp_req_orphan",
+			Arguments:         json.RawMessage(`{"query":"word agent"}`),
+			Output:            json.RawMessage(`{"results":[]}`),
+			CreatedBy: map[string]interface{}{
+				"response_id": "resp_no_assistant",
+			},
+		},
+		{
+			ID:                "mcp_resp_orphan",
+			Type:              "mcp_approval_response",
+			ApprovalRequestID: "mcp_req_orphan",
+			Approve:           boolPtr(true),
+		},
+		{
+			ID:   "msg_user3",
+			Type: "message",
+			Role: "user",
+			Content: []interface{}{
+				map[string]interface{}{"type": "input_text", "text": "search for word agent docs"},
+			},
+		},
+		{
+			ID:   "msg_assistant2",
+			Type: "message",
+			Role: "assistant",
+			Content: []interface{}{
+				map[string]interface{}{"type": "text", "text": "Sure, let me check."},
+			},
+			CreatedBy: map[string]interface{}{
+				"response_id": "resp_B",
+			},
+		},
+		{
+			ID:   "msg_user2",
+			Type: "message",
+			Role: "user",
+			Content: []interface{}{
+				map[string]interface{}{"type": "input_text", "text": "hello"},
+			},
+		},
+	}
+
+	nodes := transformer.Transform(items, "test-user")
+
+	// Expected hierarchy:
+	// - User Message (msg_user2)
+	// - Assistant Response (msg_assistant2)
+	// - User Message (msg_user3)
+	// - Assistant Response (SYNTHETIC - wraps orphaned MCP group)
+	//   - microsoft_docs_search (MCP approval group)
+	//     - Approval Request: microsoft_docs_search
+	//     - Approval Response
+	//     - microsoft_docs_search (mcp_call)
+	assert.Len(t, nodes, 4, "expected 3 real nodes + 1 synthetic assistant")
+
+	syntheticNode := nodes[3]
+	assert.Equal(t, "Assistant Response", syntheticNode.Name)
+	assert.Equal(t, models.NodeTypeLLM, syntheticNode.Type)
+	assert.Len(t, syntheticNode.Nodes, 1, "synthetic assistant should have 1 MCP approval group child")
+	// The mcp_call is nested inside the approval group (mcp_call has ApprovalRequestID)
+	assert.Equal(t, "microsoft_docs_search", syntheticNode.Nodes[0].Name)
+	assert.Equal(t, models.NodeTypeTool, syntheticNode.Nodes[0].Type)
+}
+
+// TestFoundryTransformer_Transform_SyntheticAssistantForOrphanedMCPListTools tests that
+// an mcp_list_tools item with a response_id but no matching assistant message gets a
+// synthetic "Assistant Response" node.
+func TestFoundryTransformer_Transform_SyntheticAssistantForOrphanedMCPListTools(t *testing.T) {
+	transformer := foundry.NewTransformer()
+
+	items := []foundry.ConversationItem{
+		{
+			ID:          "mcpl_orphan",
+			Type:        "mcp_list_tools",
+			ServerLabel: "TestServer",
+			CreatedBy: map[string]interface{}{
+				"response_id": "resp_orphan_list",
+			},
+		},
+		{
+			ID:   "msg_user",
+			Type: "message",
+			Role: "user",
+			Content: []interface{}{
+				map[string]interface{}{"type": "input_text", "text": "hi"},
+			},
+		},
+	}
+
+	nodes := transformer.Transform(items, "test-user")
+
+	assert.Len(t, nodes, 2, "expected user msg + synthetic assistant")
+	assert.Equal(t, "User Message", nodes[0].Name)
+	assert.Equal(t, "Assistant Response", nodes[1].Name)
+	assert.Equal(t, models.NodeTypeLLM, nodes[1].Type)
+	assert.Len(t, nodes[1].Nodes, 1)
+	assert.Equal(t, "MCP List Tools: TestServer", nodes[1].Nodes[0].Name)
+}
+
+// TestFoundryTransformer_Transform_SyntheticAssistantForOrphanedFunctionCall tests that
+// a function call with a response_id but no matching assistant message gets a synthetic
+// "Assistant Response" node.
+func TestFoundryTransformer_Transform_SyntheticAssistantForOrphanedFunctionCall(t *testing.T) {
+	transformer := foundry.NewTransformer()
+
+	items := []foundry.ConversationItem{
+		{
+			ID:     "fco_orphan",
+			Type:   "remote_function_call_output",
+			CallID: "call_orphan_1",
+			Output: json.RawMessage(`{"data":"result"}`),
+		},
+		{
+			ID:        "fc_orphan",
+			Type:      "remote_function_call",
+			Status:    "completed",
+			Name:      "get_weather",
+			CallID:    "call_orphan_1",
+			Arguments: json.RawMessage(`{"city":"Berlin"}`),
+			CreatedBy: map[string]interface{}{
+				"response_id": "resp_orphan_fc",
+			},
+		},
+		{
+			ID:   "msg_user",
+			Type: "message",
+			Role: "user",
+			Content: []interface{}{
+				map[string]interface{}{"type": "input_text", "text": "weather?"},
+			},
+		},
+	}
+
+	nodes := transformer.Transform(items, "test-user")
+
+	assert.Len(t, nodes, 2, "expected user msg + synthetic assistant")
+	assert.Equal(t, "User Message", nodes[0].Name)
+	assert.Equal(t, "Assistant Response", nodes[1].Name)
+	assert.Equal(t, models.NodeTypeLLM, nodes[1].Type)
+	assert.Len(t, nodes[1].Nodes, 1)
+	assert.Equal(t, "get_weather", nodes[1].Nodes[0].Name)
+}
+
+// TestFoundryTransformer_Transform_SyntheticAssistantMixedOrphans tests that MCP items
+// and function calls with the same orphaned response_id are grouped under one synthetic node.
+func TestFoundryTransformer_Transform_SyntheticAssistantMixedOrphans(t *testing.T) {
+	transformer := foundry.NewTransformer()
+
+	items := []foundry.ConversationItem{
+		{
+			ID:     "fco_mix",
+			Type:   "remote_function_call_output",
+			CallID: "call_mix_1",
+			Output: json.RawMessage(`{"ok":true}`),
+		},
+		{
+			ID:        "fc_mix",
+			Type:      "remote_function_call",
+			Status:    "completed",
+			Name:      "check_status",
+			CallID:    "call_mix_1",
+			Arguments: json.RawMessage(`{}`),
+			CreatedBy: map[string]interface{}{
+				"response_id": "resp_orphan_mix",
+			},
+		},
+		{
+			ID:          "mcpl_mix",
+			Type:        "mcp_list_tools",
+			ServerLabel: "MixServer",
+			CreatedBy: map[string]interface{}{
+				"response_id": "resp_orphan_mix",
+			},
+		},
+		{
+			ID:   "msg_user",
+			Type: "message",
+			Role: "user",
+			Content: []interface{}{
+				map[string]interface{}{"type": "input_text", "text": "check"},
+			},
+		},
+	}
+
+	nodes := transformer.Transform(items, "test-user")
+
+	assert.Len(t, nodes, 2, "expected user msg + 1 synthetic assistant")
+	assert.Equal(t, "Assistant Response", nodes[1].Name)
+	assert.Equal(t, models.NodeTypeLLM, nodes[1].Type)
+	assert.Len(t, nodes[1].Nodes, 2, "synthetic should have function call + MCP list tools")
+
+	childNames := []string{nodes[1].Nodes[0].Name, nodes[1].Nodes[1].Name}
+	assert.Contains(t, childNames, "check_status")
+	assert.Contains(t, childNames, "MCP List Tools: MixServer")
+}
+
+// TestFoundryTransformer_Transform_NoSyntheticWhenAssistantMessageExists verifies that
+// no synthetic node is created when a matching assistant message exists.
+func TestFoundryTransformer_Transform_NoSyntheticWhenAssistantMessageExists(t *testing.T) {
+	transformer := foundry.NewTransformer()
+
+	items := []foundry.ConversationItem{
+		{
+			ID:          "mcpl_normal",
+			Type:        "mcp_list_tools",
+			ServerLabel: "NormalServer",
+			CreatedBy: map[string]interface{}{
+				"response_id": "resp_with_assistant",
+			},
+		},
+		{
+			ID:   "msg_assistant",
+			Type: "message",
+			Role: "assistant",
+			Content: []interface{}{
+				map[string]interface{}{"type": "text", "text": "Here you go."},
+			},
+			CreatedBy: map[string]interface{}{
+				"response_id": "resp_with_assistant",
+			},
+		},
+		{
+			ID:   "msg_user",
+			Type: "message",
+			Role: "user",
+			Content: []interface{}{
+				map[string]interface{}{"type": "input_text", "text": "hi"},
+			},
+		},
+	}
+
+	nodes := transformer.Transform(items, "test-user")
+
+	// Should have 2 nodes: user msg + real assistant msg with MCP nested under it
+	assert.Len(t, nodes, 2)
+	assert.Equal(t, "User Message", nodes[0].Name)
+	assert.Equal(t, "Assistant Response", nodes[1].Name)
+	assert.Len(t, nodes[1].Nodes, 1, "MCP should be under the real assistant, no synthetic created")
+	assert.Equal(t, "MCP List Tools: NormalServer", nodes[1].Nodes[0].Name)
 }

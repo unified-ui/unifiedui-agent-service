@@ -228,9 +228,41 @@ func (t *Transformer) buildNodeList(
 		}
 	}
 
+	// Build set of orphaned response_ids: response_ids that have MCP items or function
+	// calls but no corresponding assistant message. These will get synthetic assistant nodes.
+	orphanedRespIDs := make(map[string]bool)
+	for respID := range mcpItemsByRespID {
+		if !messageRespIDs[respID] {
+			orphanedRespIDs[respID] = true
+		}
+	}
+	for respID := range functionCallsByRespID {
+		if !messageRespIDs[respID] {
+			orphanedRespIDs[respID] = true
+		}
+	}
+
+	// Track which orphaned response_ids have had synthetic assistant nodes created.
+	syntheticCreated := make(map[string]bool)
+
 	for i := range items {
 		if processedIDs[items[i].ID] {
 			continue
+		}
+
+		// For MCP/function-call items with orphaned response_ids (no matching assistant message),
+		// create a synthetic assistant node to group them under.
+		if isMCPItemType(items[i].Type) || isFunctionCallType(items[i].Type) {
+			if respID := t.extractResponseID(items[i]); respID != "" && orphanedRespIDs[respID] {
+				if !syntheticCreated[respID] {
+					node := t.createSyntheticAssistantNode(respID, mcpItemsByRespID, functionCallsByRespID, mcpApprovalGroups, functionCallOutputs, processedIDs, createdBy)
+					if len(node.Nodes) > 0 {
+						nodes = append(nodes, node)
+					}
+					syntheticCreated[respID] = true
+				}
+				continue
+			}
 		}
 
 		switch {
@@ -252,13 +284,18 @@ func (t *Transformer) buildNodeList(
 					// Attach MCP items (mcp_list_tools, mcp_call, mcp_approval_request)
 					if mcpItems, ok := mcpItemsByRespID[respID]; ok {
 						for j := range mcpItems {
-							if !processedIDs[mcpItems[j].ID] {
-								mcpNode := t.transformMCPItemForNesting(mcpItems[j], mcpApprovalGroups, createdBy)
-								node.Nodes = append(node.Nodes, mcpNode)
-								processedIDs[mcpItems[j].ID] = true
-								if mcpItems[j].Type == "mcp_approval_request" {
-									t.markMCPGroupProcessed(mcpItems[j].ID, mcpApprovalGroups, processedIDs)
-								}
+							if processedIDs[mcpItems[j].ID] {
+								continue
+							}
+							// Skip mcp_call items with ApprovalRequestID - handled via approval group
+							if mcpItems[j].Type == "mcp_call" && mcpItems[j].ApprovalRequestID != "" {
+								continue
+							}
+							mcpNode := t.transformMCPItemForNesting(mcpItems[j], mcpApprovalGroups, createdBy)
+							node.Nodes = append(node.Nodes, mcpNode)
+							processedIDs[mcpItems[j].ID] = true
+							if mcpItems[j].Type == "mcp_approval_request" {
+								t.markMCPGroupProcessed(mcpItems[j].ID, mcpApprovalGroups, processedIDs)
 							}
 						}
 					}
@@ -344,6 +381,81 @@ func (t *Transformer) isSubAgentMessage(item ConversationItem) bool {
 	}
 	_, hasAgent := item.CreatedBy["agent"]
 	return hasAgent
+}
+
+// createSyntheticAssistantNode creates a virtual "Assistant Response" node for a response_id
+// that has MCP items or function calls but no corresponding assistant message item.
+// This happens when the model's response consists only of tool calls without any text output.
+func (t *Transformer) createSyntheticAssistantNode(
+	respID string,
+	mcpItemsByRespID map[string][]ConversationItem,
+	functionCallsByRespID map[string][]ConversationItem,
+	mcpApprovalGroups map[string][]ConversationItem,
+	functionCallOutputs map[string]*ConversationItem,
+	processedIDs map[string]bool,
+	createdBy string,
+) models.TraceNode {
+	now := time.Now().UTC()
+
+	var subNodes []models.TraceNode
+
+	// Attach function calls
+	if fcItems, ok := functionCallsByRespID[respID]; ok {
+		for j := range fcItems {
+			if !processedIDs[fcItems[j].ID] {
+				subNodes = append(subNodes, t.transformFunctionCall(fcItems[j], functionCallOutputs, createdBy))
+				processedIDs[fcItems[j].ID] = true
+				t.markFunctionCallOutputProcessed(fcItems[j], functionCallOutputs, processedIDs)
+			}
+		}
+	}
+
+	// Attach MCP items (mcp_list_tools, mcp_call, mcp_approval_request)
+	if mcpItems, ok := mcpItemsByRespID[respID]; ok {
+		for j := range mcpItems {
+			if processedIDs[mcpItems[j].ID] {
+				continue
+			}
+			// Skip mcp_call items with ApprovalRequestID - handled via approval group
+			if mcpItems[j].Type == "mcp_call" && mcpItems[j].ApprovalRequestID != "" {
+				continue
+			}
+			mcpNode := t.transformMCPItemForNesting(mcpItems[j], mcpApprovalGroups, createdBy)
+			subNodes = append(subNodes, mcpNode)
+			processedIDs[mcpItems[j].ID] = true
+			if mcpItems[j].Type == "mcp_approval_request" {
+				t.markMCPGroupProcessed(mcpItems[j].ID, mcpApprovalGroups, processedIDs)
+			}
+		}
+	}
+
+	return models.TraceNode{
+		ID:     "node_" + uuid.New().String(),
+		Name:   "Assistant Response",
+		Type:   models.NodeTypeLLM,
+		Status: models.NodeStatusCompleted,
+		Data: &models.NodeData{
+			Input: &models.NodeDataIO{
+				Metadata: map[string]interface{}{
+					"role": "assistant",
+					"type": "synthetic",
+				},
+			},
+			Output: &models.NodeDataIO{
+				Text: "",
+				Metadata: map[string]interface{}{
+					"role": "assistant",
+					"type": "synthetic",
+				},
+			},
+		},
+		Nodes:     subNodes,
+		Logs:      []string{},
+		CreatedAt: now,
+		UpdatedAt: now,
+		CreatedBy: createdBy,
+		UpdatedBy: createdBy,
+	}
 }
 
 // markMCPGroupProcessed marks all items in an MCP approval group as processed.
