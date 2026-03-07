@@ -241,23 +241,23 @@ func (t *Transformer) buildNodeList(
 				if respID := t.extractResponseID(items[i]); respID != "" {
 					// Attach function calls
 					if fcItems, ok := functionCallsByRespID[respID]; ok {
-						for _, fcItem := range fcItems {
-							if !processedIDs[fcItem.ID] {
-								node.Nodes = append(node.Nodes, t.transformFunctionCall(fcItem, functionCallOutputs, createdBy))
-								processedIDs[fcItem.ID] = true
-								t.markFunctionCallOutputProcessed(fcItem, functionCallOutputs, processedIDs)
+						for j := range fcItems {
+							if !processedIDs[fcItems[j].ID] {
+								node.Nodes = append(node.Nodes, t.transformFunctionCall(fcItems[j], functionCallOutputs, createdBy))
+								processedIDs[fcItems[j].ID] = true
+								t.markFunctionCallOutputProcessed(fcItems[j], functionCallOutputs, processedIDs)
 							}
 						}
 					}
 					// Attach MCP items (mcp_list_tools, mcp_call, mcp_approval_request)
 					if mcpItems, ok := mcpItemsByRespID[respID]; ok {
-						for _, mcpItem := range mcpItems {
-							if !processedIDs[mcpItem.ID] {
-								mcpNode := t.transformMCPItemForNesting(mcpItem, mcpApprovalGroups, createdBy)
+						for j := range mcpItems {
+							if !processedIDs[mcpItems[j].ID] {
+								mcpNode := t.transformMCPItemForNesting(mcpItems[j], mcpApprovalGroups, createdBy)
 								node.Nodes = append(node.Nodes, mcpNode)
-								processedIDs[mcpItem.ID] = true
-								if mcpItem.Type == "mcp_approval_request" {
-									t.markMCPGroupProcessed(mcpItem.ID, mcpApprovalGroups, processedIDs)
+								processedIDs[mcpItems[j].ID] = true
+								if mcpItems[j].Type == "mcp_approval_request" {
+									t.markMCPGroupProcessed(mcpItems[j].ID, mcpApprovalGroups, processedIDs)
 								}
 							}
 						}
