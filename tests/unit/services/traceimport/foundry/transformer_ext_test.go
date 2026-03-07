@@ -1,6 +1,7 @@
 package foundry_test
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -130,8 +131,8 @@ func TestTransform_MCPCall(t *testing.T) {
 			Type:        "mcp_call",
 			ServerLabel: "my-server",
 			Name:        "tool_name",
-			Arguments:   `{"key": "value"}`,
-			Output:      `{"result": "ok"}`,
+			Arguments:   json.RawMessage(`{"key": "value"}`),
+			Output:      json.RawMessage(`{"result": "ok"}`),
 		},
 	}
 

@@ -87,34 +87,34 @@ Die aktuelle Implementierung ist ein Placeholder. Für vollständige MCP Integra
 async def _load_mcp_tools_async(self, tool_config) -> list:
     """Load tools from MCP server asynchronously."""
     from langchain_core.tools import StructuredTool
-    
+
     server_params = StdioServerParameters(
         command=tool_config.mcp_config.command,
         args=tool_config.mcp_config.args,
         env=tool_config.mcp_config.env
     )
-    
+
     tools = []
     async with stdio_client(server_params) as (read, write):
         async with ClientSession(read, write) as session:
             await session.initialize()
-            
+
             # List available tools
             response = await session.list_tools()
-            
+
             for mcp_tool in response.tools:
                 # Create LangChain tool wrapper
                 async def tool_func(**kwargs):
                     result = await session.call_tool(mcp_tool.name, arguments=kwargs)
                     return result.content
-                
+
                 lc_tool = StructuredTool.from_function(
                     func=tool_func,
                     name=mcp_tool.name,
                     description=mcp_tool.description
                 )
                 tools.append(lc_tool)
-    
+
     return tools
 ```
 

@@ -367,6 +367,15 @@ func (m *MockMessagesCollection) ListChatHistory(ctx context.Context, opts *docd
 	return args.Get(0).([]models.ChatHistoryEntry), args.Error(1)
 }
 
+// Search searches messages by content.
+func (m *MockMessagesCollection) Search(ctx context.Context, opts *docdb.SearchMessagesOptions) ([]*models.Message, error) {
+	args := m.Called(ctx, opts)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*models.Message), args.Error(1)
+}
+
 // Update updates a message.
 func (m *MockMessagesCollection) Update(ctx context.Context, message *models.Message) error {
 	args := m.Called(ctx, message)

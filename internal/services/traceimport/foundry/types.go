@@ -1,6 +1,8 @@
 // Package foundry provides Microsoft Foundry trace import functionality.
 package foundry
 
+import "encoding/json"
+
 // Config contains Foundry-specific configuration for trace import.
 type Config struct {
 	// FoundryConversationID is the external Foundry conversation ID.
@@ -29,11 +31,13 @@ type ConversationItem struct {
 	ActionID         string `json:"action_id,omitempty"`
 	ParentActionID   string `json:"parent_action_id,omitempty"`
 	PreviousActionID string `json:"previous_action_id,omitempty"`
-	// MCP fields
-	ServerLabel string `json:"server_label,omitempty"`
-	Name        string `json:"name,omitempty"`
-	Arguments   string `json:"arguments,omitempty"`
-	Output      string `json:"output,omitempty"`
+	// MCP and function_call fields
+	ServerLabel string          `json:"server_label,omitempty"`
+	Name        string          `json:"name,omitempty"`
+	Arguments   json.RawMessage `json:"arguments,omitempty"`
+	Output      json.RawMessage `json:"output,omitempty"`
+	// Function call fields
+	CallID string `json:"call_id,omitempty"`
 	// Approval fields
 	ApprovalRequestID string `json:"approval_request_id,omitempty"`
 	Approve           *bool  `json:"approve,omitempty"`
@@ -88,4 +92,22 @@ func ExtractConfig(backendConfig map[string]interface{}) (*Config, bool) {
 	}
 
 	return config, true
+}
+
+// RawMessageToString converts a json.RawMessage to a string representation.
+// If the raw message is a JSON string, it unquotes it. Otherwise, it returns the raw JSON text.
+// Returns an empty string for nil or empty input.
+func RawMessageToString(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+
+	// Try to unmarshal as a string first (handles JSON-quoted strings)
+	var s string
+	if err := json.Unmarshal(raw, &s); err == nil {
+		return s
+	}
+
+	// Return the raw JSON as-is (handles objects, arrays, numbers, booleans)
+	return string(raw)
 }

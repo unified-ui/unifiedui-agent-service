@@ -318,3 +318,68 @@ func (h *MessagesHandler) EditMessage(c *gin.Context) {
 
 	c.JSON(http.StatusOK, h.toMessageResponse(message))
 }
+
+// SearchMessagesRequest represents the query parameters for searching messages.
+type SearchMessagesRequest struct {
+	Query string `form:"query" binding:"required,min=1,max=500"`
+	Limit int64  `form:"limit" binding:"omitempty,min=1,max=50"`
+	Skip  int64  `form:"skip" binding:"omitempty,min=0"`
+}
+
+// SearchMessagesResponse represents the response for searching messages.
+type SearchMessagesResponse struct {
+	Messages []MessageResponse `json:"messages"`
+}
+
+// SearchMessages handles GET /tenants/{tenantId}/conversation/messages/search
+// @Summary Search messages
+// @Description Searches messages by content text using case-insensitive matching across all conversations
+// @Tags Messages
+// @Accept json
+// @Produce json
+// @Param tenantId path string true "Tenant ID"
+// @Param query query string true "Search query text"
+// @Param limit query int false "Maximum number of messages" default(20) minimum(1) maximum(50)
+// @Param skip query int false "Offset for pagination" default(0) minimum(0)
+// @Success 200 {object} SearchMessagesResponse
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 401 {object} dto.ErrorResponse
+// @Failure 500 {object} dto.ErrorResponse
+// @Security BearerAuth
+// @Router /api/v1/agent-service/tenants/{tenantId}/conversation/messages/search [get]
+func (h *MessagesHandler) SearchMessages(c *gin.Context) {
+	ctx := c.Request.Context()
+	tenantCtx := middleware.GetTenantContext(c)
+
+	var req SearchMessagesRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		middleware.HandleError(c, errors.NewValidationError("invalid query parameters", err.Error()))
+		return
+	}
+
+	if req.Limit == 0 {
+		req.Limit = 20
+	}
+
+	searchOpts := &docdb.SearchMessagesOptions{
+		TenantID: tenantCtx.TenantID,
+		Query:    req.Query,
+		Limit:    req.Limit,
+		Skip:     req.Skip,
+	}
+
+	messages, err := h.docDBClient.Messages().Search(ctx, searchOpts)
+	if err != nil {
+		middleware.HandleError(c, errors.NewInternalError("failed to search messages", err))
+		return
+	}
+
+	response := make([]MessageResponse, 0, len(messages))
+	for _, msg := range messages {
+		response = append(response, h.toMessageResponse(msg))
+	}
+
+	c.JSON(http.StatusOK, SearchMessagesResponse{
+		Messages: response,
+	})
+}

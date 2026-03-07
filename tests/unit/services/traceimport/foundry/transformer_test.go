@@ -2,6 +2,7 @@
 package foundry
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -136,7 +137,7 @@ func TestFoundryTransformer_Transform_MCPCallWithApproval(t *testing.T) {
 			Type:         "mcp_approval_request",
 			ServerLabel:  "MicrosoftWordFrontier",
 			Name:         "WordCreateNewDocument",
-			Arguments:    `{"fileName":"test.docx"}`,
+			Arguments:    json.RawMessage(`{"fileName":"test.docx"}`),
 			PartitionKey: "partition123",
 			CreatedBy: map[string]interface{}{
 				"response_id": "resp_001",
@@ -156,8 +157,8 @@ func TestFoundryTransformer_Transform_MCPCallWithApproval(t *testing.T) {
 			ApprovalRequestID: "mcpr_001",
 			ServerLabel:       "MicrosoftWordFrontier",
 			Name:              "WordCreateNewDocument",
-			Arguments:         `{"fileName":"test.docx"}`,
-			Output:            `{"result":"success"}`,
+			Arguments:         json.RawMessage(`{"fileName":"test.docx"}`),
+			Output:            json.RawMessage(`{"result":"success"}`),
 			PartitionKey:      "partition123",
 			CreatedBy: map[string]interface{}{
 				"response_id": "resp_001",
@@ -190,7 +191,7 @@ func TestFoundryTransformer_Transform_MCPCallDenied(t *testing.T) {
 			Type:         "mcp_approval_request",
 			ServerLabel:  "MicrosoftWordFrontier",
 			Name:         "WordCreateNewDocument",
-			Arguments:    `{"fileName":"test.docx"}`,
+			Arguments:    json.RawMessage(`{"fileName":"test.docx"}`),
 			PartitionKey: "partition123",
 		},
 		{
@@ -800,8 +801,8 @@ func TestFoundryTransformer_Transform_MCPAssignedToAction(t *testing.T) {
 			ApprovalRequestID: "mcp_req_001",
 			ServerLabel:       "TestServer",
 			Name:              "DoSomething",
-			Arguments:         `{"key":"value"}`,
-			Output:            `{"result":"ok"}`,
+			Arguments:         json.RawMessage(`{"key":"value"}`),
+			Output:            json.RawMessage(`{"result":"ok"}`),
 			CreatedBy: map[string]interface{}{
 				"response_id": "wfresp_001",
 			},
@@ -817,7 +818,7 @@ func TestFoundryTransformer_Transform_MCPAssignedToAction(t *testing.T) {
 			Type:        "mcp_approval_request",
 			ServerLabel: "TestServer",
 			Name:        "DoSomething",
-			Arguments:   `{"key":"value"}`,
+			Arguments:   json.RawMessage(`{"key":"value"}`),
 			CreatedBy: map[string]interface{}{
 				"response_id": "wfresp_001",
 			},
@@ -934,4 +935,620 @@ func TestFoundryTransformer_Transform_QuestionAction(t *testing.T) {
 	require.Len(t, nodes[0].Nodes, 1)
 	assert.Equal(t, "Assistant Response", nodes[0].Nodes[0].Name)
 	assert.Contains(t, nodes[0].Nodes[0].Data.Output.Text, "What is your name?")
+}
+
+// TestFoundryTransformer_Transform_FunctionCall tests that function_call items
+// are correctly transformed into tool nodes with their function_call_output matched.
+func TestFoundryTransformer_Transform_FunctionCall(t *testing.T) {
+	transformer := foundry.NewTransformer()
+
+	items := []foundry.ConversationItem{
+		// Newest first (API order)
+		{
+			ID:     "fco_001",
+			Type:   "function_call_output",
+			CallID: "call_abc123",
+			Output: json.RawMessage(`{"temperature":"22°C","condition":"sunny"}`),
+		},
+		{
+			ID:        "fc_001",
+			Type:      "function_call",
+			Status:    "completed",
+			Name:      "get_weather",
+			CallID:    "call_abc123",
+			Arguments: json.RawMessage(`{"location":"Berlin"}`),
+			CreatedBy: map[string]interface{}{
+				"response_id": "resp_001",
+			},
+		},
+	}
+
+	nodes := transformer.Transform(items, "test-user")
+
+	// function_call should create one node, function_call_output should be absorbed
+	assert.Len(t, nodes, 1)
+	assert.Equal(t, "get_weather", nodes[0].Name)
+	assert.Equal(t, models.NodeTypeTool, nodes[0].Type)
+	assert.Equal(t, models.NodeStatusCompleted, nodes[0].Status)
+	assert.Equal(t, "fc_001", nodes[0].ReferenceID)
+	assert.NotNil(t, nodes[0].Data)
+	assert.Equal(t, `{"location":"Berlin"}`, nodes[0].Data.Input.Text)
+	assert.Equal(t, `{"temperature":"22°C","condition":"sunny"}`, nodes[0].Data.Output.Text)
+}
+
+// TestFoundryTransformer_Transform_FunctionCallWithObjectArguments tests that
+// function_call items with JSON object arguments (not strings) are handled correctly.
+func TestFoundryTransformer_Transform_FunctionCallWithObjectArguments(t *testing.T) {
+	transformer := foundry.NewTransformer()
+
+	items := []foundry.ConversationItem{
+		{
+			ID:     "fco_001",
+			Type:   "function_call_output",
+			CallID: "call_xyz",
+			Output: json.RawMessage(`{"result": "success"}`),
+		},
+		{
+			ID:        "fc_001",
+			Type:      "function_call",
+			Status:    "completed",
+			Name:      "create_item",
+			CallID:    "call_xyz",
+			Arguments: json.RawMessage(`{"name": "test", "count": 5}`),
+		},
+	}
+
+	nodes := transformer.Transform(items, "test-user")
+
+	assert.Len(t, nodes, 1)
+	assert.Equal(t, "create_item", nodes[0].Name)
+	assert.Equal(t, `{"name": "test", "count": 5}`, nodes[0].Data.Input.Text)
+	assert.Equal(t, `{"result": "success"}`, nodes[0].Data.Output.Text)
+}
+
+// TestFoundryTransformer_Transform_FunctionCallWithStringArguments tests that
+// function_call items with JSON string arguments are handled correctly.
+func TestFoundryTransformer_Transform_FunctionCallWithStringArguments(t *testing.T) {
+	transformer := foundry.NewTransformer()
+
+	items := []foundry.ConversationItem{
+		{
+			ID:        "fc_001",
+			Type:      "function_call",
+			Status:    "completed",
+			Name:      "echo",
+			CallID:    "call_str",
+			Arguments: json.RawMessage(`"hello world"`),
+		},
+	}
+
+	nodes := transformer.Transform(items, "test-user")
+
+	assert.Len(t, nodes, 1)
+	assert.Equal(t, "echo", nodes[0].Name)
+	// String arguments should be unquoted
+	assert.Equal(t, "hello world", nodes[0].Data.Input.Text)
+}
+
+// TestFoundryTransformer_Transform_FunctionCallAsChildOfWorkflowAction tests that
+// function_call items with matching response_id become children of workflow actions.
+func TestFoundryTransformer_Transform_FunctionCallAsChildOfWorkflowAction(t *testing.T) {
+	transformer := foundry.NewTransformer()
+
+	items := []foundry.ConversationItem{
+		// Newest first
+		{
+			ID:     "fco_001",
+			Type:   "function_call_output",
+			CallID: "call_wf",
+			Output: json.RawMessage(`{"status":"done"}`),
+		},
+		{
+			ID:        "fc_001",
+			Type:      "function_call",
+			Status:    "completed",
+			Name:      "do_something",
+			CallID:    "call_wf",
+			Arguments: json.RawMessage(`{"input":"test"}`),
+			CreatedBy: map[string]interface{}{
+				"response_id": "wfresp_001",
+			},
+		},
+		{
+			ID:               "wfa_001",
+			Type:             "workflow_action",
+			Status:           "completed",
+			Kind:             "SendActivity",
+			ActionID:         "action-1",
+			PreviousActionID: "",
+			CreatedBy: map[string]interface{}{
+				"response_id": "wfresp_001",
+			},
+		},
+	}
+
+	nodes := transformer.Transform(items, "test-user")
+
+	// Workflow action should have the function_call as a child
+	hasActionWithFunctionCall := false
+	for _, node := range nodes {
+		if node.Type == models.NodeTypeWorkflow {
+			for _, child := range node.Nodes {
+				if child.Name == "do_something" && child.Type == models.NodeTypeTool {
+					hasActionWithFunctionCall = true
+					assert.Equal(t, `{"input":"test"}`, child.Data.Input.Text)
+					assert.Equal(t, `{"status":"done"}`, child.Data.Output.Text)
+				}
+			}
+		}
+	}
+	assert.True(t, hasActionWithFunctionCall, "function_call should be a child of workflow action")
+}
+
+// TestFoundryTransformer_Transform_StandaloneFunctionCallOutput tests that
+// function_call_output without a matching function_call is handled as standalone.
+func TestFoundryTransformer_Transform_StandaloneFunctionCallOutput(t *testing.T) {
+	transformer := foundry.NewTransformer()
+
+	items := []foundry.ConversationItem{
+		{
+			ID:     "fco_001",
+			Type:   "function_call_output",
+			CallID: "call_orphan",
+			Output: json.RawMessage(`{"data":"orphan result"}`),
+		},
+	}
+
+	nodes := transformer.Transform(items, "test-user")
+
+	assert.Len(t, nodes, 1)
+	assert.Equal(t, "Function Call Output", nodes[0].Name)
+	assert.Equal(t, models.NodeTypeTool, nodes[0].Type)
+	assert.Equal(t, `{"data":"orphan result"}`, nodes[0].Data.Output.Text)
+}
+
+// ─── remote_function_call tests ─────────────────────────────────────────────
+
+// TestFoundryTransformer_Transform_RemoteFunctionCall tests that remote_function_call items
+// are transformed the same way as function_call items.
+func TestFoundryTransformer_Transform_RemoteFunctionCall(t *testing.T) {
+	transformer := foundry.NewTransformer()
+
+	items := []foundry.ConversationItem{
+		{
+			ID:     "rfco_001",
+			Type:   "remote_function_call_output",
+			CallID: "call_remote_1",
+			Output: json.RawMessage(`"{\"planets\":[\"Tatooine\",\"Hoth\"]}"`),
+		},
+		{
+			ID:        "rfc_001",
+			Type:      "remote_function_call",
+			Status:    "completed",
+			Name:      "StarWarsAPI_listPlanets",
+			CallID:    "call_remote_1",
+			Arguments: json.RawMessage(`{}`),
+			CreatedBy: map[string]interface{}{
+				"response_id": "resp_r001",
+			},
+		},
+	}
+
+	nodes := transformer.Transform(items, "test-user")
+
+	assert.Len(t, nodes, 1)
+	assert.Equal(t, "StarWarsAPI_listPlanets", nodes[0].Name)
+	assert.Equal(t, models.NodeTypeTool, nodes[0].Type)
+	assert.Equal(t, models.NodeStatusCompleted, nodes[0].Status)
+	assert.Equal(t, "rfc_001", nodes[0].ReferenceID)
+	assert.NotNil(t, nodes[0].Data)
+	assert.Equal(t, `{}`, nodes[0].Data.Input.Text)
+	assert.Equal(t, `{"planets":["Tatooine","Hoth"]}`, nodes[0].Data.Output.Text)
+}
+
+// TestFoundryTransformer_Transform_RemoteFunctionCallWithObjectArguments tests that
+// remote_function_call items with JSON object arguments are handled correctly.
+func TestFoundryTransformer_Transform_RemoteFunctionCallWithObjectArguments(t *testing.T) {
+	transformer := foundry.NewTransformer()
+
+	items := []foundry.ConversationItem{
+		{
+			ID:     "rfco_001",
+			Type:   "remote_function_call_output",
+			CallID: "call_remote_2",
+			Output: json.RawMessage(`{"name":"Luke Skywalker","height":"172"}`),
+		},
+		{
+			ID:        "rfc_001",
+			Type:      "remote_function_call",
+			Status:    "completed",
+			Name:      "StarWarsAPI_getPerson",
+			CallID:    "call_remote_2",
+			Arguments: json.RawMessage(`{"person_id": 1}`),
+		},
+	}
+
+	nodes := transformer.Transform(items, "test-user")
+
+	assert.Len(t, nodes, 1)
+	assert.Equal(t, "StarWarsAPI_getPerson", nodes[0].Name)
+	assert.Equal(t, `{"person_id": 1}`, nodes[0].Data.Input.Text)
+	assert.Equal(t, `{"name":"Luke Skywalker","height":"172"}`, nodes[0].Data.Output.Text)
+}
+
+// TestFoundryTransformer_Transform_RemoteFunctionCallAsChildOfWorkflowAction tests that
+// remote_function_call items with matching response_id become children of workflow actions.
+func TestFoundryTransformer_Transform_RemoteFunctionCallAsChildOfWorkflowAction(t *testing.T) {
+	transformer := foundry.NewTransformer()
+
+	items := []foundry.ConversationItem{
+		{
+			ID:     "rfco_001",
+			Type:   "remote_function_call_output",
+			CallID: "call_wf_remote",
+			Output: json.RawMessage(`{"status":"ok"}`),
+		},
+		{
+			ID:        "rfc_001",
+			Type:      "remote_function_call",
+			Status:    "completed",
+			Name:      "API_doSomething",
+			CallID:    "call_wf_remote",
+			Arguments: json.RawMessage(`{"arg":"value"}`),
+			CreatedBy: map[string]interface{}{
+				"response_id": "wfresp_remote_001",
+			},
+		},
+		{
+			ID:               "wfa_001",
+			Type:             "workflow_action",
+			Status:           "completed",
+			Kind:             "SendActivity",
+			ActionID:         "action-1",
+			PreviousActionID: "",
+			CreatedBy: map[string]interface{}{
+				"response_id": "wfresp_remote_001",
+			},
+		},
+	}
+
+	nodes := transformer.Transform(items, "test-user")
+
+	hasActionWithFunctionCall := false
+	for _, node := range nodes {
+		if node.Type == models.NodeTypeWorkflow {
+			for _, child := range node.Nodes {
+				if child.Name == "API_doSomething" && child.Type == models.NodeTypeTool {
+					hasActionWithFunctionCall = true
+					assert.Equal(t, `{"arg":"value"}`, child.Data.Input.Text)
+					assert.Equal(t, `{"status":"ok"}`, child.Data.Output.Text)
+				}
+			}
+		}
+	}
+	assert.True(t, hasActionWithFunctionCall, "remote_function_call should be a child of workflow action")
+}
+
+// TestFoundryTransformer_Transform_StandaloneRemoteFunctionCallOutput tests that
+// remote_function_call_output without a matching function_call is handled as standalone.
+func TestFoundryTransformer_Transform_StandaloneRemoteFunctionCallOutput(t *testing.T) {
+	transformer := foundry.NewTransformer()
+
+	items := []foundry.ConversationItem{
+		{
+			ID:     "rfco_001",
+			Type:   "remote_function_call_output",
+			CallID: "call_orphan_remote",
+			Output: json.RawMessage(`{"data":"orphan remote result"}`),
+		},
+	}
+
+	nodes := transformer.Transform(items, "test-user")
+
+	assert.Len(t, nodes, 1)
+	assert.Equal(t, "Function Call Output", nodes[0].Name)
+	assert.Equal(t, models.NodeTypeTool, nodes[0].Type)
+	assert.Equal(t, `{"data":"orphan remote result"}`, nodes[0].Data.Output.Text)
+}
+
+// ─── Hierarchy tests: function calls as children of assistant messages ────────
+
+// TestFoundryTransformer_Transform_FunctionCallAsChildOfAssistantMessage tests that
+// function_call items with the same response_id as an assistant message become children
+// of that message (for simple agents without workflow actions).
+func TestFoundryTransformer_Transform_FunctionCallAsChildOfAssistantMessage(t *testing.T) {
+	transformer := foundry.NewTransformer()
+
+	items := []foundry.ConversationItem{
+		// Newest first (API order)
+		{
+			ID:   "msg_assistant",
+			Type: "message",
+			Role: "assistant",
+			Content: []interface{}{
+				map[string]interface{}{"type": "text", "text": "Here are some planets: Tatooine, Hoth..."},
+			},
+			CreatedBy: map[string]interface{}{
+				"response_id": "resp_shared",
+			},
+		},
+		{
+			ID:     "fco_001",
+			Type:   "function_call_output",
+			CallID: "call_fc1",
+			Output: json.RawMessage(`{"planets":["Tatooine","Hoth"]}`),
+		},
+		{
+			ID:        "fc_001",
+			Type:      "function_call",
+			Status:    "completed",
+			Name:      "listPlanets",
+			CallID:    "call_fc1",
+			Arguments: json.RawMessage(`{}`),
+			CreatedBy: map[string]interface{}{
+				"response_id": "resp_shared",
+			},
+		},
+		{
+			ID:   "msg_user",
+			Type: "message",
+			Role: "user",
+			Content: []interface{}{
+				map[string]interface{}{"type": "text", "text": "Which planets exist?"},
+			},
+		},
+	}
+
+	nodes := transformer.Transform(items, "test-user")
+
+	// Should have 2 top-level nodes: user message, assistant message (function call nested inside)
+	assert.Len(t, nodes, 2, "expected user msg + assistant msg, function call should be a child of assistant msg")
+
+	// First node: user message
+	assert.Equal(t, "User Message", nodes[0].Name)
+	assert.Equal(t, models.NodeTypeLLM, nodes[0].Type)
+
+	// Second node: assistant message with function call child
+	assert.Equal(t, "Assistant Response", nodes[1].Name)
+	assert.Equal(t, models.NodeTypeLLM, nodes[1].Type)
+	assert.Len(t, nodes[1].Nodes, 1, "assistant message should have 1 function call child")
+	assert.Equal(t, "listPlanets", nodes[1].Nodes[0].Name)
+	assert.Equal(t, models.NodeTypeTool, nodes[1].Nodes[0].Type)
+	assert.Equal(t, `{}`, nodes[1].Nodes[0].Data.Input.Text)
+	assert.Equal(t, `{"planets":["Tatooine","Hoth"]}`, nodes[1].Nodes[0].Data.Output.Text)
+}
+
+// TestFoundryTransformer_Transform_RemoteFunctionCallAsChildOfAssistantMessage tests that
+// remote_function_call items are nested under the assistant message with the same response_id.
+func TestFoundryTransformer_Transform_RemoteFunctionCallAsChildOfAssistantMessage(t *testing.T) {
+	transformer := foundry.NewTransformer()
+
+	items := []foundry.ConversationItem{
+		// Newest first (API order) - StarWarsAgent scenario
+		{
+			ID:   "msg_resp2",
+			Type: "message",
+			Role: "assistant",
+			Content: []interface{}{
+				map[string]interface{}{"type": "text", "text": "Hier sind einige Planeten aus dem Star Wars Universum..."},
+			},
+			CreatedBy: map[string]interface{}{
+				"response_id": "resp_sw_002",
+			},
+		},
+		{
+			ID:     "rfco_sw1",
+			Type:   "remote_function_call_output",
+			CallID: "call_sw_planets",
+			Output: json.RawMessage(`"{\"count\":60,\"results\":[{\"name\":\"Tatooine\"},{\"name\":\"Alderaan\"}]}"`),
+		},
+		{
+			ID:        "rfc_sw1",
+			Type:      "remote_function_call",
+			Status:    "completed",
+			Name:      "StarWarsAPI_listPlanets",
+			CallID:    "call_sw_planets",
+			Arguments: json.RawMessage(`{}`),
+			CreatedBy: map[string]interface{}{
+				"response_id": "resp_sw_002",
+			},
+		},
+		{
+			ID:   "msg_user2",
+			Type: "message",
+			Role: "user",
+			Content: []interface{}{
+				map[string]interface{}{"type": "text", "text": "welche planeten gibts so?"},
+			},
+		},
+		{
+			ID:   "msg_resp1",
+			Type: "message",
+			Role: "assistant",
+			Content: []interface{}{
+				map[string]interface{}{"type": "text", "text": "Hello there!"},
+			},
+			CreatedBy: map[string]interface{}{
+				"response_id": "resp_sw_001",
+			},
+		},
+		{
+			ID:   "msg_user1",
+			Type: "message",
+			Role: "user",
+			Content: []interface{}{
+				map[string]interface{}{"type": "text", "text": "hey"},
+			},
+		},
+	}
+
+	nodes := transformer.Transform(items, "test-user")
+
+	// Should have 4 top-level nodes: user->assistant->user->assistant(with child)
+	assert.Len(t, nodes, 4, "expected 4 top-level nodes")
+
+	// Node 0: user "hey"
+	assert.Equal(t, "User Message", nodes[0].Name)
+	assert.Len(t, nodes[0].Nodes, 0)
+
+	// Node 1: assistant "Hello there!" (no function calls)
+	assert.Equal(t, "Assistant Response", nodes[1].Name)
+	assert.Len(t, nodes[1].Nodes, 0)
+
+	// Node 2: user "welche planeten gibts so?"
+	assert.Equal(t, "User Message", nodes[2].Name)
+	assert.Len(t, nodes[2].Nodes, 0)
+
+	// Node 3: assistant with nested function call
+	assert.Equal(t, "Assistant Response", nodes[3].Name)
+	assert.Len(t, nodes[3].Nodes, 1, "assistant msg should have 1 remote_function_call child")
+	assert.Equal(t, "StarWarsAPI_listPlanets", nodes[3].Nodes[0].Name)
+	assert.Equal(t, models.NodeTypeTool, nodes[3].Nodes[0].Type)
+	assert.Equal(t, `{}`, nodes[3].Nodes[0].Data.Input.Text)
+	// remote_function_call_output is a JSON string (double-encoded); RawMessageToString unquotes it
+	assert.Equal(t, `{"count":60,"results":[{"name":"Tatooine"},{"name":"Alderaan"}]}`, nodes[3].Nodes[0].Data.Output.Text)
+}
+
+// TestFoundryTransformer_Transform_MultipleFunctionCallsAsChildOfAssistantMessage tests that
+// multiple function calls with the same response_id are all nested under the assistant message.
+func TestFoundryTransformer_Transform_MultipleFunctionCallsAsChildOfAssistantMessage(t *testing.T) {
+	transformer := foundry.NewTransformer()
+
+	items := []foundry.ConversationItem{
+		{
+			ID:   "msg_assistant",
+			Type: "message",
+			Role: "assistant",
+			Content: []interface{}{
+				map[string]interface{}{"type": "text", "text": "Here's the weather and time."},
+			},
+			CreatedBy: map[string]interface{}{
+				"response_id": "resp_multi",
+			},
+		},
+		{
+			ID:     "fco_002",
+			Type:   "remote_function_call_output",
+			CallID: "call_time_1",
+			Output: json.RawMessage(`"14:30 UTC"`),
+		},
+		{
+			ID:        "fc_002",
+			Type:      "remote_function_call",
+			Status:    "completed",
+			Name:      "getCurrentTime",
+			CallID:    "call_time_1",
+			Arguments: json.RawMessage(`{"timezone":"UTC"}`),
+			CreatedBy: map[string]interface{}{
+				"response_id": "resp_multi",
+			},
+		},
+		{
+			ID:     "fco_001",
+			Type:   "remote_function_call_output",
+			CallID: "call_weather_1",
+			Output: json.RawMessage(`{"temp":"22°C"}`),
+		},
+		{
+			ID:        "fc_001",
+			Type:      "remote_function_call",
+			Status:    "completed",
+			Name:      "getWeather",
+			CallID:    "call_weather_1",
+			Arguments: json.RawMessage(`{"city":"Berlin"}`),
+			CreatedBy: map[string]interface{}{
+				"response_id": "resp_multi",
+			},
+		},
+		{
+			ID:   "msg_user",
+			Type: "message",
+			Role: "user",
+			Content: []interface{}{
+				map[string]interface{}{"type": "text", "text": "What's the weather and time?"},
+			},
+		},
+	}
+
+	nodes := transformer.Transform(items, "test-user")
+
+	assert.Len(t, nodes, 2, "expected user msg + assistant msg with children")
+	assert.Equal(t, "Assistant Response", nodes[1].Name)
+	assert.Len(t, nodes[1].Nodes, 2, "assistant should have 2 function call children")
+
+	// Children should be: getWeather, getCurrentTime (chronological order)
+	childNames := []string{nodes[1].Nodes[0].Name, nodes[1].Nodes[1].Name}
+	assert.Contains(t, childNames, "getWeather")
+	assert.Contains(t, childNames, "getCurrentTime")
+}
+
+// TestFoundryTransformer_Transform_FunctionCallPreferWorkflowActionOverMessage tests that
+// when both a workflow action and an assistant message have the same response_id,
+// the function call is assigned to the workflow action (not duplicated on message).
+func TestFoundryTransformer_Transform_FunctionCallPreferWorkflowActionOverMessage(t *testing.T) {
+	transformer := foundry.NewTransformer()
+
+	items := []foundry.ConversationItem{
+		{
+			ID:   "msg_assistant",
+			Type: "message",
+			Role: "assistant",
+			Content: []interface{}{
+				map[string]interface{}{"type": "text", "text": "Done."},
+			},
+			CreatedBy: map[string]interface{}{
+				"response_id": "resp_both",
+			},
+		},
+		{
+			ID:     "fco_001",
+			Type:   "function_call_output",
+			CallID: "call_both_1",
+			Output: json.RawMessage(`{"result":"ok"}`),
+		},
+		{
+			ID:        "fc_001",
+			Type:      "function_call",
+			Status:    "completed",
+			Name:      "doAction",
+			CallID:    "call_both_1",
+			Arguments: json.RawMessage(`{}`),
+			CreatedBy: map[string]interface{}{
+				"response_id": "resp_both",
+			},
+		},
+		{
+			ID:               "wfa_001",
+			Type:             "workflow_action",
+			Status:           "completed",
+			Kind:             "SendActivity",
+			ActionID:         "action-1",
+			PreviousActionID: "",
+			CreatedBy: map[string]interface{}{
+				"response_id": "resp_both",
+			},
+		},
+	}
+
+	nodes := transformer.Transform(items, "test-user")
+
+	// Function call should be on workflow action (already processed), NOT on assistant message.
+	// The SendActivity workflow action also parents the assistant message (via messageParent),
+	// so the workflow action has 2 children: assistant message + function call.
+	for _, node := range nodes {
+		if node.Type == models.NodeTypeWorkflow {
+			assert.Len(t, node.Nodes, 2, "workflow action should have the message and the function call")
+			hasFunctionCall := false
+			for _, child := range node.Nodes {
+				if child.Name == "doAction" && child.Type == models.NodeTypeTool {
+					hasFunctionCall = true
+				}
+				// The assistant message (child of workflow action) should NOT have nested function calls
+				if child.Name == "Assistant Response" {
+					assert.Len(t, child.Nodes, 0, "assistant message should NOT have function call (already on workflow action)")
+				}
+			}
+			assert.True(t, hasFunctionCall, "workflow action should contain the function call")
+		}
+	}
 }

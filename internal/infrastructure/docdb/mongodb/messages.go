@@ -115,6 +115,35 @@ func (c *MessagesCollection) ListChatHistory(ctx context.Context, opts *docdb.Li
 	return entries, nil
 }
 
+// Search searches messages by content text using case-insensitive regex matching.
+func (c *MessagesCollection) Search(ctx context.Context, opts *docdb.SearchMessagesOptions) ([]*models.Message, error) {
+	filter := bson.M{
+		"tenantId": opts.TenantID,
+		"content":  bson.M{"$regex": opts.Query, "$options": "i"},
+	}
+
+	findOpts := options.Find().SetSort(bson.D{{Key: "createdAt", Value: -1}})
+	if opts.Limit > 0 {
+		findOpts.SetLimit(opts.Limit)
+	}
+	if opts.Skip > 0 {
+		findOpts.SetSkip(opts.Skip)
+	}
+
+	cursor, err := c.collection.Find(ctx, filter, findOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search messages: %w", err)
+	}
+	defer func() { _ = cursor.Close(ctx) }()
+
+	var messages []*models.Message
+	if err := cursor.All(ctx, &messages); err != nil {
+		return nil, fmt.Errorf("failed to decode search results: %w", err)
+	}
+
+	return messages, nil
+}
+
 // Update updates an existing message.
 func (c *MessagesCollection) Update(ctx context.Context, message *models.Message) error {
 	message.UpdatedAt = time.Now().UTC()
@@ -216,6 +245,14 @@ func (c *MessagesCollection) EnsureIndexes(ctx context.Context) error {
 		{
 			Keys:    bson.D{{Key: "status", Value: 1}},
 			Options: options.Index().SetName("idx_status"),
+		},
+		{
+			Keys: bson.D{
+				{Key: "tenantId", Value: 1},
+				{Key: "content", Value: 1},
+				{Key: "createdAt", Value: -1},
+			},
+			Options: options.Index().SetName("idx_tenant_content_search"),
 		},
 	}
 

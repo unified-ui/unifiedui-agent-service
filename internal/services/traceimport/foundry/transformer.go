@@ -12,6 +12,16 @@ import (
 	"github.com/unifiedui/agent-service/internal/domain/models"
 )
 
+// isFunctionCallType returns true if the item type is a function call (local or remote).
+func isFunctionCallType(itemType string) bool {
+	return itemType == "function_call" || itemType == "remote_function_call"
+}
+
+// isFunctionCallOutputType returns true if the item type is a function call output (local or remote).
+func isFunctionCallOutputType(itemType string) bool {
+	return itemType == "function_call_output" || itemType == "remote_function_call_output"
+}
+
 // Transformer transforms Foundry conversation items into TraceNodes.
 type Transformer struct{}
 
@@ -41,9 +51,11 @@ func (t *Transformer) Transform(items []ConversationItem, createdBy string) []mo
 	}
 
 	mcpApprovalGroups := t.groupByApprovalRequestID(chronological)
+	functionCallOutputs := t.groupFunctionCallOutputsByCallID(chronological)
+	functionCallsByRespID := t.groupFunctionCallsByResponseID(chronological)
 	assignment := t.buildActionAssignment(chronological)
 
-	return t.buildNodeList(chronological, mcpApprovalGroups, assignment, createdBy)
+	return t.buildNodeList(chronological, mcpApprovalGroups, functionCallOutputs, functionCallsByRespID, assignment, createdBy)
 }
 
 // TransformInterface implements TraceTransformer interface.
@@ -56,17 +68,19 @@ func (t *Transformer) TransformInterface(items interface{}, createdBy string) []
 
 // actionAssignment tracks which items become children of which workflow actions.
 type actionAssignment struct {
-	messageParent map[string]int
-	mcpParent     map[string]int
-	mcpCallParent map[string]int
+	messageParent      map[string]int
+	mcpParent          map[string]int
+	mcpCallParent      map[string]int
+	functionCallParent map[string]int
 }
 
 // buildActionAssignment determines which messages and MCP items become children of which workflow actions.
 func (t *Transformer) buildActionAssignment(items []ConversationItem) actionAssignment {
 	a := actionAssignment{
-		messageParent: make(map[string]int),
-		mcpParent:     make(map[string]int),
-		mcpCallParent: make(map[string]int),
+		messageParent:      make(map[string]int),
+		mcpParent:          make(map[string]int),
+		mcpCallParent:      make(map[string]int),
+		functionCallParent: make(map[string]int),
 	}
 
 	messageActionByRespID := make(map[string]int)
@@ -132,6 +146,17 @@ func (t *Transformer) buildActionAssignment(items []ConversationItem) actionAssi
 		}
 	}
 
+	// Assign function_call / remote_function_call items to workflow actions
+	for i := range items {
+		if isFunctionCallType(items[i].Type) {
+			if respID := t.extractResponseID(items[i]); respID != "" {
+				if actionIdx, ok := actionByRespID[respID]; ok {
+					a.functionCallParent[items[i].ID] = actionIdx
+				}
+			}
+		}
+	}
+
 	return a
 }
 
@@ -139,6 +164,8 @@ func (t *Transformer) buildActionAssignment(items []ConversationItem) actionAssi
 func (t *Transformer) buildNodeList(
 	items []ConversationItem,
 	mcpApprovalGroups map[string][]ConversationItem,
+	functionCallOutputs map[string]*ConversationItem,
+	functionCallsByRespID map[string][]ConversationItem,
 	assignment actionAssignment,
 	createdBy string,
 ) []models.TraceNode {
@@ -173,37 +200,93 @@ func (t *Transformer) buildNodeList(
 		}
 	}
 
+	// Assign function_call / remote_function_call items to their parent workflow actions
+	for i := range items {
+		if !isFunctionCallType(items[i].Type) {
+			continue
+		}
+		if actionIdx, ok := assignment.functionCallParent[items[i].ID]; ok {
+			actionChildren[actionIdx] = append(actionChildren[actionIdx], t.transformFunctionCall(items[i], functionCallOutputs, createdBy))
+			processedIDs[items[i].ID] = true
+			t.markFunctionCallOutputProcessed(items[i], functionCallOutputs, processedIDs)
+		}
+	}
+
 	var nodes []models.TraceNode
+
+	// Build set of response_ids that have assistant messages.
+	// Function calls with these response_ids will be nested under the assistant message
+	// instead of appearing as standalone top-level nodes.
+	messageRespIDs := make(map[string]bool)
+	for i := range items {
+		if items[i].Type == "message" && items[i].Role != "user" {
+			if respID := t.extractResponseID(items[i]); respID != "" {
+				messageRespIDs[respID] = true
+			}
+		}
+	}
+
 	for i := range items {
 		if processedIDs[items[i].ID] {
 			continue
 		}
 
-		switch items[i].Type {
-		case "message":
-			nodes = append(nodes, t.transformMessage(items[i], createdBy))
+		switch {
+		case items[i].Type == "message":
+			node := t.transformMessage(items[i], createdBy)
+			// For assistant messages, attach function calls with the same response_id as children
+			if items[i].Role != "user" {
+				if respID := t.extractResponseID(items[i]); respID != "" {
+					if fcItems, ok := functionCallsByRespID[respID]; ok {
+						for _, fcItem := range fcItems {
+							if !processedIDs[fcItem.ID] {
+								node.Nodes = append(node.Nodes, t.transformFunctionCall(fcItem, functionCallOutputs, createdBy))
+								processedIDs[fcItem.ID] = true
+								t.markFunctionCallOutputProcessed(fcItem, functionCallOutputs, processedIDs)
+							}
+						}
+					}
+				}
+			}
+			nodes = append(nodes, node)
 
-		case "workflow_action":
+		case items[i].Type == "workflow_action":
 			node := t.transformWorkflowAction(items[i], createdBy)
 			if children, ok := actionChildren[i]; ok {
 				node.Nodes = children
 			}
 			nodes = append(nodes, node)
 
-		case "mcp_approval_request":
+		case items[i].Type == "mcp_approval_request":
 			nodes = append(nodes, t.transformMCPGroup(items[i], mcpApprovalGroups, createdBy))
 			t.markMCPGroupProcessed(items[i].ID, mcpApprovalGroups, processedIDs)
 
-		case "mcp_call":
+		case items[i].Type == "mcp_call":
 			if items[i].ApprovalRequestID == "" || !t.hasApprovalRequest(items, items[i].ApprovalRequestID) {
 				nodes = append(nodes, t.transformMCPCall(items[i], createdBy))
 			}
 
-		case "mcp_approval_response":
+		case items[i].Type == "mcp_approval_response":
 			// Handled as part of MCP group
 
-		case "mcp_list_tools":
+		case items[i].Type == "mcp_list_tools":
 			nodes = append(nodes, t.transformMCPListTools(items[i], createdBy))
+
+		case isFunctionCallType(items[i].Type):
+			// Skip if this function call will be nested under an assistant message
+			if respID := t.extractResponseID(items[i]); respID != "" && messageRespIDs[respID] {
+				// Mark the output as processed so it doesn't appear standalone either
+				t.markFunctionCallOutputProcessed(items[i], functionCallOutputs, processedIDs)
+				continue
+			}
+			// Standalone function_call not assigned to any workflow action or assistant message
+			node := t.transformFunctionCall(items[i], functionCallOutputs, createdBy)
+			nodes = append(nodes, node)
+			t.markFunctionCallOutputProcessed(items[i], functionCallOutputs, processedIDs)
+
+		case isFunctionCallOutputType(items[i].Type):
+			// Standalone function_call_output (no matching function_call found)
+			nodes = append(nodes, t.transformFunctionCallOutput(items[i], createdBy))
 
 		default:
 			nodes = append(nodes, t.transformUnknown(items[i], createdBy))
@@ -391,10 +474,10 @@ func (t *Transformer) transformMCPGroup(
 		name = approvalRequest.Name
 	}
 
-	inputText := approvalRequest.Arguments
+	inputText := RawMessageToString(approvalRequest.Arguments)
 	outputText := ""
-	if mcpCall != nil && mcpCall.Output != "" {
-		outputText = mcpCall.Output
+	if mcpCall != nil && len(mcpCall.Output) > 0 {
+		outputText = RawMessageToString(mcpCall.Output)
 	}
 
 	status := models.NodeStatusCompleted
@@ -453,7 +536,7 @@ func (t *Transformer) transformMCPApprovalRequest(item ConversationItem, created
 		Status:      models.NodeStatusCompleted,
 		Data: &models.NodeData{
 			Input: &models.NodeDataIO{
-				Text: item.Arguments,
+				Text: RawMessageToString(item.Arguments),
 				Metadata: map[string]interface{}{
 					"server_label": item.ServerLabel,
 					"tool_name":    item.Name,
@@ -532,14 +615,14 @@ func (t *Transformer) transformMCPCall(item ConversationItem, createdBy string) 
 		Status:      t.mapStatus(item.Status),
 		Data: &models.NodeData{
 			Input: &models.NodeDataIO{
-				Text: item.Arguments,
+				Text: RawMessageToString(item.Arguments),
 				Metadata: map[string]interface{}{
 					"server_label": item.ServerLabel,
 					"tool_name":    item.Name,
 				},
 			},
 			Output: &models.NodeDataIO{
-				Text: item.Output,
+				Text: RawMessageToString(item.Output),
 			},
 		},
 		Metadata:  t.buildMCPMetadata(item),
@@ -626,6 +709,152 @@ func (t *Transformer) transformUnknown(item ConversationItem, createdBy string) 
 		CreatedBy: createdBy,
 		UpdatedBy: createdBy,
 	}
+}
+
+// markFunctionCallOutputProcessed marks the matching function_call_output as processed.
+func (t *Transformer) markFunctionCallOutputProcessed(
+	fcItem ConversationItem,
+	functionCallOutputs map[string]*ConversationItem,
+	processedIDs map[string]bool,
+) {
+	if fcItem.CallID != "" {
+		if fco, ok := functionCallOutputs[fcItem.CallID]; ok {
+			processedIDs[fco.ID] = true
+		}
+	}
+}
+
+// groupFunctionCallOutputsByCallID maps function_call_output / remote_function_call_output items by their call_id.
+func (t *Transformer) groupFunctionCallOutputsByCallID(items []ConversationItem) map[string]*ConversationItem {
+	outputs := make(map[string]*ConversationItem)
+
+	for i := range items {
+		if isFunctionCallOutputType(items[i].Type) && items[i].CallID != "" {
+			item := items[i]
+			outputs[items[i].CallID] = &item
+		}
+	}
+
+	return outputs
+}
+
+// groupFunctionCallsByResponseID groups function_call / remote_function_call items by their response_id.
+// This is used to nest function calls under the assistant message that triggered them.
+func (t *Transformer) groupFunctionCallsByResponseID(items []ConversationItem) map[string][]ConversationItem {
+	groups := make(map[string][]ConversationItem)
+
+	for i := range items {
+		if isFunctionCallType(items[i].Type) {
+			if respID := t.extractResponseID(items[i]); respID != "" {
+				groups[respID] = append(groups[respID], items[i])
+			}
+		}
+	}
+
+	return groups
+}
+
+// transformFunctionCall transforms a function_call item and its matching function_call_output into a TraceNode.
+func (t *Transformer) transformFunctionCall(
+	item ConversationItem,
+	functionCallOutputs map[string]*ConversationItem,
+	createdBy string,
+) models.TraceNode {
+	now := time.Now().UTC()
+
+	name := "Function Call"
+	if item.Name != "" {
+		name = item.Name
+	}
+
+	inputText := RawMessageToString(item.Arguments)
+	outputText := ""
+	if item.CallID != "" {
+		if fco, ok := functionCallOutputs[item.CallID]; ok {
+			outputText = RawMessageToString(fco.Output)
+		}
+	}
+
+	node := models.TraceNode{
+		ID:          "node_" + uuid.New().String(),
+		Name:        name,
+		Type:        models.NodeTypeTool,
+		ReferenceID: item.ID,
+		Status:      t.mapStatus(item.Status),
+		Data: &models.NodeData{
+			Input: &models.NodeDataIO{
+				Text: inputText,
+				Metadata: map[string]interface{}{
+					"tool_name": item.Name,
+					"call_id":   item.CallID,
+				},
+			},
+			Output: &models.NodeDataIO{
+				Text: outputText,
+			},
+		},
+		Metadata:  t.buildFunctionCallMetadata(item),
+		Nodes:     []models.TraceNode{},
+		Logs:      []string{},
+		CreatedAt: now,
+		UpdatedAt: now,
+		CreatedBy: createdBy,
+		UpdatedBy: createdBy,
+	}
+
+	return node
+}
+
+// transformFunctionCallOutput transforms a standalone function_call_output item into a TraceNode.
+func (t *Transformer) transformFunctionCallOutput(item ConversationItem, createdBy string) models.TraceNode {
+	now := time.Now().UTC()
+
+	return models.TraceNode{
+		ID:          "node_" + uuid.New().String(),
+		Name:        "Function Call Output",
+		Type:        models.NodeTypeTool,
+		ReferenceID: item.ID,
+		Status:      models.NodeStatusCompleted,
+		Data: &models.NodeData{
+			Output: &models.NodeDataIO{
+				Text: RawMessageToString(item.Output),
+				Metadata: map[string]interface{}{
+					"call_id": item.CallID,
+				},
+			},
+		},
+		Metadata: map[string]interface{}{
+			"partition_key": item.PartitionKey,
+			"call_id":       item.CallID,
+		},
+		Nodes:     []models.TraceNode{},
+		Logs:      []string{},
+		CreatedAt: now,
+		UpdatedAt: now,
+		CreatedBy: createdBy,
+		UpdatedBy: createdBy,
+	}
+}
+
+// buildFunctionCallMetadata builds metadata for a function_call node.
+func (t *Transformer) buildFunctionCallMetadata(item ConversationItem) map[string]interface{} {
+	metadata := map[string]interface{}{
+		"partition_key": item.PartitionKey,
+		"call_id":       item.CallID,
+		"tool_name":     item.Name,
+	}
+
+	if responseID := t.extractResponseID(item); responseID != "" {
+		metadata["response_id"] = responseID
+	}
+
+	if item.CreatedBy != nil {
+		if agent, ok := item.CreatedBy["agent"].(map[string]interface{}); ok {
+			metadata["agent"] = agent
+		}
+	}
+
+	return metadata
 }
 
 // extractMessageContent extracts input and output text from message content.

@@ -35,6 +35,7 @@ func Setup(r *gin.Engine, cfg *Config) {
 
 	conversation := tenants.Group("/conversation")
 	conversation.GET("/messages", cfg.MessagesHandler.GetMessages)
+	conversation.GET("/messages/search", cfg.MessagesHandler.SearchMessages)
 	conversation.POST("/messages", cfg.MessagesHandler.SendMessage)
 
 	conversations := tenants.Group("/conversations/:conversationId")

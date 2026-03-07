@@ -390,7 +390,7 @@ Transform(items, config) → []TraceNode
 ├── 1. Items reversieren (API newest-first → chronologisch)
 ├── 2. Items nach Typ klassifizieren:
 │   ├── workflowActions []ConversationItem
-│   ├── messages []ConversationItem  
+│   ├── messages []ConversationItem
 │   ├── mcpItems []ConversationItem
 │   └── otherItems []ConversationItem
 ├── 3. Action-DAG aufbauen:

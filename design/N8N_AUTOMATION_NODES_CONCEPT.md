@@ -89,7 +89,7 @@ Messaging and email nodes are among the most frequently used in N8N workflows â€
 - **Trigger**: `n8n-nodes-base.telegramTrigger`
 - **Operations**: Message (sendMessage, sendPhoto, sendDocument, sendSticker, sendVideo, editMessage, deleteMessage, pinMessage), Chat (get, getAdministrators, getMember, setDescription, setTitle, leaveChat), Callback (answerQuery), File (get)
 - **Output**: `{ "ok": true, "result": { "message_id": 123, "chat": { "id": -100123 }, "text": "..." } }`
-- **Relevance**: Very popular for AI chatbot workflows  
+- **Relevance**: Very popular for AI chatbot workflows
 
 #### Microsoft Teams
 - **Type**: `n8n-nodes-base.microsoftTeams`

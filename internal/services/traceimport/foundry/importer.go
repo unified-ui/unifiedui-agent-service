@@ -204,12 +204,6 @@ func (f *TraceImporter) fetchConversationItems(ctx context.Context, config *Conf
 	// Parse response
 	var items ConversationItemsResponse
 	if err := json.Unmarshal(body, &items); err != nil {
-		var rawData interface{}
-		if jsonErr := json.Unmarshal(body, &rawData); jsonErr == nil {
-			return &ConversationItemsResponse{
-				Data: nil,
-			}, nil
-		}
 		return nil, fmt.Errorf("failed to parse Foundry response: %w", err)
 	}
 
