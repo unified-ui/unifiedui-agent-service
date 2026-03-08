@@ -224,6 +224,9 @@ func (h *MessagesHandler) handleStreamingResponse(
 		if h.importService != nil && extConversationID != "" && foundryAPIKey != "" {
 			h.enqueueFoundryTraceImport(tenantCtx, agentConfig, userMessage, extConversationID, foundryAPIKey)
 		}
+	} else if agentConfig.Type == platform.AgentTypeReactAgent {
+		h.handleReActStreaming(ctx, writer, streamReader, tenantCtx, agentConfig, userMessage, assistantMessage, startTime)
+		h.updateSessionCache(ctx, tenantCtx, agentConfig, userMessage, assistantMessage)
 	} else {
 		executionID := h.handleDefaultStreaming(ctx, writer, streamReader, tenantCtx, agentConfig, userMessage, assistantMessage, startTime)
 		h.updateSessionCache(ctx, tenantCtx, agentConfig, userMessage, assistantMessage)
@@ -439,6 +442,134 @@ func (h *MessagesHandler) handleFoundryStreaming(
 	savedMsg := h.saveAssistantMessageWithMetadata(ctx, currentMessage, agentConfig, startTime)
 	if savedMsg != nil {
 		_ = writer.WriteMessageComplete(savedMsg)
+	}
+}
+
+func (h *MessagesHandler) handleReActStreaming(
+	ctx context.Context,
+	writer *sse.Writer,
+	streamReader agents.StreamReader,
+	_ *middleware.TenantContext,
+	agentConfig *platform.AgentConfig,
+	userMessage *models.Message,
+	assistantMessage *models.Message,
+	startTime time.Time,
+) {
+	var fullContent string
+
+	_ = writer.WriteStreamStart(assistantMessage.ID, userMessage.ConversationID)
+
+	for {
+		select {
+		case <-ctx.Done():
+			_ = streamReader.Close()
+			_ = writer.WriteStreamEnd()
+			h.saveCanceledAssistantMessage(assistantMessage, fullContent, agentConfig, startTime)
+			return
+		default:
+		}
+
+		chunk, err := streamReader.Read()
+		if stderrors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			if ctx.Err() != nil {
+				_ = streamReader.Close()
+				h.saveCanceledAssistantMessage(assistantMessage, fullContent, agentConfig, startTime)
+				return
+			}
+			errorMsg := "Stream error: " + err.Error()
+			_ = writer.WriteStreamError("STREAM_ERROR", errorMsg, err.Error())
+			h.saveFailedAssistantMessage(ctx, assistantMessage, errorMsg)
+			_ = writer.WriteStreamEnd()
+			_ = writer.WriteMessageComplete(assistantMessage)
+			return
+		}
+
+		switch chunk.Type {
+		case agents.ChunkTypeContent:
+			fullContent += chunk.Content
+			_ = writer.WriteTextStream(chunk.Content)
+
+		case agents.ChunkTypeReasoningStart:
+			_ = writer.WriteReasoningStart()
+		case agents.ChunkTypeReasoningStream:
+			_ = writer.WriteReasoningStream(chunk.Content)
+		case agents.ChunkTypeReasoningEnd:
+			_ = writer.WriteReasoningEnd()
+
+		case agents.ChunkTypeToolCallStart:
+			toolName := ""
+			if chunk.Config != nil {
+				if tn, ok := chunk.Config["tool_name"]; ok {
+					if s, ok := tn.(string); ok {
+						toolName = s
+					}
+				}
+			}
+			_ = writer.WriteToolCallStart(toolName, chunk.Config)
+		case agents.ChunkTypeToolCallStream:
+			_ = writer.WriteToolCallStream(chunk.Content)
+		case agents.ChunkTypeToolCallEnd:
+			_ = writer.WriteToolCallEnd(chunk.Config)
+
+		case agents.ChunkTypePlanStart:
+			_ = writer.WritePlanStart()
+		case agents.ChunkTypePlanStream:
+			_ = writer.WritePlanStream(chunk.Content)
+		case agents.ChunkTypePlanComplete:
+			_ = writer.WritePlanComplete(chunk.Config)
+
+		case agents.ChunkTypeSubAgentStart:
+			agentName := ""
+			if chunk.Config != nil {
+				if an, ok := chunk.Config["agent_name"]; ok {
+					if s, ok := an.(string); ok {
+						agentName = s
+					}
+				}
+			}
+			_ = writer.WriteSubAgentStart(agentName, chunk.Config)
+		case agents.ChunkTypeSubAgentStream:
+			_ = writer.WriteSubAgentStream(chunk.Content)
+		case agents.ChunkTypeSubAgentEnd:
+			_ = writer.WriteSubAgentEnd(chunk.Config)
+
+		case agents.ChunkTypeSynthesisStart:
+			_ = writer.WriteSynthesisStart()
+		case agents.ChunkTypeSynthesisStream:
+			fullContent += chunk.Content
+			_ = writer.WriteSynthesisStream(chunk.Content)
+
+		case agents.ChunkTypeTrace:
+			_ = writer.WriteStreamTrace(chunk.Config)
+
+		case agents.ChunkTypeError:
+			if chunk.Error != nil {
+				errorMsg := chunk.Error.Error()
+				_ = writer.WriteStreamError("CHUNK_ERROR", errorMsg, errorMsg)
+				_ = writer.WriteStreamEnd()
+				h.saveFailedAssistantMessage(ctx, assistantMessage, errorMsg)
+				_ = writer.WriteMessageComplete(assistantMessage)
+				return
+			}
+		}
+	}
+
+	_ = writer.WriteStreamEnd()
+
+	latencyMs := time.Since(startTime).Milliseconds()
+
+	assistantMessage.SetSuccess(fullContent)
+	if assistantMessage.Metadata == nil {
+		assistantMessage.Metadata = &models.AssistantMetadata{}
+	}
+	assistantMessage.Metadata.LatencyMs = latencyMs
+	assistantMessage.Metadata.AgentType = string(agentConfig.Type)
+
+	if err := h.docDBClient.Messages().Add(ctx, assistantMessage); err == nil {
+		_ = writer.WriteMessageComplete(assistantMessage)
 	}
 }
 

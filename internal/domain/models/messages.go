@@ -13,6 +13,16 @@ const (
 	MessageTypeUser MessageType = "user"
 	// MessageTypeAssistant represents an assistant message.
 	MessageTypeAssistant MessageType = "assistant"
+	// MessageTypeReasoning represents a reasoning/thinking step from a ReACT agent.
+	MessageTypeReasoning MessageType = "reasoning"
+	// MessageTypeToolCall represents a tool invocation from a ReACT agent.
+	MessageTypeToolCall MessageType = "tool_call"
+	// MessageTypeToolResult represents the result of a tool invocation.
+	MessageTypeToolResult MessageType = "tool_result"
+	// MessageTypePlan represents a planning step from a ReACT agent.
+	MessageTypePlan MessageType = "plan"
+	// MessageTypeSubAgent represents a sub-agent delegation step.
+	MessageTypeSubAgent MessageType = "sub_agent"
 )
 
 // MessageStatus represents the status of a message (mainly for assistant messages).

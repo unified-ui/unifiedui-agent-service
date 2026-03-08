@@ -278,8 +278,9 @@ func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb
 		Timeout:    cfg.Platform.Timeout,
 	})
 
-	// Create agent factory
-	agentFactory := agents.NewFactory()
+	// Create agent factory with ReACT service support
+	reactServiceKey := resolveServiceKeyFromVault(context.Background(), appVaultClient, cfg.AppVault.AgentToReactAgentKey)
+	agentFactory := agents.NewFactoryWithReact(cfg.ReactService, reactServiceKey)
 
 	// Create handlers
 	healthHandler := handlers.NewHealthHandler(cacheClient, docDBClient)

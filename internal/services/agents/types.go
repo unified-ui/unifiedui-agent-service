@@ -18,6 +18,24 @@ const (
 	ChunkTypeError      ChunkType = "error"
 	ChunkTypeDone       ChunkType = "done"
 	ChunkTypeNewMessage ChunkType = "new_message"
+
+	// ReACT Agent chunk types
+
+	ChunkTypeReasoningStart  ChunkType = "reasoning_start"
+	ChunkTypeReasoningStream ChunkType = "reasoning_stream"
+	ChunkTypeReasoningEnd    ChunkType = "reasoning_end"
+	ChunkTypeToolCallStart   ChunkType = "tool_call_start"
+	ChunkTypeToolCallStream  ChunkType = "tool_call_stream"
+	ChunkTypeToolCallEnd     ChunkType = "tool_call_end"
+	ChunkTypePlanStart       ChunkType = "plan_start"
+	ChunkTypePlanStream      ChunkType = "plan_stream"
+	ChunkTypePlanComplete    ChunkType = "plan_complete"
+	ChunkTypeSubAgentStart   ChunkType = "sub_agent_start"
+	ChunkTypeSubAgentStream  ChunkType = "sub_agent_stream"
+	ChunkTypeSubAgentEnd     ChunkType = "sub_agent_end"
+	ChunkTypeSynthesisStart  ChunkType = "synthesis_start"
+	ChunkTypeSynthesisStream ChunkType = "synthesis_stream"
+	ChunkTypeTrace           ChunkType = "trace"
 )
 
 // StreamChunk represents a chunk of streamed content.
@@ -33,6 +51,9 @@ type StreamChunk struct {
 
 	// Metadata contains additional information
 	Metadata map[string]interface{}
+
+	// Config contains event-specific configuration (for ReACT agent events)
+	Config map[string]interface{}
 
 	// Error contains error information (for error chunks)
 	Error error

@@ -5,18 +5,29 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/unifiedui/agent-service/internal/config"
 	"github.com/unifiedui/agent-service/internal/pkg/contextformat"
 	"github.com/unifiedui/agent-service/internal/services/agents/foundry"
 	"github.com/unifiedui/agent-service/internal/services/agents/n8n"
+	"github.com/unifiedui/agent-service/internal/services/agents/react"
 	"github.com/unifiedui/agent-service/internal/services/platform"
 )
 
 // Factory creates agent clients based on configuration.
-type Factory struct{}
+type Factory struct {
+	reactFactory *react.Factory
+}
 
 // NewFactory creates a new agent factory.
 func NewFactory() *Factory {
 	return &Factory{}
+}
+
+// NewFactoryWithReact creates a new agent factory with ReACT service support.
+func NewFactoryWithReact(reactCfg config.ReactServiceConfig, serviceKey string) *Factory {
+	return &Factory{
+		reactFactory: react.NewFactory(reactCfg, serviceKey),
+	}
 }
 
 // CreateClients creates the appropriate agent clients based on the configuration.
@@ -30,6 +41,8 @@ func (f *Factory) CreateClients(config *platform.AgentConfig) (*AgentClients, er
 		return f.createN8NClients(config)
 	case platform.AgentTypeFoundry:
 		return nil, fmt.Errorf("foundry requires API token - use CreateFoundryClients instead")
+	case platform.AgentTypeReactAgent:
+		return f.createReActClients(config)
 	case platform.AgentTypeCopilot:
 		return nil, fmt.Errorf("copilot agent type not yet implemented")
 	case platform.AgentTypeCustom:
@@ -448,5 +461,154 @@ func convertFoundryChunk(foundryChunk *foundry.StreamChunk) *StreamChunk {
 		ExecutionID: foundryChunk.ExecutionID,
 		Metadata:    foundryChunk.Metadata,
 		Error:       foundryChunk.Error,
+	}
+}
+
+// createReActClients creates ReACT agent clients.
+func (f *Factory) createReActClients(config *platform.AgentConfig) (*AgentClients, error) {
+	if f.reactFactory == nil {
+		return nil, fmt.Errorf("ReACT service not configured - use NewFactoryWithReact")
+	}
+
+	workflowClient, err := f.reactFactory.CreateWorkflowClient(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create ReACT workflow client: %w", err)
+	}
+
+	return &AgentClients{
+		WorkflowClient: &reactWorkflowAdapter{
+			client: workflowClient,
+			config: config,
+		},
+		APIClient: nil,
+		Config:    config,
+	}, nil
+}
+
+// reactWorkflowAdapter adapts react.WorkflowClient to agents.WorkflowClient interface.
+type reactWorkflowAdapter struct {
+	client *react.WorkflowClient
+	config *platform.AgentConfig
+}
+
+func (a *reactWorkflowAdapter) Invoke(ctx context.Context, req *InvokeRequest) (*InvokeResponse, error) {
+	reactReq := a.buildReActRequest(req)
+
+	content, err := a.client.Invoke(ctx, reactReq)
+	if err != nil {
+		return nil, err
+	}
+
+	return &InvokeResponse{
+		Content: content,
+	}, nil
+}
+
+func (a *reactWorkflowAdapter) InvokeStream(ctx context.Context, req *InvokeRequest) (<-chan *StreamChunk, error) {
+	reader, err := a.InvokeStreamReader(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	ch := make(chan *StreamChunk, 100)
+	go func() {
+		defer close(ch)
+		for {
+			chunk, readErr := reader.Read()
+			if readErr != nil {
+				_ = reader.Close()
+				return
+			}
+			ch <- chunk
+		}
+	}()
+
+	return ch, nil
+}
+
+func (a *reactWorkflowAdapter) InvokeStreamReader(ctx context.Context, req *InvokeRequest) (StreamReader, error) {
+	reactReq := a.buildReActRequest(req)
+
+	reader, err := a.client.InvokeStreamReader(ctx, reactReq)
+	if err != nil {
+		return nil, err
+	}
+
+	return &reactStreamReaderAdapter{reader: reader}, nil
+}
+
+func (a *reactWorkflowAdapter) Close() error {
+	return a.client.Close()
+}
+
+// buildReActRequest converts the generic InvokeRequest + AgentConfig into a react.InvokeRequest.
+func (a *reactWorkflowAdapter) buildReActRequest(req *InvokeRequest) *react.InvokeRequest {
+	message := contextformat.PrependContextToMessage(req.ContextData, req.Message)
+
+	var aiModels []react.AIModelConfig
+	var tools []react.ToolDefinition
+
+	if a.config != nil && a.config.Settings.Tools != nil {
+		for _, t := range a.config.Settings.Tools {
+			td := react.ToolDefinition{
+				Name:        t.Name,
+				Description: t.Description,
+				Type:        t.Type,
+				Config:      t.Config,
+			}
+			if t.Credentials != nil {
+				td.Credentials = []react.ToolCredential{
+					{
+						Type:  string(t.Credentials.Type),
+						Value: t.Credentials.GetSecretAsString(),
+					},
+				}
+			}
+			tools = append(tools, td)
+		}
+	}
+
+	return &react.InvokeRequest{
+		TenantID:       a.config.TenantID,
+		ChatAgentID:    a.config.ChatAgentID,
+		ConversationID: req.ConversationID,
+		Message:        message,
+		History:        req.ChatHistory,
+		AgentConfig: react.AgentConfigPayload{
+			ReactAgentID: a.config.Settings.ReActAgentID,
+			Prompts: react.PromptsConfig{
+				SystemPrompt: a.config.Settings.SystemPrompt,
+			},
+			AIModels:          aiModels,
+			Tools:             tools,
+			MultiAgentEnabled: false,
+		},
+	}
+}
+
+// reactStreamReaderAdapter adapts react.StreamReader to agents.StreamReader.
+type reactStreamReaderAdapter struct {
+	reader react.StreamReader
+}
+
+func (a *reactStreamReaderAdapter) Read() (*StreamChunk, error) {
+	chunk, err := a.reader.Read()
+	if err != nil {
+		return nil, err
+	}
+	return convertReActChunk(chunk), nil
+}
+
+func (a *reactStreamReaderAdapter) Close() error {
+	return a.reader.Close()
+}
+
+// convertReActChunk converts react.StreamChunk to agents.StreamChunk.
+func convertReActChunk(reactChunk *react.StreamChunk) *StreamChunk {
+	return &StreamChunk{
+		Type:    ChunkType(reactChunk.Type),
+		Content: reactChunk.Content,
+		Config:  reactChunk.Config,
+		Error:   reactChunk.Error,
 	}
 }

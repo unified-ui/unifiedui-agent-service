@@ -12,13 +12,14 @@ import (
 
 // Config holds all configuration for the application.
 type Config struct {
-	Server   ServerConfig
-	Cache    CacheConfig
-	DocDB    DocDBConfig
-	Vaults   VaultsConfig
-	Platform PlatformConfig
-	AppVault AppVaultConfig
-	Log      LogConfig
+	Server       ServerConfig
+	Cache        CacheConfig
+	DocDB        DocDBConfig
+	Vaults       VaultsConfig
+	Platform     PlatformConfig
+	ReactService ReactServiceConfig
+	AppVault     AppVaultConfig
+	Log          LogConfig
 }
 
 // ServerConfig holds server-related configuration.
@@ -92,10 +93,17 @@ type PlatformConfig struct {
 	ServiceKey string // X_AGENT_SERVICE_KEY for service-to-service authentication
 }
 
+// ReactServiceConfig holds ReACT agent service configuration.
+type ReactServiceConfig struct {
+	URL     string
+	Timeout time.Duration
+}
+
 // AppVaultConfig holds app vault key name configuration.
 type AppVaultConfig struct {
-	PlatformServiceKey string // Key name in vault for validating incoming platform requests
-	AgentToPlatformKey string // Key name in vault for outgoing requests to platform
+	PlatformServiceKey   string // Key name in vault for validating incoming platform requests
+	AgentToPlatformKey   string // Key name in vault for outgoing requests to platform
+	AgentToReactAgentKey string // Key name in vault for outgoing requests to ReACT agent service
 }
 
 // LogConfig holds logging configuration.
@@ -150,9 +158,14 @@ func Load() (*Config, error) {
 			Timeout:    time.Duration(getEnvAsInt("PLATFORM_SERVICE_TIMEOUT_SECONDS", 30)) * time.Second,
 			ServiceKey: getEnv("X_AGENT_SERVICE_KEY", ""),
 		},
+		ReactService: ReactServiceConfig{
+			URL:     getEnv("REACT_SERVICE_URL", "http://localhost:8086"),
+			Timeout: time.Duration(getEnvAsInt("REACT_SERVICE_TIMEOUT_SECONDS", 300)) * time.Second,
+		},
 		AppVault: AppVaultConfig{
-			PlatformServiceKey: getEnv("APP_VAULT_PLATFORM_SERVICE_KEY", "PLATFORM_TO_AGENT_SERVICE_KEY"),
-			AgentToPlatformKey: getEnv("APP_VAULT_AGENT_TO_PLATFORM_KEY", "AGENT_TO_PLATFORM_SERVICE_KEY"),
+			PlatformServiceKey:   getEnv("APP_VAULT_PLATFORM_SERVICE_KEY", "PLATFORM_TO_AGENT_SERVICE_KEY"),
+			AgentToPlatformKey:   getEnv("APP_VAULT_AGENT_TO_PLATFORM_KEY", "AGENT_TO_PLATFORM_SERVICE_KEY"),
+			AgentToReactAgentKey: getEnv("APP_VAULT_AGENT_TO_REACT_KEY", "AGENT_TO_REACT_SERVICE_KEY"),
 		},
 		Log: LogConfig{
 			Level:  getEnv("LOG_LEVEL", "info"),

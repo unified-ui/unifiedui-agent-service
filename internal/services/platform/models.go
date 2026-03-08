@@ -6,10 +6,11 @@ type AgentType string
 
 // AgentType constants define the supported agent backend types.
 const (
-	AgentTypeN8N     AgentType = "N8N"
-	AgentTypeFoundry AgentType = "MICROSOFT_FOUNDRY"
-	AgentTypeCopilot AgentType = "COPILOT"
-	AgentTypeCustom  AgentType = "CUSTOM"
+	AgentTypeN8N        AgentType = "N8N"
+	AgentTypeFoundry    AgentType = "MICROSOFT_FOUNDRY"
+	AgentTypeReactAgent AgentType = "REACT_AGENT"
+	AgentTypeCopilot    AgentType = "COPILOT"
+	AgentTypeCustom     AgentType = "CUSTOM"
 )
 
 // CredentialType represents the type of credentials.
@@ -83,6 +84,12 @@ type AgentSettings struct {
 	AgentType       string `json:"agent_type,omitempty"`       // "AGENT" or "MULTI_AGENT"
 	ProjectEndpoint string `json:"project_endpoint,omitempty"` // Full endpoint URL
 	AgentName       string `json:"agent_name,omitempty"`       // Agent name to invoke
+
+	// ReACT Agent specific settings
+	ReActAgentID string      `json:"react_agent_id,omitempty"`
+	Tools        []ReActTool `json:"tools,omitempty"`
+	SystemPrompt string      `json:"system_prompt,omitempty"`
+	AIModelIDs   []string    `json:"ai_model_ids,omitempty"`
 }
 
 // Credentials represents authentication credentials.
@@ -94,6 +101,17 @@ type Credentials struct {
 	Type           CredentialType `json:"type"`
 	IsActive       bool           `json:"is_active"`
 	Secret         interface{}    `json:"secret"` // Can be string or object
+}
+
+// ReActTool represents a tool definition returned in the ReACT agent config.
+type ReActTool struct {
+	ID          string       `json:"id"`
+	Name        string       `json:"name"`
+	Description string       `json:"description"`
+	Type        string       `json:"type"` // "MCP_SERVER" or "OPENAPI_DEFINITION"
+	Config      interface{}  `json:"config"`
+	IsActive    bool         `json:"is_active"`
+	Credentials *Credentials `json:"credentials,omitempty"`
 }
 
 // BasicAuthSecret represents basic auth credentials.
