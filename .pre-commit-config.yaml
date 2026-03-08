@@ -18,7 +18,16 @@ repos:
     hooks:
       - id: go-fmt
       - id: go-mod-tidy
+
+  # Go build (custom to exclude test-only directories)
+  - repo: local
+    hooks:
       - id: go-build
+        name: go-build
+        entry: bash -c 'go build $(go list ./... | grep -v /vendor/ | grep -v /tests/)'
+        language: system
+        files: '\.go$'
+        pass_filenames: false
 
   # Go linting with golangci-lint
   - repo: https://github.com/golangci/golangci-lint

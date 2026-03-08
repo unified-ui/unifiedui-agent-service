@@ -23,7 +23,7 @@ The `name:` field inside each workflow MUST match the filename (without `.yml`).
 
 ### ci-tests-and-lint.yml
 
-**Triggers**: push, pull_request, workflow_dispatch
+**Triggers**: push (main, develop), pull_request, workflow_dispatch
 
 | Job | What it does |
 |-----|-------------|
@@ -37,9 +37,13 @@ The `name:` field inside each workflow MUST match the filename (without `.yml`).
 
 ### ci-pr-branch-check.yml
 
-**Triggers**: pull_request to `main`
+**Triggers**: pull_request (all types)
 
-Validates that PRs to `main` originate from a `release/*` branch.
+Two validation jobs:
+1. **Validate Branch Name** — Ensures branch follows `<type>/<description>` convention
+2. **Validate PR Target** — Enforces branching model:
+   - PRs to `main`: Only from `develop` or `hotfix/*`
+   - PRs to `develop`: Only from `feat/*`, `fix/*`, `docs/*`, etc.
 
 ---
 

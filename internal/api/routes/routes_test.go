@@ -15,8 +15,12 @@ import (
 	"github.com/unifiedui/agent-service/internal/api/handlers"
 	"github.com/unifiedui/agent-service/internal/api/middleware"
 	"github.com/unifiedui/agent-service/internal/api/routes"
+	"github.com/unifiedui/agent-service/internal/config"
 	"github.com/unifiedui/agent-service/internal/core/cache"
 	"github.com/unifiedui/agent-service/internal/core/docdb"
+	"github.com/unifiedui/agent-service/internal/core/vault"
+	"github.com/unifiedui/agent-service/internal/services/ai"
+	"github.com/unifiedui/agent-service/internal/services/platform"
 )
 
 // --- Mock implementations ---
@@ -44,6 +48,89 @@ func (m *mockDocDBClient) TracesRaw() docdb.Collection           { return nil }
 func (m *mockDocDBClient) Ping(_ context.Context) error          { return nil }
 func (m *mockDocDBClient) Close(_ context.Context) error         { return nil }
 func (m *mockDocDBClient) EnsureIndexes(_ context.Context) error { return nil }
+
+type mockPlatformClient struct{}
+
+func (m *mockPlatformClient) GetChatAgentConfig(_ context.Context, _, _, _ string, _ bool) (*platform.ChatAgentConfigResponse, error) {
+	return nil, nil
+}
+func (m *mockPlatformClient) GetAgentConfig(_ context.Context, _, _, _, _ string, _ bool) (*platform.AgentConfig, error) {
+	return nil, nil
+}
+func (m *mockPlatformClient) GetAgentConfigFromFile(_ context.Context, _, _ string) (*platform.AgentConfig, error) {
+	return nil, nil
+}
+func (m *mockPlatformClient) GetMe(_ context.Context, _ string) (*platform.UserInfo, error) {
+	return nil, nil
+}
+func (m *mockPlatformClient) GetConversation(_ context.Context, _, _, _ string) (*platform.ConversationResponse, error) {
+	return nil, nil
+}
+func (m *mockPlatformClient) ValidateConversation(_ context.Context, _, _, _ string) error {
+	return nil
+}
+func (m *mockPlatformClient) ValidateAutonomousAgent(_ context.Context, _, _, _ string) error {
+	return nil
+}
+func (m *mockPlatformClient) GetAutonomousAgentConfig(_ context.Context, _, _, _ string) (*platform.AutonomousAgentConfigResponse, error) {
+	return nil, nil
+}
+func (m *mockPlatformClient) GetAutonomousAgentConfigWithBearer(_ context.Context, _, _, _ string) (*platform.AutonomousAgentConfigResponse, error) {
+	return nil, nil
+}
+func (m *mockPlatformClient) ValidateAutonomousAgentAPIKey(_ context.Context, _, _, _ string) error {
+	return nil
+}
+func (m *mockPlatformClient) GetAIModelsByPurpose(_ context.Context, _, _, _ string) ([]platform.AIModelWithSecretResponse, error) {
+	return nil, nil
+}
+func (m *mockPlatformClient) GetCredentialSecret(_ context.Context, _, _, _ string) (string, error) {
+	return "", nil
+}
+func (m *mockPlatformClient) UpdateConversationTitle(_ context.Context, _, _, _, _ string) error {
+	return nil
+}
+
+type mockAIService struct{}
+
+func (m *mockAIService) GenerateTitle(_ context.Context, _, _, _ string) (string, error) {
+	return "", nil
+}
+func (m *mockAIService) GenerateDescription(_ context.Context, _, _, _, _ string, _ map[string]interface{}) (string, error) {
+	return "", nil
+}
+func (m *mockAIService) AnalyzeTrace(_ context.Context, _ string, _ ai.AnalyzeTraceInput) (string, error) {
+	return "", nil
+}
+func (m *mockAIService) SummarizeTrace(_ context.Context, _ string, _ ai.SummarizeTraceInput) (string, error) {
+	return "", nil
+}
+func (m *mockAIService) TraceChat(_ context.Context, _ string, _ ai.TraceChatInput) (string, error) {
+	return "", nil
+}
+func (m *mockAIService) TestModel(_ context.Context, _ string, _, _ map[string]interface{}) (*ai.TestModelResult, error) {
+	return nil, nil
+}
+func (m *mockAIService) GetCapabilities(_ context.Context, _ string) (*ai.Capabilities, error) {
+	return nil, nil
+}
+
+type mockVaultClient struct{}
+
+func (m *mockVaultClient) GetVault() vault.Vault          { return nil }
+func (m *mockVaultClient) BuildSecretURI(_ string) string { return "" }
+func (m *mockVaultClient) StoreSecret(_ context.Context, _, _ string, _ map[string]string) (string, error) {
+	return "", nil
+}
+func (m *mockVaultClient) GetSecret(_ context.Context, _ string, _ bool) (string, error) {
+	return "", nil
+}
+func (m *mockVaultClient) UpdateSecret(_ context.Context, _, _ string, _ map[string]string) (bool, error) {
+	return false, nil
+}
+func (m *mockVaultClient) DeleteSecret(_ context.Context, _ string) (bool, error) { return false, nil }
+func (m *mockVaultClient) Ping(_ context.Context) error                           { return nil }
+func (m *mockVaultClient) Close() error                                           { return nil }
 
 // --- Test helpers ---
 
@@ -395,4 +482,94 @@ func TestSetup_DoesNotRegisterServiceKeyRoutesWhenMiddlewareNil(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusNotFound, w.Code, "Service key routes should not be registered when middleware/handler is nil")
+}
+
+func TestSetup_RegistersReactionRoutesWhenHandlerProvided(t *testing.T) {
+	router := setupTestRouter()
+	cfg := createTestConfig()
+	cfg.ReactionsHandler = handlers.NewReactionsHandler(&mockDocDBClient{}, &mockPlatformClient{})
+
+	routes.Setup(router, cfg)
+
+	testCases := []struct {
+		name   string
+		path   string
+		method string
+	}{
+		{"upsert reaction", "/api/v1/agent-service/tenants/test-tenant/conversations/conv-123/messages/msg-123/reactions", http.MethodPost},
+		{"delete reaction", "/api/v1/agent-service/tenants/test-tenant/conversations/conv-123/messages/msg-123/reactions", http.MethodDelete},
+		{"get reactions", "/api/v1/agent-service/tenants/test-tenant/conversations/conv-123/messages/msg-123/reactions", http.MethodGet},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, tc.path, http.NoBody)
+			w := httptest.NewRecorder()
+
+			router.ServeHTTP(w, req)
+
+			assert.NotEqual(t, http.StatusNotFound, w.Code, "reaction route %s should be registered", tc.path)
+		})
+	}
+}
+
+func TestSetup_RegistersAIRoutesWhenHandlerProvided(t *testing.T) {
+	router := setupTestRouter()
+	cfg := createTestConfig()
+	cfg.AIHandler = handlers.NewAIHandler(&mockAIService{}, &mockPlatformClient{})
+
+	routes.Setup(router, cfg)
+
+	testCases := []struct {
+		name   string
+		path   string
+		method string
+	}{
+		{"generate description", "/api/v1/agent-service/tenants/test-tenant/ai/generate-description", http.MethodPost},
+		{"analyze trace", "/api/v1/agent-service/tenants/test-tenant/ai/analyze-trace", http.MethodPost},
+		{"summarize trace", "/api/v1/agent-service/tenants/test-tenant/ai/summarize-trace", http.MethodPost},
+		{"trace chat", "/api/v1/agent-service/tenants/test-tenant/ai/trace-chat", http.MethodPost},
+		{"test model", "/api/v1/agent-service/tenants/test-tenant/ai/test-model", http.MethodPost},
+		{"get capabilities", "/api/v1/agent-service/tenants/test-tenant/ai/capabilities", http.MethodGet},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, tc.path, http.NoBody)
+			w := httptest.NewRecorder()
+
+			router.ServeHTTP(w, req)
+
+			assert.NotEqual(t, http.StatusNotFound, w.Code, "AI route %s should be registered", tc.path)
+		})
+	}
+}
+
+func TestSetup_RegistersServiceKeyRoutesWhenProvided(t *testing.T) {
+	router := setupTestRouter()
+	cfg := createTestConfig()
+	cfg.ServiceKeyMw = middleware.NewServiceKeyMiddleware(&mockVaultClient{}, config.AppVaultConfig{})
+	cfg.DataHandler = handlers.NewDataHandler(&mockDocDBClient{})
+
+	routes.Setup(router, cfg)
+
+	testCases := []struct {
+		name   string
+		path   string
+		method string
+	}{
+		{"delete conversation data", "/api/v1/agent-service/tenants/test-tenant/conversations/conv-123/data", http.MethodDelete},
+		{"delete agent data", "/api/v1/agent-service/tenants/test-tenant/autonomous-agents/agent-123/data", http.MethodDelete},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, tc.path, http.NoBody)
+			w := httptest.NewRecorder()
+
+			router.ServeHTTP(w, req)
+
+			assert.NotEqual(t, http.StatusNotFound, w.Code, "service key route %s should be registered", tc.path)
+		})
+	}
 }

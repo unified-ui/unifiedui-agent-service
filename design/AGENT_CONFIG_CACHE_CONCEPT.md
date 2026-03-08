@@ -172,7 +172,7 @@ if sessionData != nil {
 } else {
     // 2. NEU: Config Cache prüfen (wenn X-Use-Cache != false)
     useCache := c.GetHeader("X-Use-Cache") != "false"
-    
+
     if useCache {
         cachedConfig, err := h.configCache.Get(ctx, tenantID, userID, chatAgentID)
         if err == nil && cachedConfig != nil {
@@ -181,17 +181,17 @@ if sessionData != nil {
             chatHistory = loadChatHistory(...)
         }
     }
-    
+
     // 3. Platform Service Call (nur wenn kein Cache-Hit)
     if agentConfig == nil {
         agentConfig, err = h.platformClient.GetAgentConfig(ctx, tenantID, chatAgentID, conversationID, authToken)
         // ...
-        
+
         // Config in Cache schreiben (nur bei Erfolg)
         if useCache && err == nil {
             _ = h.configCache.Set(ctx, tenantID, userID, chatAgentID, agentConfig)
         }
-        
+
         chatHistory = loadChatHistory(...)
     }
 }

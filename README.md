@@ -1,6 +1,9 @@
 # unified-ui Agent Service
 
-[![CI](https://github.com/unified-ui/unifiedui-agent-service/actions/workflows/ci.yml/badge.svg)](https://github.com/unified-ui/unifiedui-agent-service/actions/workflows/ci.yml)
+[![CI](https://github.com/unified-ui/unifiedui-agent-service/actions/workflows/ci-tests-and-lint.yml/badge.svg)](https://github.com/unified-ui/unifiedui-agent-service/actions/workflows/ci-tests-and-lint.yml)
+[![Go 1.24+](https://img.shields.io/badge/go-1.24%2B-00ADD8.svg)](https://go.dev/dl/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Code style: golangci-lint](https://img.shields.io/badge/lint-golangci--lint-blue.svg)](https://golangci-lint.run/)
 
 > **The bridge to your AI backends** — A high-performance Go/Gin microservice that unifies heterogeneous AI agent systems behind a single API.
 
@@ -167,8 +170,94 @@ The API is available at `http://localhost:8085`
 
 | Service | Description |
 |---------|-------------|
-| [unified-ui-frontend](https://github.com/enricogoerlitz/unified-ui-frontend) | React frontend |
-| [unified-ui-backend](https://github.com/enricogoerlitz/unified-ui-backend) | Platform Service (Auth, RBAC, Core DB) |
+| [unified-ui-frontend](https://github.com/enricogoerlitz/unified-ui-frontend-service) | React frontend |
+| [unified-ui-platform-service](https://github.com/enricogoerlitz/unified-ui-platform-service) | Platform Service (Auth, RBAC, Core DB) |
+| [unifiedui-sdk](https://github.com/enricogoerlitz/unifiedui-sdk) | Python SDK for external integrations |
+
+---
+
+## Branching Strategy
+
+This project follows a **Simplified Flow** branching model — optimized for service releases with clear separation between integration and production.
+
+```mermaid
+gitGraph
+    commit id: "init"
+    branch develop
+    checkout develop
+    commit id: "setup"
+
+    branch feat/foundry-agent
+    checkout feat/foundry-agent
+    commit id: "add foundry"
+    commit id: "foundry tests"
+    checkout develop
+    merge feat/foundry-agent id: "merge foundry"
+
+    branch fix/sse-disconnect
+    checkout fix/sse-disconnect
+    commit id: "fix disconnect"
+    checkout develop
+    merge fix/sse-disconnect id: "merge fix"
+
+    checkout main
+    merge develop id: "v0.1.0" tag: "v0.1.0"
+
+    checkout develop
+    branch feat/n8n-agent
+    checkout feat/n8n-agent
+    commit id: "add n8n"
+    checkout develop
+    merge feat/n8n-agent id: "merge n8n"
+
+    checkout main
+    merge develop id: "v0.2.0" tag: "v0.2.0"
+
+    checkout main
+    branch hotfix/security
+    checkout hotfix/security
+    commit id: "critical fix"
+    checkout main
+    merge hotfix/security id: "v0.2.1" tag: "v0.2.1"
+    checkout develop
+    merge hotfix/security id: "backport hotfix"
+```
+
+### Branch Types
+
+| Branch | Purpose | Branches from | Merges into |
+|--------|---------|---------------|-------------|
+| `main` | Production releases — stable, deployable code | — | — |
+| `develop` | Integration branch for features and fixes | `main` | `main` |
+| `feat/<name>` | New features or enhancements | `develop` | `develop` |
+| `fix/<name>` | Bug fixes (non-critical) | `develop` | `develop` |
+| `hotfix/<name>` | Critical production fixes | `main` | `main` + `develop` |
+| `docs/<name>` | Documentation-only changes | `develop` | `develop` |
+| `refactor/<name>` | Code restructuring without behavior changes | `develop` | `develop` |
+
+### Workflow
+
+1. **Feature/Fix development** — Create a `feat/` or `fix/` branch from `develop`. Open a PR back into `develop`.
+2. **Release** — When ready, open a PR from `develop` to `main`. On merge, tag with version.
+3. **Hotfixes** — For critical bugs, create a `hotfix/` branch from `main`, fix, and PR to `main`. Then backport to `develop`.
+
+### Rules
+
+- **Never commit directly** to `main` or `develop` — always use PRs
+- **All PRs require** passing CI (tests, lint, vet, coverage)
+- **Branch naming**: `<type>/<short-description>` (e.g. `feat/foundry-agent`, `fix/sse-disconnect`)
+
+---
+
+## Contributing
+
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our development workflow, code standards, and how to submit pull requests.
+
+---
+
+## Sponsors
+
+If you find this project useful, consider [sponsoring](SPONSORS.md) its development.
 
 ---
 
