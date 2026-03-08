@@ -56,7 +56,7 @@ func (h *TracesHandler) ImportConversationTrace(c *gin.Context) {
 		return
 	}
 
-	appConfig, err := h.platformClient.GetChatAgentConfig(ctx, tenantID, conversation.ChatAgentID, authToken)
+	appConfig, err := h.platformClient.GetChatAgentConfig(ctx, tenantID, conversation.ChatAgentID, authToken, true)
 	if err != nil {
 		middleware.HandleError(c, errors.NewInternalError("failed to get chat agent configuration", err))
 		return

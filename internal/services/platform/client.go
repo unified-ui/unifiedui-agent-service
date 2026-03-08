@@ -13,8 +13,8 @@ import (
 
 // Client defines the interface for the platform service client.
 type Client interface {
-	GetChatAgentConfig(ctx context.Context, tenantID, chatAgentID, authToken string) (*ChatAgentConfigResponse, error)
-	GetAgentConfig(ctx context.Context, tenantID, chatAgentID, conversationID, authToken string) (*AgentConfig, error)
+	GetChatAgentConfig(ctx context.Context, tenantID, chatAgentID, authToken string, useCache bool) (*ChatAgentConfigResponse, error)
+	GetAgentConfig(ctx context.Context, tenantID, chatAgentID, conversationID, authToken string, useCache bool) (*AgentConfig, error)
 	GetAgentConfigFromFile(ctx context.Context, tenantID, chatAgentID string) (*AgentConfig, error)
 	GetMe(ctx context.Context, authToken string) (*UserInfo, error)
 	GetConversation(ctx context.Context, tenantID, conversationID, authToken string) (*ConversationResponse, error)
@@ -60,7 +60,7 @@ func NewClient(cfg *ClientConfig) Client {
 	}
 }
 
-func (c *client) GetChatAgentConfig(ctx context.Context, tenantID, chatAgentID, authToken string) (*ChatAgentConfigResponse, error) {
+func (c *client) GetChatAgentConfig(ctx context.Context, tenantID, chatAgentID, authToken string, useCache bool) (*ChatAgentConfigResponse, error) {
 	if c.baseURL == "" {
 		return nil, fmt.Errorf("platform service URL not configured")
 	}
@@ -75,11 +75,14 @@ func (c *client) GetChatAgentConfig(ctx context.Context, tenantID, chatAgentID, 
 		"X-Service-Key": c.serviceKey,
 		"Authorization": "Bearer " + authToken,
 	}
+	if !useCache {
+		headers["X-Use-Cache"] = "false"
+	}
 	return doJSONRequest[ChatAgentConfigResponse](ctx, c, requestConfig{method: http.MethodGet, url: url, headers: headers}, "chat agent config not found")
 }
 
-func (c *client) GetAgentConfig(ctx context.Context, tenantID, chatAgentID, conversationID, authToken string) (*AgentConfig, error) {
-	appConfig, err := c.GetChatAgentConfig(ctx, tenantID, chatAgentID, authToken)
+func (c *client) GetAgentConfig(ctx context.Context, tenantID, chatAgentID, conversationID, authToken string, useCache bool) (*AgentConfig, error) {
+	appConfig, err := c.GetChatAgentConfig(ctx, tenantID, chatAgentID, authToken, useCache)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chat agent config: %w", err)
 	}

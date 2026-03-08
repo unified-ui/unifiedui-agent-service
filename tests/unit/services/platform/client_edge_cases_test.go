@@ -148,7 +148,7 @@ func TestGetChatAgentConfig_SpecialCharactersInIDs(t *testing.T) {
 	defer ts.Close()
 
 	client := newTestClient(ts)
-	result, err := client.GetChatAgentConfig(context.Background(), "tenant-123", "agent-456", "token")
+	result, err := client.GetChatAgentConfig(context.Background(), "tenant-123", "agent-456", "token", true)
 	require.NoError(t, err)
 	assert.Equal(t, "tenant-123", result.TenantID)
 }
@@ -182,7 +182,7 @@ func TestGetChatAgentConfig_HTTPMethod(t *testing.T) {
 	defer ts.Close()
 
 	client := newTestClient(ts)
-	_, err := client.GetChatAgentConfig(context.Background(), "t", "a", "token")
+	_, err := client.GetChatAgentConfig(context.Background(), "t", "a", "token", true)
 	assert.NoError(t, err)
 }
 
@@ -283,7 +283,7 @@ func TestGetChatAgentConfig_NullUserField(t *testing.T) {
 	defer ts.Close()
 
 	client := newTestClient(ts)
-	result, err := client.GetChatAgentConfig(context.Background(), "t1", "a1", "token")
+	result, err := client.GetChatAgentConfig(context.Background(), "t1", "a1", "token", true)
 	require.NoError(t, err)
 	assert.Nil(t, result.User)
 }

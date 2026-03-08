@@ -36,12 +36,13 @@ func (c ServerConfig) Address() string {
 
 // CacheConfig holds cache-related configuration.
 type CacheConfig struct {
-	Type     string
-	Host     string
-	Port     string
-	Password string
-	DB       int
-	TTL      time.Duration
+	Type           string
+	Host           string
+	Port           string
+	Password       string
+	DB             int
+	TTL            time.Duration
+	ConfigCacheTTL time.Duration
 }
 
 // DocDBConfig holds document database configuration.
@@ -124,12 +125,13 @@ func Load() (*Config, error) {
 			GinMode: getEnv("GIN_MODE", "debug"),
 		},
 		Cache: CacheConfig{
-			Type:     getEnv("CACHE_TYPE", "redis"),
-			Host:     getEnv("REDIS_HOST", "localhost"),
-			Port:     getEnv("REDIS_PORT", "6379"),
-			Password: getEnv("REDIS_PASSWORD", ""),
-			DB:       getEnvAsInt("REDIS_DB", 0),
-			TTL:      time.Duration(getEnvAsInt("CACHE_TTL_SECONDS", 180)) * time.Second,
+			Type:           getEnv("CACHE_TYPE", "redis"),
+			Host:           getEnv("REDIS_HOST", "localhost"),
+			Port:           getEnv("REDIS_PORT", "6379"),
+			Password:       getEnv("REDIS_PASSWORD", ""),
+			DB:             getEnvAsInt("REDIS_DB", 0),
+			TTL:            time.Duration(getEnvAsInt("CACHE_TTL_SECONDS", 180)) * time.Second,
+			ConfigCacheTTL: time.Duration(getEnvAsInt("CONFIG_CACHE_TTL_SECONDS", 300)) * time.Second,
 		},
 		DocDB: DocDBConfig{
 			Type:     getEnv("DOCDB_TYPE", "mongodb"),

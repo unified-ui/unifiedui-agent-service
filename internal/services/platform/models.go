@@ -86,10 +86,21 @@ type AgentSettings struct {
 	AgentName       string `json:"agent_name,omitempty"`       // Agent name to invoke
 
 	// ReACT Agent specific settings
-	ReActAgentID string      `json:"react_agent_id,omitempty"`
-	Tools        []ReActTool `json:"tools,omitempty"`
-	SystemPrompt string      `json:"system_prompt,omitempty"`
-	AIModelIDs   []string    `json:"ai_model_ids,omitempty"`
+	ReActAgentID string            `json:"react_agent_id,omitempty"`
+	Tools        []ReActTool       `json:"tools,omitempty"`
+	SystemPrompt string            `json:"system_prompt,omitempty"`
+	AIModelIDs   []string          `json:"ai_model_ids,omitempty"`
+	AIModels     []ResolvedAIModel `json:"ai_models,omitempty"`
+}
+
+// ResolvedAIModel represents a fully resolved AI model with decrypted credentials
+// as returned by the platform service config endpoint.
+type ResolvedAIModel struct {
+	ID               string                 `json:"id"`
+	Provider         string                 `json:"provider"`
+	Config           map[string]interface{} `json:"config"`
+	CredentialSecret map[string]interface{} `json:"credential_secret"`
+	Priority         int                    `json:"priority"`
 }
 
 // Credentials represents authentication credentials.

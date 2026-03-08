@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/unifiedui/agent-service/internal/config"
+	"github.com/unifiedui/agent-service/internal/domain/models"
 	"github.com/unifiedui/agent-service/internal/pkg/contextformat"
 	"github.com/unifiedui/agent-service/internal/services/agents/foundry"
 	"github.com/unifiedui/agent-service/internal/services/agents/n8n"
@@ -545,27 +546,65 @@ func (a *reactWorkflowAdapter) Close() error {
 func (a *reactWorkflowAdapter) buildReActRequest(req *InvokeRequest) *react.InvokeRequest {
 	message := contextformat.PrependContextToMessage(req.ContextData, req.Message)
 
-	var aiModels []react.AIModelConfig
-	var tools []react.ToolDefinition
+	aiModels := make([]react.AIModelConfig, 0)
+	tools := make([]react.ToolDefinition, 0)
+
+	if a.config != nil {
+		for _, m := range a.config.Settings.AIModels {
+			am := react.AIModelConfig{
+				Provider: m.Provider,
+			}
+			if v, ok := m.Config["model_name"]; ok {
+				am.ModelName, _ = v.(string)
+			}
+			if v, ok := m.Config["base_url"]; ok {
+				am.BaseURL, _ = v.(string)
+			}
+			if v, ok := m.Config["endpoint"]; ok {
+				am.Endpoint, _ = v.(string)
+			}
+			if v, ok := m.Config["api_version"]; ok {
+				am.APIVersion, _ = v.(string)
+			}
+			if v, ok := m.Config["deployment_name"]; ok {
+				am.DeploymentName, _ = v.(string)
+			}
+			if v, ok := m.Config["organization"]; ok {
+				am.Organization, _ = v.(string)
+			}
+			if m.CredentialSecret != nil {
+				if apiKey, ok := m.CredentialSecret["api_key"]; ok {
+					am.APIKey, _ = apiKey.(string)
+				}
+			}
+			aiModels = append(aiModels, am)
+		}
+	}
 
 	if a.config != nil && a.config.Settings.Tools != nil {
 		for _, t := range a.config.Settings.Tools {
 			td := react.ToolDefinition{
+				ID:          t.ID,
 				Name:        t.Name,
 				Description: t.Description,
 				Type:        t.Type,
 				Config:      t.Config,
+				IsActive:    t.IsActive,
 			}
 			if t.Credentials != nil {
-				td.Credentials = []react.ToolCredential{
-					{
-						Type:  string(t.Credentials.Type),
-						Value: t.Credentials.GetSecretAsString(),
-					},
+				td.Credential = &react.ToolCredential{
+					ID:     t.Credentials.ID,
+					Type:   string(t.Credentials.Type),
+					Secret: t.Credentials.GetSecretAsString(),
 				}
 			}
 			tools = append(tools, td)
 		}
+	}
+
+	history := req.ChatHistory
+	if history == nil {
+		history = make([]models.ChatHistoryEntry, 0)
 	}
 
 	return &react.InvokeRequest{
@@ -573,12 +612,10 @@ func (a *reactWorkflowAdapter) buildReActRequest(req *InvokeRequest) *react.Invo
 		ChatAgentID:    a.config.ChatAgentID,
 		ConversationID: req.ConversationID,
 		Message:        message,
-		History:        req.ChatHistory,
+		History:        history,
 		AgentConfig: react.AgentConfigPayload{
-			ReactAgentID: a.config.Settings.ReActAgentID,
-			Prompts: react.PromptsConfig{
-				SystemPrompt: a.config.Settings.SystemPrompt,
-			},
+			ReactAgentID:      a.config.Settings.ReActAgentID,
+			SystemPrompt:      a.config.Settings.SystemPrompt,
 			AIModels:          aiModels,
 			Tools:             tools,
 			MultiAgentEnabled: false,

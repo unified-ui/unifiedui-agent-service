@@ -94,39 +94,42 @@ type InvokeRequest struct {
 // AgentConfigPayload is the agent_config sent to the ReACT service.
 type AgentConfigPayload struct {
 	ReactAgentID      string           `json:"react_agent_id"`
-	Version           string           `json:"version,omitempty"`
-	Prompts           PromptsConfig    `json:"prompts"`
+	Version           int              `json:"version"`
+	SystemPrompt      string           `json:"system_prompt,omitempty"`
+	SecurityPrompt    string           `json:"security_prompt,omitempty"`
+	ToolUsePrompt     string           `json:"tool_use_prompt,omitempty"`
+	ResponsePrompt    string           `json:"response_prompt,omitempty"`
 	AIModels          []AIModelConfig  `json:"ai_models"`
 	Tools             []ToolDefinition `json:"tools"`
 	MultiAgentEnabled bool             `json:"multi_agent_enabled"`
 }
 
-// PromptsConfig holds prompt configuration.
-type PromptsConfig struct {
-	SystemPrompt string `json:"system_prompt"`
-}
-
 // AIModelConfig holds AI model configuration for the ReACT service.
 type AIModelConfig struct {
-	Provider    string                 `json:"provider"`
-	ModelName   string                 `json:"model_name"`
-	APIKey      string                 `json:"api_key"`
-	BaseURL     string                 `json:"base_url,omitempty"`
-	APIVersion  string                 `json:"api_version,omitempty"`
-	ExtraConfig map[string]interface{} `json:"extra_config,omitempty"`
+	Provider       string `json:"provider"`
+	ModelName      string `json:"model_name,omitempty"`
+	APIKey         string `json:"api_key,omitempty"`
+	Endpoint       string `json:"endpoint,omitempty"`
+	APIVersion     string `json:"api_version,omitempty"`
+	DeploymentName string `json:"deployment_name,omitempty"`
+	BaseURL        string `json:"base_url,omitempty"`
+	Organization   string `json:"organization,omitempty"`
 }
 
 // ToolDefinition holds a tool definition for the ReACT service.
 type ToolDefinition struct {
-	Name        string           `json:"name"`
-	Description string           `json:"description"`
-	Type        string           `json:"type"`
-	Config      interface{}      `json:"config"`
-	Credentials []ToolCredential `json:"credentials,omitempty"`
+	ID          string          `json:"id"`
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Type        string          `json:"type"`
+	Config      interface{}     `json:"config"`
+	IsActive    bool            `json:"is_active"`
+	Credential  *ToolCredential `json:"credential,omitempty"`
 }
 
 // ToolCredential holds credential information for a tool.
 type ToolCredential struct {
-	Type  string `json:"type"`
-	Value string `json:"value"`
+	ID     string `json:"id,omitempty"`
+	Type   string `json:"type"`
+	Secret string `json:"secret"`
 }

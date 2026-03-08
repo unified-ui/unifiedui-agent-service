@@ -15,8 +15,8 @@ type MockPlatformClient struct {
 }
 
 // GetChatAgentConfig mocks the GetChatAgentConfig method.
-func (m *MockPlatformClient) GetChatAgentConfig(ctx context.Context, tenantID, chatAgentID, authToken string) (*platform.ChatAgentConfigResponse, error) {
-	args := m.Called(ctx, tenantID, chatAgentID, authToken)
+func (m *MockPlatformClient) GetChatAgentConfig(ctx context.Context, tenantID, chatAgentID, authToken string, useCache bool) (*platform.ChatAgentConfigResponse, error) {
+	args := m.Called(ctx, tenantID, chatAgentID, authToken, useCache)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -24,8 +24,8 @@ func (m *MockPlatformClient) GetChatAgentConfig(ctx context.Context, tenantID, c
 }
 
 // GetAgentConfig mocks the GetAgentConfig method.
-func (m *MockPlatformClient) GetAgentConfig(ctx context.Context, tenantID, chatAgentID, conversationID, authToken string) (*platform.AgentConfig, error) {
-	args := m.Called(ctx, tenantID, chatAgentID, conversationID, authToken)
+func (m *MockPlatformClient) GetAgentConfig(ctx context.Context, tenantID, chatAgentID, conversationID, authToken string, useCache bool) (*platform.AgentConfig, error) {
+	args := m.Called(ctx, tenantID, chatAgentID, conversationID, authToken, useCache)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

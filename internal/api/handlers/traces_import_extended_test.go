@@ -1647,7 +1647,7 @@ func TestImportConversationTrace_GetChatAgentConfigError(t *testing.T) {
 
 	mockPlatform.On("GetConversation", mock.Anything, testTenantID, "conv-123", "test-token").
 		Return(conversation, nil)
-	mockPlatform.On("GetChatAgentConfig", mock.Anything, testTenantID, "chat-agent-123", "test-token").
+	mockPlatform.On("GetChatAgentConfig", mock.Anything, testTenantID, "chat-agent-123", "test-token", mock.Anything).
 		Return(nil, fmt.Errorf("config error"))
 
 	handler := createTestTracesHandlerWithMocks(mockDocDB, mockPlatform)
@@ -1687,7 +1687,7 @@ func TestImportConversationTrace_GetMeError(t *testing.T) {
 
 	mockPlatform.On("GetConversation", mock.Anything, testTenantID, "conv-123", "test-token").
 		Return(conversation, nil)
-	mockPlatform.On("GetChatAgentConfig", mock.Anything, testTenantID, "chat-agent-123", "test-token").
+	mockPlatform.On("GetChatAgentConfig", mock.Anything, testTenantID, "chat-agent-123", "test-token", mock.Anything).
 		Return(appConfig, nil)
 	mockPlatform.On("GetMe", mock.Anything, "test-token").
 		Return(nil, fmt.Errorf("user info error"))
@@ -1734,7 +1734,7 @@ func TestImportConversationTrace_UnsupportedAgentType(t *testing.T) {
 
 	mockPlatform.On("GetConversation", mock.Anything, testTenantID, "conv-123", "test-token").
 		Return(conversation, nil)
-	mockPlatform.On("GetChatAgentConfig", mock.Anything, testTenantID, "chat-agent-123", "test-token").
+	mockPlatform.On("GetChatAgentConfig", mock.Anything, testTenantID, "chat-agent-123", "test-token", mock.Anything).
 		Return(appConfig, nil)
 	mockPlatform.On("GetMe", mock.Anything, "test-token").
 		Return(userInfo, nil)
@@ -1782,7 +1782,7 @@ func TestImportConversationTrace_N8NNotImplemented(t *testing.T) {
 
 	mockPlatform.On("GetConversation", mock.Anything, testTenantID, "conv-123", "test-token").
 		Return(conversation, nil)
-	mockPlatform.On("GetChatAgentConfig", mock.Anything, testTenantID, "chat-agent-123", "test-token").
+	mockPlatform.On("GetChatAgentConfig", mock.Anything, testTenantID, "chat-agent-123", "test-token", mock.Anything).
 		Return(appConfig, nil)
 	mockPlatform.On("GetMe", mock.Anything, "test-token").
 		Return(userInfo, nil)

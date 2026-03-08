@@ -52,6 +52,7 @@ import (
 	"github.com/unifiedui/agent-service/internal/pkg/encryption"
 	"github.com/unifiedui/agent-service/internal/services/agents"
 	"github.com/unifiedui/agent-service/internal/services/ai"
+	"github.com/unifiedui/agent-service/internal/services/configcache"
 	"github.com/unifiedui/agent-service/internal/services/platform"
 	"github.com/unifiedui/agent-service/internal/services/session"
 	"github.com/unifiedui/agent-service/internal/services/traceimport"
@@ -115,6 +116,15 @@ func run() error {
 		return fmt.Errorf("failed to initialize session service: %w", err)
 	}
 
+	configCacheService, err := configcache.NewService(&configcache.Config{
+		CacheClient: cacheClient,
+		Encryptor:   encryptor,
+		TTL:         cfg.Cache.ConfigCacheTTL,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to initialize config cache service: %w", err)
+	}
+
 	importService := traceimport.NewImportService(docDBClient)
 
 	importService.RegisterImporter(foundry.NewTraceImporter(docDBClient))
@@ -131,7 +141,7 @@ func run() error {
 	}
 	cfg.Platform.ServiceKey = agentToPlatformKey
 
-	router := setupRouter(cfg, cacheClient, docDBClient, appVaultClient, sessionService, importService)
+	router := setupRouter(cfg, cacheClient, docDBClient, appVaultClient, sessionService, configCacheService, importService)
 
 	srv := &http.Server{
 		Addr:              cfg.Server.Address(),
@@ -249,7 +259,7 @@ func createEncryptor(cfg config.VaultsConfig, vaultClient vault.Client) (encrypt
 }
 
 // setupRouter creates and configures the Gin router.
-func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb.Client, appVaultClient vault.Client, sessionService session.Service, importService *traceimport.ImportService) *gin.Engine {
+func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb.Client, appVaultClient vault.Client, sessionService session.Service, configCacheService configcache.Service, importService *traceimport.ImportService) *gin.Engine {
 	router := gin.New()
 
 	// Create CORS config
@@ -289,7 +299,7 @@ func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb
 	aiService := ai.NewService(platformClient)
 	aiHandler := handlers.NewAIHandler(aiService, platformClient)
 
-	messagesHandler := handlers.NewMessagesHandler(docDBClient, platformClient, agentFactory, sessionService, importService, aiService)
+	messagesHandler := handlers.NewMessagesHandler(docDBClient, platformClient, agentFactory, sessionService, configCacheService, importService, aiService)
 	tracesHandler := handlers.NewTracesHandler(docDBClient, platformClient, importService)
 	reactionsHandler := handlers.NewReactionsHandler(docDBClient, platformClient)
 	dataHandler := handlers.NewDataHandler(docDBClient)

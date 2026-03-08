@@ -13,6 +13,7 @@ import (
 	"github.com/unifiedui/agent-service/internal/domain/models"
 	"github.com/unifiedui/agent-service/internal/services/agents"
 	"github.com/unifiedui/agent-service/internal/services/ai"
+	"github.com/unifiedui/agent-service/internal/services/configcache"
 	"github.com/unifiedui/agent-service/internal/services/platform"
 	"github.com/unifiedui/agent-service/internal/services/session"
 	"github.com/unifiedui/agent-service/internal/services/traceimport"
@@ -31,6 +32,7 @@ type MessagesHandler struct {
 	platformClient platform.Client
 	agentFactory   *agents.Factory
 	sessionService session.Service
+	configCache    configcache.Service
 	importService  *traceimport.ImportService
 	aiService      ai.Service
 }
@@ -41,6 +43,7 @@ func NewMessagesHandler(
 	platformClient platform.Client,
 	agentFactory *agents.Factory,
 	sessionService session.Service,
+	configCache configcache.Service,
 	importService *traceimport.ImportService,
 	aiService ai.Service,
 ) *MessagesHandler {
@@ -49,6 +52,7 @@ func NewMessagesHandler(
 		platformClient: platformClient,
 		agentFactory:   agentFactory,
 		sessionService: sessionService,
+		configCache:    configCache,
 		importService:  importService,
 		aiService:      aiService,
 	}

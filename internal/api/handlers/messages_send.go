@@ -57,6 +57,8 @@ func (h *MessagesHandler) SendMessage(c *gin.Context) {
 		sessionData = nil
 	}
 
+	useCache := c.GetHeader("X-Use-Cache") != "false"
+
 	var agentConfig *platform.AgentConfig
 	var chatHistory []models.ChatHistoryEntry
 
@@ -70,10 +72,23 @@ func (h *MessagesHandler) SendMessage(c *gin.Context) {
 			return
 		}
 
-		agentConfig, err = h.platformClient.GetAgentConfig(ctx, tenantCtx.TenantID, req.ChatAgentID, conversationID, authToken)
-		if err != nil {
-			middleware.HandleError(c, errors.NewInternalError("failed to get agent configuration", err))
-			return
+		if useCache {
+			cachedConfig, cacheErr := h.configCache.Get(ctx, tenantCtx.TenantID, tenantCtx.UserID, req.ChatAgentID)
+			if cacheErr == nil && cachedConfig != nil {
+				agentConfig = cachedConfig
+			}
+		}
+
+		if agentConfig == nil {
+			agentConfig, err = h.platformClient.GetAgentConfig(ctx, tenantCtx.TenantID, req.ChatAgentID, conversationID, authToken, useCache)
+			if err != nil {
+				middleware.HandleError(c, errors.NewInternalError("failed to get agent configuration", err))
+				return
+			}
+
+			if useCache {
+				_ = h.configCache.Set(ctx, tenantCtx.TenantID, tenantCtx.UserID, req.ChatAgentID, agentConfig)
+			}
 		}
 
 		if agentConfig.Settings.UseUnifiedChatHistory && agentConfig.Type != platform.AgentTypeFoundry {

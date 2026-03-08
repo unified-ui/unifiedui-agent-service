@@ -22,10 +22,11 @@ import (
 func createMessagesHandlerForExtendedTests(mockDocDB *mocks.MockDocDBClient) *handlers.MessagesHandler {
 	mockPlatform := &mocks.MockPlatformClient{}
 	mockSession := &mocks.MockSessionService{}
+	mockConfigCache := &mocks.MockConfigCacheService{}
 	mockAI := &mocks.MockAIService{}
 	agentFactory := agents.NewFactory()
 	importService := traceimport.NewImportService(mockDocDB)
-	return handlers.NewMessagesHandler(mockDocDB, mockPlatform, agentFactory, mockSession, importService, mockAI)
+	return handlers.NewMessagesHandler(mockDocDB, mockPlatform, agentFactory, mockSession, mockConfigCache, importService, mockAI)
 }
 
 // ============================================================================

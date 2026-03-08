@@ -23,7 +23,7 @@ func TestGetAgentConfig_ErrorFromGetChatAgentConfig(t *testing.T) {
 	defer ts.Close()
 
 	client := newTestClient(ts)
-	_, err := client.GetAgentConfig(context.Background(), "tenant1", "agent1", "conv1", "auth-token")
+	_, err := client.GetAgentConfig(context.Background(), "tenant1", "agent1", "conv1", "auth-token", true)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to get chat agent config")
 }
@@ -51,7 +51,7 @@ func TestGetAgentConfig_WithUserInfo(t *testing.T) {
 	defer ts.Close()
 
 	client := newTestClient(ts)
-	result, err := client.GetAgentConfig(context.Background(), "tenant1", "agent1", "conv1", "auth-token")
+	result, err := client.GetAgentConfig(context.Background(), "tenant1", "agent1", "conv1", "auth-token", true)
 	require.NoError(t, err)
 	assert.Equal(t, "2", result.DocVersion)
 	assert.Equal(t, platform.AgentTypeFoundry, result.Type)
@@ -66,7 +66,7 @@ func TestGetAgentConfig_Unauthorized(t *testing.T) {
 	defer ts.Close()
 
 	client := newTestClient(ts)
-	_, err := client.GetAgentConfig(context.Background(), "tenant1", "agent1", "conv1", "bad-token")
+	_, err := client.GetAgentConfig(context.Background(), "tenant1", "agent1", "conv1", "bad-token", true)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unauthorized")
 }
@@ -540,7 +540,7 @@ func TestGetChatAgentConfig_WithFullSettings(t *testing.T) {
 	defer ts.Close()
 
 	client := newTestClient(ts)
-	result, err := client.GetChatAgentConfig(context.Background(), "tenant1", "agent1", "auth-token")
+	result, err := client.GetChatAgentConfig(context.Background(), "tenant1", "agent1", "auth-token", true)
 	require.NoError(t, err)
 	assert.Equal(t, "3", result.DocVersion)
 	assert.Equal(t, platform.N8NWorkflowTypeChatAgent, result.Settings.WorkflowType)
@@ -565,7 +565,7 @@ func TestGetChatAgentConfig_WithFoundrySettings(t *testing.T) {
 	defer ts.Close()
 
 	client := newTestClient(ts)
-	result, err := client.GetChatAgentConfig(context.Background(), "tenant1", "agent1", "auth-token")
+	result, err := client.GetChatAgentConfig(context.Background(), "tenant1", "agent1", "auth-token", true)
 	require.NoError(t, err)
 	assert.Equal(t, platform.AgentTypeFoundry, result.Type)
 	assert.Equal(t, "MULTI_AGENT", result.Settings.AgentType)
@@ -582,7 +582,7 @@ func TestGetChatAgentConfig_InvalidJSON(t *testing.T) {
 	defer ts.Close()
 
 	client := newTestClient(ts)
-	_, err := client.GetChatAgentConfig(context.Background(), "tenant1", "agent1", "token")
+	_, err := client.GetChatAgentConfig(context.Background(), "tenant1", "agent1", "token", true)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "parse")
 }
@@ -665,7 +665,7 @@ func TestGetChatAgentConfig_ContextCanceled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
 
-	_, err := client.GetChatAgentConfig(ctx, "tenant1", "agent1", "token")
+	_, err := client.GetChatAgentConfig(ctx, "tenant1", "agent1", "token", true)
 	require.Error(t, err)
 }
 
@@ -695,7 +695,7 @@ func TestGetChatAgentConfig_URLConstruction(t *testing.T) {
 	defer ts.Close()
 
 	client := newTestClient(ts)
-	_, err := client.GetChatAgentConfig(context.Background(), "my-tenant", "my-agent", "token")
+	_, err := client.GetChatAgentConfig(context.Background(), "my-tenant", "my-agent", "token", true)
 	assert.NoError(t, err)
 }
 
@@ -801,7 +801,7 @@ func TestGetChatAgentConfig_NetworkError(t *testing.T) {
 	ts.Close()
 
 	client := newTestClient(ts)
-	_, err := client.GetChatAgentConfig(context.Background(), "tenant1", "agent1", "token")
+	_, err := client.GetChatAgentConfig(context.Background(), "tenant1", "agent1", "token", true)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to call platform service")
 }

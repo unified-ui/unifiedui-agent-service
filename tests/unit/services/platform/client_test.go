@@ -69,7 +69,7 @@ func TestGetChatAgentConfig_Success(t *testing.T) {
 	defer ts.Close()
 
 	client := newTestClient(ts)
-	result, err := client.GetChatAgentConfig(context.Background(), "tenant1", "agent1", "auth-token")
+	result, err := client.GetChatAgentConfig(context.Background(), "tenant1", "agent1", "auth-token", true)
 	require.NoError(t, err)
 	assert.Equal(t, "tenant1", result.TenantID)
 	assert.Equal(t, "agent1", result.ChatAgentID)
@@ -77,21 +77,21 @@ func TestGetChatAgentConfig_Success(t *testing.T) {
 
 func TestGetChatAgentConfig_MissingBaseURL(t *testing.T) {
 	client := platform.NewClient(&platform.ClientConfig{ServiceKey: "key"})
-	_, err := client.GetChatAgentConfig(context.Background(), "t", "a", "token")
+	_, err := client.GetChatAgentConfig(context.Background(), "t", "a", "token", true)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not configured")
 }
 
 func TestGetChatAgentConfig_MissingServiceKey(t *testing.T) {
 	client := platform.NewClient(&platform.ClientConfig{BaseURL: "http://localhost"})
-	_, err := client.GetChatAgentConfig(context.Background(), "t", "a", "token")
+	_, err := client.GetChatAgentConfig(context.Background(), "t", "a", "token", true)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "service key")
 }
 
 func TestGetChatAgentConfig_MissingAuthToken(t *testing.T) {
 	client := platform.NewClient(&platform.ClientConfig{BaseURL: "http://localhost", ServiceKey: "key"})
-	_, err := client.GetChatAgentConfig(context.Background(), "t", "a", "")
+	_, err := client.GetChatAgentConfig(context.Background(), "t", "a", "", true)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "auth token")
 }
@@ -100,7 +100,7 @@ func TestGetChatAgentConfig_NotFound(t *testing.T) {
 	ts := httptest.NewServer(statusHandler(404, "not found"))
 	defer ts.Close()
 	client := newTestClient(ts)
-	_, err := client.GetChatAgentConfig(context.Background(), "t", "a", "token")
+	_, err := client.GetChatAgentConfig(context.Background(), "t", "a", "token", true)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not_found")
 }
@@ -109,7 +109,7 @@ func TestGetChatAgentConfig_Unauthorized(t *testing.T) {
 	ts := httptest.NewServer(statusHandler(401, "unauthorized"))
 	defer ts.Close()
 	client := newTestClient(ts)
-	_, err := client.GetChatAgentConfig(context.Background(), "t", "a", "token")
+	_, err := client.GetChatAgentConfig(context.Background(), "t", "a", "token", true)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unauthorized")
 }
@@ -118,7 +118,7 @@ func TestGetChatAgentConfig_Forbidden(t *testing.T) {
 	ts := httptest.NewServer(statusHandler(403, "forbidden"))
 	defer ts.Close()
 	client := newTestClient(ts)
-	_, err := client.GetChatAgentConfig(context.Background(), "t", "a", "token")
+	_, err := client.GetChatAgentConfig(context.Background(), "t", "a", "token", true)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "forbidden")
 }
@@ -127,7 +127,7 @@ func TestGetChatAgentConfig_ServerError(t *testing.T) {
 	ts := httptest.NewServer(statusHandler(500, "server error"))
 	defer ts.Close()
 	client := newTestClient(ts)
-	_, err := client.GetChatAgentConfig(context.Background(), "t", "a", "token")
+	_, err := client.GetChatAgentConfig(context.Background(), "t", "a", "token", true)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "500")
 }
@@ -148,7 +148,7 @@ func TestGetAgentConfig_Success(t *testing.T) {
 	defer ts.Close()
 
 	client := newTestClient(ts)
-	result, err := client.GetAgentConfig(context.Background(), "tenant1", "agent1", "conv1", "auth-token")
+	result, err := client.GetAgentConfig(context.Background(), "tenant1", "agent1", "conv1", "auth-token", true)
 	require.NoError(t, err)
 	assert.Equal(t, "conv1", result.ConversationID)
 	assert.Equal(t, "agent1", result.ChatAgentID)
