@@ -20,8 +20,8 @@ func NewTransformer() *Transformer {
 }
 
 // TransformExecution converts an N8N execution response into a list of TraceNodes.
-// Each node in the execution's runData becomes a TraceNode.
-// Nodes are ordered chronologically by start time.
+// Sub-nodes connected via non-main connections (ai_languageModel, ai_tool, ai_memory)
+// are nested as children of their parent node. Top-level nodes are sorted chronologically.
 func (t *Transformer) TransformExecution(execution *ExecutionResponse, createdBy string) []models.TraceNode {
 	if execution == nil || execution.Data == nil || execution.Data.ResultData == nil {
 		return []models.TraceNode{}
@@ -32,37 +32,60 @@ func (t *Transformer) TransformExecution(execution *ExecutionResponse, createdBy
 		return []models.TraceNode{}
 	}
 
-	// Build workflow node map for type lookup
 	workflowNodeMap := t.buildWorkflowNodeMap(execution.WorkflowData)
+	parentOf, connectionTypes := t.parseConnectionGraph(execution.WorkflowData)
 
-	// Transform each node's executions into TraceNodes
-	var allNodes []models.TraceNode
-
+	nodesByName := make(map[string][]models.TraceNode)
 	for nodeName, nodeExecutions := range runData {
-		// Get node type from workflow data
 		nodeType := ""
 		if wfNode, exists := workflowNodeMap[nodeName]; exists {
 			nodeType = wfNode.Type
 		}
 
-		for runIndex, nodeExec := range nodeExecutions {
-			traceNode := t.transformNodeExecution(nodeName, nodeType, runIndex, &nodeExec, createdBy)
-			allNodes = append(allNodes, traceNode)
+		for runIndex := range nodeExecutions {
+			traceNode := t.transformNodeExecution(nodeName, nodeType, runIndex, &nodeExecutions[runIndex], createdBy)
+			if connType, isSubNode := connectionTypes[nodeName]; isSubNode {
+				traceNode.Metadata["connection_type"] = connType
+			}
+			nodesByName[nodeName] = append(nodesByName[nodeName], traceNode)
 		}
 	}
 
-	// Sort nodes by start time (chronological order)
-	sort.Slice(allNodes, func(i, j int) bool {
-		if allNodes[i].StartAt == nil {
+	subNodeNames := make(map[string]bool)
+	for childName, parentName := range parentOf {
+		children := nodesByName[childName]
+		if len(children) == 0 {
+			continue
+		}
+		parentNodes := nodesByName[parentName]
+		if len(parentNodes) == 0 {
+			continue
+		}
+		parentNodes[0].Nodes = append(parentNodes[0].Nodes, children...)
+		subNodeNames[childName] = true
+	}
+
+	t.sortChildNodes(nodesByName, subNodeNames)
+
+	var topLevelNodes []models.TraceNode
+	for nodeName, nodes := range nodesByName {
+		if subNodeNames[nodeName] {
+			continue
+		}
+		topLevelNodes = append(topLevelNodes, nodes...)
+	}
+
+	sort.Slice(topLevelNodes, func(i, j int) bool {
+		if topLevelNodes[i].StartAt == nil {
 			return true
 		}
-		if allNodes[j].StartAt == nil {
+		if topLevelNodes[j].StartAt == nil {
 			return false
 		}
-		return allNodes[i].StartAt.Before(*allNodes[j].StartAt)
+		return topLevelNodes[i].StartAt.Before(*topLevelNodes[j].StartAt)
 	})
 
-	return allNodes
+	return topLevelNodes
 }
 
 // Transform implements the generic interface for transforming items.
@@ -80,11 +103,88 @@ func (t *Transformer) buildWorkflowNodeMap(workflowData *WorkflowData) map[strin
 		return nodeMap
 	}
 
-	for _, node := range workflowData.Nodes {
-		nodeMap[node.Name] = node
+	for i := range workflowData.Nodes {
+		nodeMap[workflowData.Nodes[i].Name] = workflowData.Nodes[i]
 	}
 
 	return nodeMap
+}
+
+// parseConnectionGraph extracts parent-child relationships from WorkflowData.Connections.
+// Non-main connections (ai_languageModel, ai_tool, ai_memory) indicate sub-node
+// relationships where the source node is a child of the target node.
+func (t *Transformer) parseConnectionGraph(workflowData *WorkflowData) (parentOf, connectionTypes map[string]string) {
+	parentOf = make(map[string]string)
+	connectionTypes = make(map[string]string)
+
+	if workflowData == nil || workflowData.Connections == nil {
+		return
+	}
+
+	for sourceName, destTypesRaw := range workflowData.Connections {
+		destTypes, ok := destTypesRaw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		for connType, branchesRaw := range destTypes {
+			if connType == "main" {
+				continue
+			}
+
+			branches, ok := branchesRaw.([]interface{})
+			if !ok {
+				continue
+			}
+
+			for _, branchRaw := range branches {
+				branch, ok := branchRaw.([]interface{})
+				if !ok {
+					continue
+				}
+
+				for _, connRaw := range branch {
+					conn, ok := connRaw.(map[string]interface{})
+					if !ok {
+						continue
+					}
+
+					targetNode, _ := conn["node"].(string)
+					if targetNode == "" {
+						continue
+					}
+
+					parentOf[sourceName] = targetNode
+					connectionTypes[sourceName] = connType
+				}
+			}
+		}
+	}
+
+	return
+}
+
+// sortChildNodes sorts the child nodes of each parent node by start time.
+func (t *Transformer) sortChildNodes(nodesByName map[string][]models.TraceNode, subNodeNames map[string]bool) {
+	for nodeName, nodes := range nodesByName {
+		if subNodeNames[nodeName] {
+			continue
+		}
+		for i := range nodes {
+			if len(nodes[i].Nodes) <= 1 {
+				continue
+			}
+			sort.Slice(nodes[i].Nodes, func(a, b int) bool {
+				if nodes[i].Nodes[a].StartAt == nil {
+					return true
+				}
+				if nodes[i].Nodes[b].StartAt == nil {
+					return false
+				}
+				return nodes[i].Nodes[a].StartAt.Before(*nodes[i].Nodes[b].StartAt)
+			})
+		}
+	}
 }
 
 // transformNodeExecution converts a single N8N node execution to a TraceNode.
@@ -149,60 +249,115 @@ func (t *Transformer) transformNodeExecution(
 
 // mapNodeType converts N8N node type to our internal NodeType.
 func (t *Transformer) mapNodeType(n8nType string) models.NodeType {
-	// Check for trigger nodes
-	if strings.Contains(n8nType, "Trigger") || strings.Contains(n8nType, "trigger") {
-		return models.NodeTypeWorkflow
-	}
+	suffix := extractNodeSuffix(n8nType)
 
-	// Check for agent nodes (AI Agents)
-	if strings.Contains(n8nType, "agent") || strings.Contains(n8nType, "Agent") {
-		return models.NodeTypeAgent
-	}
-
-	// Check for LLM nodes
-	if strings.Contains(n8nType, "lmChat") || strings.Contains(n8nType, "LmChat") ||
-		strings.Contains(n8nType, "openAi") || strings.Contains(n8nType, "OpenAi") ||
-		strings.Contains(n8nType, "anthropic") || strings.Contains(n8nType, "Anthropic") {
+	switch {
+	// AI/LangChain sub-node types
+	case strings.HasPrefix(suffix, "lmChat"):
 		return models.NodeTypeLLM
-	}
+	case strings.HasPrefix(suffix, "embeddings"):
+		return models.NodeTypeEmbedding
+	case strings.HasPrefix(suffix, "memory"):
+		return models.NodeTypeMemory
+	case strings.HasPrefix(suffix, "vectorStore"):
+		return models.NodeTypeVectorStore
+	case strings.HasPrefix(suffix, "outputParser"):
+		return models.NodeTypeOutputParser
+	case strings.HasPrefix(suffix, "document"):
+		return models.NodeTypeDocument
+	case strings.HasPrefix(suffix, "textSplitter"):
+		return models.NodeTypeTextSplitter
+	case strings.HasPrefix(suffix, "retriever"):
+		return models.NodeTypeRetriever
 
-	// Check for HTTP request nodes
-	if strings.Contains(n8nType, "httpRequest") || strings.Contains(n8nType, "HttpRequest") {
-		return models.NodeTypeHTTP
-	}
-
-	// Check for code/function nodes
-	if strings.Contains(n8nType, "code") || strings.Contains(n8nType, "Code") ||
-		strings.Contains(n8nType, "function") || strings.Contains(n8nType, "Function") {
-		return models.NodeTypeCode
-	}
-
-	// Check for conditional nodes
-	if strings.Contains(n8nType, "switch") || strings.Contains(n8nType, "Switch") ||
-		strings.Contains(n8nType, "if") || strings.Contains(n8nType, "If") {
-		return models.NodeTypeConditional
-	}
-
-	// Check for merge nodes
-	if strings.Contains(n8nType, "merge") || strings.Contains(n8nType, "Merge") {
+	// Trigger nodes (catch-all for *Trigger suffixes)
+	case strings.HasSuffix(suffix, "Trigger") || suffix == "webhook":
 		return models.NodeTypeWorkflow
-	}
 
-	// Check for database nodes
-	if strings.Contains(n8nType, "postgres") || strings.Contains(n8nType, "Postgres") ||
-		strings.Contains(n8nType, "mongo") || strings.Contains(n8nType, "Mongo") ||
-		strings.Contains(n8nType, "mysql") || strings.Contains(n8nType, "MySql") ||
-		strings.Contains(n8nType, "redis") || strings.Contains(n8nType, "Redis") {
+	// AI agent nodes
+	case suffix == "agent" || suffix == "information-extractor" ||
+		suffix == "text-classifier" || suffix == "textClassifier" ||
+		suffix == "sentimentAnalysis":
+		return models.NodeTypeAgent
+	case strings.HasPrefix(suffix, "chain"):
+		return models.NodeTypeChain
+	case strings.HasPrefix(suffix, "tool"):
 		return models.NodeTypeTool
-	}
 
-	// Check for tool nodes
-	if strings.Contains(n8nType, "tool") || strings.Contains(n8nType, "Tool") {
+	// Core nodes
+	case suffix == "httpRequest":
+		return models.NodeTypeHTTP
+	case suffix == "code":
+		return models.NodeTypeCode
+	case strings.HasPrefix(suffix, "function"):
+		return models.NodeTypeCode
+	case suffix == "switch" || suffix == "if" || suffix == "filter":
+		return models.NodeTypeConditional
+	case suffix == "splitInBatches":
+		return models.NodeTypeLoop
+
+	// Database nodes
+	case suffix == "postgres" || suffix == "mongoDb" || suffix == "mySql" ||
+		suffix == "redis" || suffix == "microsoftSql" || suffix == "elasticsearch" ||
+		suffix == "supabase" || suffix == "snowflake" || suffix == "azureCosmosDb":
+		return models.NodeTypeDatabase
+
+	// Message Queue nodes
+	case suffix == "kafka" || suffix == "rabbitMq" || suffix == "amqp" || suffix == "mqtt":
+		return models.NodeTypeQueue
+
+	// Data Transformation nodes
+	case suffix == "dateTime" || suffix == "crypto" || suffix == "xml" ||
+		suffix == "markdown" || suffix == "html" || suffix == "sort" || suffix == "limit" ||
+		suffix == "splitOut" || suffix == "summarize" || suffix == "compareDatasets" ||
+		suffix == "removeDuplicates" || suffix == "renameKeys" || suffix == "convertToFile" ||
+		suffix == "compression" || suffix == "itemLists" || suffix == "rssFeedRead":
+		return models.NodeTypeDataTransform
+
+	// File I/O & Binary Operations
+	case suffix == "extractFromFile" || suffix == "spreadsheetFile" ||
+		suffix == "moveBinaryData" || suffix == "editImage" || suffix == "ftp":
 		return models.NodeTypeTool
-	}
 
-	// Default to custom type
-	return models.NodeTypeCustom
+	// Workflow Data nodes
+	case suffix == "dataTable":
+		return models.NodeTypeTool
+	case suffix == "executeWorkflowTrigger":
+		return models.NodeTypeWorkflow
+
+	// App integrations (SaaS)
+	case suffix == "slack" || suffix == "discord" || suffix == "telegram" ||
+		suffix == "microsoftTeams" || suffix == "gmail" || suffix == "microsoftOutlook" ||
+		suffix == "sendEmail" || suffix == "twilio" || suffix == "whatsApp" ||
+		suffix == "googleSheets" || suffix == "airtable" || suffix == "notion" ||
+		suffix == "microsoftExcel" || suffix == "googleDocs" || suffix == "googleCalendar" ||
+		suffix == "jira" || suffix == "trello" || suffix == "asana" ||
+		suffix == "linear" || suffix == "mondayCom" ||
+		suffix == "hubSpot" || suffix == "salesforce" || suffix == "pipedrive" ||
+		suffix == "googleDrive" || suffix == "microsoftOneDrive" || suffix == "s3" ||
+		suffix == "dropbox" || suffix == "box" || suffix == "azureStorage" ||
+		suffix == "microsoftSharePoint" ||
+		suffix == "github" || suffix == "gitlab" || suffix == "git" ||
+		suffix == "stripe" || suffix == "shopify" || suffix == "wooCommerce" ||
+		suffix == "zendesk" || suffix == "serviceNow" ||
+		suffix == "mailchimp" || suffix == "sendGrid" ||
+		suffix == "microsoftGraphSecurity" || suffix == "microsoftToDo" ||
+		suffix == "microsoftEntra":
+		return models.NodeTypeApp
+
+	// Utility tool nodes
+	case suffix == "graphQl" || suffix == "ssh" || suffix == "executeCommand" ||
+		suffix == "readWriteFile":
+		return models.NodeTypeTool
+
+	// Workflow control nodes
+	case suffix == "merge" || suffix == "executeWorkflow" || suffix == "respondToWebhook" ||
+		suffix == "stopAndError":
+		return models.NodeTypeWorkflow
+
+	default:
+		return models.NodeTypeCustom
+	}
 }
 
 // mapNodeStatus converts N8N execution status to our internal NodeStatus.
@@ -281,8 +436,9 @@ func (t *Transformer) extractInputData(nodeExec *NodeExecution, nodeType string)
 }
 
 // extractOutputData extracts output data from node execution.
-func (t *Transformer) extractOutputData(nodeExec *NodeExecution, nodeType string) *models.NodeDataIO {
-	if len(nodeExec.Data.Main) == 0 {
+func (t *Transformer) extractOutputData(nodeExec *NodeExecution, _ string) *models.NodeDataIO {
+	outputItems := nodeExec.Data.GetOutputItems()
+	if len(outputItems) == 0 {
 		return nil
 	}
 
@@ -290,7 +446,7 @@ func (t *Transformer) extractOutputData(nodeExec *NodeExecution, nodeType string
 	var outputTexts []string
 	var extraData map[string]interface{}
 
-	for _, outputBranch := range nodeExec.Data.Main {
+	for _, outputBranch := range outputItems {
 		for _, item := range outputBranch {
 			// Check for text field first
 			if item.Text != "" {
@@ -310,9 +466,26 @@ func (t *Transformer) extractOutputData(nodeExec *NodeExecution, nodeType string
 				continue
 			}
 
-			// Check for response field in JSON
+			// Check for response field in JSON (string)
 			if response, ok := item.JSON["response"].(string); ok {
 				outputTexts = append(outputTexts, response)
+				continue
+			}
+
+			// Check for LLM response structure: response.generations[0][0].text
+			if responseMap, ok := item.JSON["response"].(map[string]interface{}); ok {
+				if text := extractLLMResponseText(responseMap); text != "" {
+					outputTexts = append(outputTexts, text)
+					continue
+				}
+			}
+
+			// Check for structured output (map)
+			if output, ok := item.JSON["output"].(map[string]interface{}); ok {
+				if extraData == nil {
+					extraData = make(map[string]interface{})
+				}
+				extraData["output"] = output
 				continue
 			}
 
@@ -344,6 +517,24 @@ func (t *Transformer) extractOutputData(nodeExec *NodeExecution, nodeType string
 	}
 
 	return nil
+}
+
+// extractLLMResponseText extracts text from the N8N LLM response.generations structure.
+func extractLLMResponseText(response map[string]interface{}) string {
+	generations, ok := response["generations"].([]interface{})
+	if !ok || len(generations) == 0 {
+		return ""
+	}
+	firstGen, ok := generations[0].([]interface{})
+	if !ok || len(firstGen) == 0 {
+		return ""
+	}
+	genItem, ok := firstGen[0].(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	text, _ := genItem["text"].(string)
+	return text
 }
 
 // buildNodeMetadata constructs metadata from node execution.
@@ -411,9 +602,9 @@ func (t *Transformer) ExtractSessionID(execution *ExecutionResponse) string {
 	// Look for chat trigger node
 	for nodeName, nodeExecutions := range runData {
 		if strings.Contains(strings.ToLower(nodeName), "chat") || strings.Contains(strings.ToLower(nodeName), "trigger") {
-			for _, nodeExec := range nodeExecutions {
-				if len(nodeExec.Data.Main) > 0 && len(nodeExec.Data.Main[0]) > 0 {
-					firstItem := nodeExec.Data.Main[0][0]
+			for j := range nodeExecutions {
+				if len(nodeExecutions[j].Data.Main) > 0 && len(nodeExecutions[j].Data.Main[0]) > 0 {
+					firstItem := nodeExecutions[j].Data.Main[0][0]
 					if sessionID, ok := firstItem.JSON["sessionId"].(string); ok {
 						return sessionID
 					}

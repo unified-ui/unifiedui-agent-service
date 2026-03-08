@@ -15,14 +15,14 @@ type Client interface {
 	BuildSecretURI(keyName string) string
 
 	// StoreSecret stores a secret in the vault.
-	StoreSecret(ctx context.Context, key string, value string, metadata map[string]string) (string, error)
+	StoreSecret(ctx context.Context, key, value string, metadata map[string]string) (string, error)
 
 	// GetSecret retrieves a secret from the vault.
 	// If useCache is true and caching is available, it will use the cache.
 	GetSecret(ctx context.Context, uri string, useCache bool) (string, error)
 
 	// UpdateSecret updates an existing secret.
-	UpdateSecret(ctx context.Context, uri string, value string, metadata map[string]string) (bool, error)
+	UpdateSecret(ctx context.Context, uri, value string, metadata map[string]string) (bool, error)
 
 	// DeleteSecret deletes a secret from the vault.
 	DeleteSecret(ctx context.Context, uri string) (bool, error)

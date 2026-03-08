@@ -153,7 +153,7 @@ func (s *aiService) TraceChat(ctx context.Context, tenantID string, request Trac
 }
 
 // TestModel tests an LLM model configuration by sending a simple ping.
-func (s *aiService) TestModel(ctx context.Context, provider string, config map[string]interface{}, credentialSecret map[string]interface{}) (*TestModelResult, error) {
+func (s *aiService) TestModel(ctx context.Context, provider string, config, credentialSecret map[string]interface{}) (*TestModelResult, error) {
 	llmClient, err := NewLLMClient(provider, config, credentialSecret)
 	if err != nil {
 		return &TestModelResult{

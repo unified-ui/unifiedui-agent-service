@@ -38,7 +38,7 @@ func NewTestContextWithRequest(method, path string, body interface{}) (*gin.Cont
 		req = httptest.NewRequest(method, path, bytes.NewReader(jsonBody))
 		req.Header.Set("Content-Type", "application/json")
 	} else {
-		req = httptest.NewRequest(method, path, nil)
+		req = httptest.NewRequest(method, path, http.NoBody)
 	}
 
 	c, _ := gin.CreateTestContext(w)
@@ -49,7 +49,7 @@ func NewTestContextWithRequest(method, path string, body interface{}) (*gin.Cont
 
 // SetPathParams sets path parameters on a Gin context.
 func SetPathParams(c *gin.Context, params map[string]string) {
-	var ginParams []gin.Param
+	ginParams := make([]gin.Param, 0, len(params))
 	for key, value := range params {
 		ginParams = append(ginParams, gin.Param{Key: key, Value: value})
 	}
@@ -70,7 +70,7 @@ func PerformRequest(router *gin.Engine, method, path string, body interface{}, h
 		req = httptest.NewRequest(method, path, bytes.NewReader(jsonBody))
 		req.Header.Set("Content-Type", "application/json")
 	} else {
-		req = httptest.NewRequest(method, path, nil)
+		req = httptest.NewRequest(method, path, http.NoBody)
 	}
 
 	for key, value := range headers {

@@ -27,7 +27,7 @@ func SliceToTOML(items []map[string]interface{}, tableName string) string {
 
 	var sb strings.Builder
 	for _, item := range items {
-		sb.WriteString(fmt.Sprintf("[[%s]]\n", tableName))
+		fmt.Fprintf(&sb, "[[%s]]\n", tableName)
 		writeTOMLMap(&sb, item, "")
 		sb.WriteString("\n")
 	}
@@ -46,35 +46,35 @@ func writeTOMLMap(sb *strings.Builder, data map[string]interface{}, prefix strin
 
 		switch v := value.(type) {
 		case map[string]interface{}:
-			sb.WriteString(fmt.Sprintf("[%s]\n", fullKey))
+			fmt.Fprintf(sb, "[%s]\n", fullKey)
 			writeTOMLMap(sb, v, fullKey)
 		case []interface{}:
 			writeTOMLArray(sb, fullKey, v)
 		case string:
-			sb.WriteString(fmt.Sprintf("%s = %q\n", key, v))
+			fmt.Fprintf(sb, "%s = %q\n", key, v)
 		case float64:
 			if v == float64(int64(v)) {
-				sb.WriteString(fmt.Sprintf("%s = %d\n", key, int64(v)))
+				fmt.Fprintf(sb, "%s = %d\n", key, int64(v))
 			} else {
-				sb.WriteString(fmt.Sprintf("%s = %g\n", key, v))
+				fmt.Fprintf(sb, "%s = %g\n", key, v)
 			}
 		case int:
-			sb.WriteString(fmt.Sprintf("%s = %d\n", key, v))
+			fmt.Fprintf(sb, "%s = %d\n", key, v)
 		case int64:
-			sb.WriteString(fmt.Sprintf("%s = %d\n", key, v))
+			fmt.Fprintf(sb, "%s = %d\n", key, v)
 		case bool:
-			sb.WriteString(fmt.Sprintf("%s = %t\n", key, v))
+			fmt.Fprintf(sb, "%s = %t\n", key, v)
 		case nil:
-			sb.WriteString(fmt.Sprintf("%s = \"\"\n", key))
+			fmt.Fprintf(sb, "%s = \"\"\n", key)
 		default:
-			sb.WriteString(fmt.Sprintf("%s = %q\n", key, fmt.Sprintf("%v", v)))
+			fmt.Fprintf(sb, "%s = %q\n", key, fmt.Sprintf("%v", v))
 		}
 	}
 }
 
 func writeTOMLArray(sb *strings.Builder, key string, arr []interface{}) {
 	if len(arr) == 0 {
-		sb.WriteString(fmt.Sprintf("%s = []\n", key))
+		fmt.Fprintf(sb, "%s = []\n", key)
 		return
 	}
 
@@ -89,7 +89,7 @@ func writeTOMLArray(sb *strings.Builder, key string, arr []interface{}) {
 	if allMaps {
 		for _, item := range arr {
 			m := item.(map[string]interface{})
-			sb.WriteString(fmt.Sprintf("[[%s]]\n", key))
+			fmt.Fprintf(sb, "[[%s]]\n", key)
 			writeTOMLMap(sb, m, "")
 		}
 		return
@@ -104,7 +104,7 @@ func writeTOMLArray(sb *strings.Builder, key string, arr []interface{}) {
 			values[i] = fmt.Sprintf("%v", v)
 		}
 	}
-	sb.WriteString(fmt.Sprintf("%s = [%s]\n", key, strings.Join(values, ", ")))
+	fmt.Fprintf(sb, "%s = [%s]\n", key, strings.Join(values, ", "))
 }
 
 func sortedKeys(m map[string]interface{}) []string {
@@ -140,20 +140,20 @@ func TraceToHierarchicalText(trace map[string]interface{}) string {
 
 		switch v := value.(type) {
 		case map[string]interface{}:
-			sb.WriteString(fmt.Sprintf("%s:\n", key))
+			fmt.Fprintf(&sb, "%s:\n", key)
 			writeNodeDataMap(&sb, v, "  ")
 		case []interface{}:
 			if len(v) == 0 {
 				continue
 			}
-			sb.WriteString(fmt.Sprintf("%s:\n", key))
+			fmt.Fprintf(&sb, "%s:\n", key)
 			for i, item := range v {
 				switch it := item.(type) {
 				case map[string]interface{}:
-					sb.WriteString(fmt.Sprintf("  [%d]\n", i+1))
+					fmt.Fprintf(&sb, "  [%d]\n", i+1)
 					writeNodeDataMap(&sb, it, "    ")
 				default:
-					sb.WriteString(fmt.Sprintf("  - %v\n", item))
+					fmt.Fprintf(&sb, "  - %v\n", item)
 				}
 			}
 		case string:
@@ -163,17 +163,17 @@ func TraceToHierarchicalText(trace map[string]interface{}) string {
 			if len(v) > 500 {
 				v = v[:500] + "..."
 			}
-			sb.WriteString(fmt.Sprintf("%s = %q\n", key, v))
+			fmt.Fprintf(&sb, "%s = %q\n", key, v)
 		case float64:
 			if v == float64(int64(v)) {
-				sb.WriteString(fmt.Sprintf("%s = %d\n", key, int64(v)))
+				fmt.Fprintf(&sb, "%s = %d\n", key, int64(v))
 			} else {
-				sb.WriteString(fmt.Sprintf("%s = %g\n", key, v))
+				fmt.Fprintf(&sb, "%s = %g\n", key, v)
 			}
 		case bool:
-			sb.WriteString(fmt.Sprintf("%s = %t\n", key, v))
+			fmt.Fprintf(&sb, "%s = %t\n", key, v)
 		default:
-			sb.WriteString(fmt.Sprintf("%s = %q\n", key, fmt.Sprintf("%v", v)))
+			fmt.Fprintf(&sb, "%s = %q\n", key, fmt.Sprintf("%v", v))
 		}
 	}
 
@@ -189,7 +189,7 @@ func TraceToHierarchicalText(trace map[string]interface{}) string {
 	}
 
 	if len(nodes) > 0 {
-		sb.WriteString(fmt.Sprintf("\nNodes (%d):\n", len(nodes)))
+		fmt.Fprintf(&sb, "\nNodes (%d):\n", len(nodes))
 		nodesText := NodesToHierarchicalText(nodes)
 		sb.WriteString(nodesText)
 	}
@@ -217,7 +217,7 @@ func writeNodeTree(sb *strings.Builder, nodes []map[string]interface{}, depth in
 		nodeType, _ := node["type"].(string)
 		status, _ := node["status"].(string)
 
-		sb.WriteString(fmt.Sprintf("%s[Node %d] %s (type=%s, status=%s)\n", indent, i+1, name, nodeType, status))
+		fmt.Fprintf(sb, "%s[Node %d] %s (type=%s, status=%s)\n", indent, i+1, name, nodeType, status)
 
 		fieldIndent := indent + "  "
 		for _, key := range sortedKeys(node) {
@@ -231,13 +231,13 @@ func writeNodeTree(sb *strings.Builder, nodes []map[string]interface{}, depth in
 
 			switch v := value.(type) {
 			case map[string]interface{}:
-				sb.WriteString(fmt.Sprintf("%s%s:\n", fieldIndent, key))
+				fmt.Fprintf(sb, "%s%s:\n", fieldIndent, key)
 				writeNodeDataMap(sb, v, fieldIndent+"  ")
 			case []interface{}:
 				if len(v) == 0 {
 					continue
 				}
-				sb.WriteString(fmt.Sprintf("%s%s: [%d items]\n", fieldIndent, key, len(v)))
+				fmt.Fprintf(sb, "%s%s: [%d items]\n", fieldIndent, key, len(v))
 			case string:
 				if v == "" {
 					continue
@@ -245,17 +245,17 @@ func writeNodeTree(sb *strings.Builder, nodes []map[string]interface{}, depth in
 				if len(v) > 300 {
 					v = v[:300] + "..."
 				}
-				sb.WriteString(fmt.Sprintf("%s%s = %q\n", fieldIndent, key, v))
+				fmt.Fprintf(sb, "%s%s = %q\n", fieldIndent, key, v)
 			case float64:
 				if v == float64(int64(v)) {
-					sb.WriteString(fmt.Sprintf("%s%s = %d\n", fieldIndent, key, int64(v)))
+					fmt.Fprintf(sb, "%s%s = %d\n", fieldIndent, key, int64(v))
 				} else {
-					sb.WriteString(fmt.Sprintf("%s%s = %g\n", fieldIndent, key, v))
+					fmt.Fprintf(sb, "%s%s = %g\n", fieldIndent, key, v)
 				}
 			case bool:
-				sb.WriteString(fmt.Sprintf("%s%s = %t\n", fieldIndent, key, v))
+				fmt.Fprintf(sb, "%s%s = %t\n", fieldIndent, key, v)
 			default:
-				sb.WriteString(fmt.Sprintf("%s%s = %q\n", fieldIndent, key, fmt.Sprintf("%v", v)))
+				fmt.Fprintf(sb, "%s%s = %q\n", fieldIndent, key, fmt.Sprintf("%v", v))
 			}
 		}
 
@@ -271,7 +271,7 @@ func writeNodeTree(sb *strings.Builder, nodes []map[string]interface{}, depth in
 		}
 
 		if len(childNodes) > 0 {
-			sb.WriteString(fmt.Sprintf("%s  children: %d\n", indent, len(childNodes)))
+			fmt.Fprintf(sb, "%s  children: %d\n", indent, len(childNodes))
 			writeNodeTree(sb, childNodes, depth+1)
 		}
 	}
@@ -285,23 +285,23 @@ func writeNodeDataMap(sb *strings.Builder, data map[string]interface{}, indent s
 		}
 		switch v := value.(type) {
 		case map[string]interface{}:
-			sb.WriteString(fmt.Sprintf("%s%s:\n", indent, key))
+			fmt.Fprintf(sb, "%s%s:\n", indent, key)
 			writeNodeDataMap(sb, v, indent+"  ")
 		case string:
 			if len(v) > 300 {
 				v = v[:300] + "..."
 			}
-			sb.WriteString(fmt.Sprintf("%s%s = %q\n", indent, key, v))
+			fmt.Fprintf(sb, "%s%s = %q\n", indent, key, v)
 		case float64:
 			if v == float64(int64(v)) {
-				sb.WriteString(fmt.Sprintf("%s%s = %d\n", indent, key, int64(v)))
+				fmt.Fprintf(sb, "%s%s = %d\n", indent, key, int64(v))
 			} else {
-				sb.WriteString(fmt.Sprintf("%s%s = %g\n", indent, key, v))
+				fmt.Fprintf(sb, "%s%s = %g\n", indent, key, v)
 			}
 		case bool:
-			sb.WriteString(fmt.Sprintf("%s%s = %t\n", indent, key, v))
+			fmt.Fprintf(sb, "%s%s = %t\n", indent, key, v)
 		default:
-			sb.WriteString(fmt.Sprintf("%s%s = %q\n", indent, key, fmt.Sprintf("%v", v)))
+			fmt.Fprintf(sb, "%s%s = %q\n", indent, key, fmt.Sprintf("%v", v))
 		}
 	}
 }

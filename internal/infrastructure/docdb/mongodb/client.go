@@ -13,10 +13,11 @@ import (
 
 // Client implements the docdb.Client interface for MongoDB.
 type Client struct {
-	client             *mongo.Client
-	database           *Database
-	messagesCollection *MessagesCollection
-	tracesCollection   *TracesCollection
+	client              *mongo.Client
+	database            *Database
+	messagesCollection  *MessagesCollection
+	tracesCollection    *TracesCollection
+	reactionsCollection *ReactionsCollection
 }
 
 // ClientConfig holds MongoDB connection configuration.
@@ -52,12 +53,14 @@ func NewClient(ctx context.Context, config *ClientConfig) (*Client, error) {
 	database := NewDatabase(db)
 	messagesCollection := NewMessagesCollection(db)
 	tracesCollection := NewTracesCollection(db)
+	reactionsCollection := NewReactionsCollection(db)
 
 	return &Client{
-		client:             client,
-		database:           database,
-		messagesCollection: messagesCollection,
-		tracesCollection:   tracesCollection,
+		client:              client,
+		database:            database,
+		messagesCollection:  messagesCollection,
+		tracesCollection:    tracesCollection,
+		reactionsCollection: reactionsCollection,
 	}, nil
 }
 
@@ -74,6 +77,11 @@ func (c *Client) Messages() docdb.MessagesCollection {
 // MessagesRaw returns the raw messages collection for direct operations.
 func (c *Client) MessagesRaw() docdb.Collection {
 	return c.database.Collection(MessagesCollectionName)
+}
+
+// Reactions returns the typed reactions collection with domain methods.
+func (c *Client) Reactions() docdb.ReactionsCollection {
+	return c.reactionsCollection
 }
 
 // Traces returns the typed traces collection with domain methods.
@@ -109,6 +117,9 @@ func (c *Client) EnsureIndexes(ctx context.Context) error {
 	}
 	if err := c.tracesCollection.EnsureIndexes(ctx); err != nil {
 		return fmt.Errorf("failed to ensure traces indexes: %w", err)
+	}
+	if err := c.reactionsCollection.EnsureIndexes(ctx); err != nil {
+		return fmt.Errorf("failed to ensure reactions indexes: %w", err)
 	}
 	return nil
 }

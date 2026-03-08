@@ -53,7 +53,7 @@ func (v *Vault) BuildSecretURI(keyName string) string {
 }
 
 // StoreSecret stores a secret in Azure Key Vault.
-func (v *Vault) StoreSecret(ctx context.Context, key string, value string, metadata map[string]string) (string, error) {
+func (v *Vault) StoreSecret(ctx context.Context, key, value string, metadata map[string]string) (string, error) {
 	secretName := toAzureSecretName(key)
 
 	params := azsecrets.SetSecretParameters{
@@ -107,7 +107,7 @@ func (v *Vault) GetSecret(ctx context.Context, uri string) (string, error) {
 }
 
 // UpdateSecret updates an existing secret in Azure Key Vault.
-func (v *Vault) UpdateSecret(ctx context.Context, uri string, value string, metadata map[string]string) (bool, error) {
+func (v *Vault) UpdateSecret(ctx context.Context, uri, value string, metadata map[string]string) (bool, error) {
 	secretName, _, err := v.parseURI(uri)
 	if err != nil {
 		return false, err
@@ -168,7 +168,7 @@ func (v *Vault) Close() error {
 	return nil
 }
 
-func (v *Vault) parseURI(uri string) (string, string, error) {
+func (v *Vault) parseURI(uri string) (secretName, version string, err error) {
 	stripped := strings.TrimPrefix(uri, "azurekv://")
 	parts := strings.SplitN(stripped, "/", 3)
 
@@ -176,8 +176,8 @@ func (v *Vault) parseURI(uri string) (string, string, error) {
 		return "", "", fmt.Errorf("invalid Azure Key Vault URI: %s (expected azurekv://vaultname/secretname[/version])", uri)
 	}
 
-	secretName := parts[1]
-	version := ""
+	secretName = parts[1]
+	version = ""
 	if len(parts) > 2 {
 		version = parts[2]
 	}

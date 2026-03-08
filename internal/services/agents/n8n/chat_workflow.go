@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,6 +19,7 @@ import (
 // ChunkType represents the type of stream chunk.
 type ChunkType string
 
+// ChunkType constants define the types of stream chunks.
 const (
 	ChunkTypeContent  ChunkType = "content"
 	ChunkTypeMetadata ChunkType = "metadata"
@@ -40,6 +42,9 @@ type InvokeRequest struct {
 	Message        string
 	SessionID      string
 	ChatHistory    []models.ChatHistoryEntry
+
+	// Input is the pre-converted request body (nil for text-only messages)
+	Input interface{}
 }
 
 // InvokeResponse represents the response from an agent invocation.
@@ -105,14 +110,14 @@ func (c *ChatWorkflowClient) Invoke(ctx context.Context, req *InvokeRequest) (*I
 	if err != nil {
 		return nil, err
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	var fullContent string
 	var lastChunk *StreamChunk
 
 	for {
 		chunk, err := reader.Read()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -149,11 +154,11 @@ func (c *ChatWorkflowClient) InvokeStream(ctx context.Context, req *InvokeReques
 
 	go func() {
 		defer close(ch)
-		defer reader.Close()
+		defer func() { _ = reader.Close() }()
 
 		for {
 			chunk, err := reader.Read()
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return
 			}
 			if err != nil {
@@ -185,12 +190,31 @@ func (c *ChatWorkflowClient) InvokeStreamReader(ctx context.Context, req *Invoke
 		chatInput = BuildSimpleChatHistoryMarkdown(req.ChatHistory, req.Message, now)
 	}
 
-	chatReq := &ChatRequest{
-		ChatInput: chatInput,
-		SessionID: req.SessionID,
+	// Use pre-converted Input if provided (contains files), otherwise build ChatRequest
+	var requestBody interface{}
+	if req.Input != nil {
+		// Use pre-converted request with files
+		switch v := req.Input.(type) {
+		case *ChatRequestWithFiles:
+			// Update chatInput if chat history was applied
+			v.ChatInput = chatInput
+			v.SessionID = req.SessionID
+			requestBody = v
+		case *ChatRequest:
+			v.ChatInput = chatInput
+			v.SessionID = req.SessionID
+			requestBody = v
+		default:
+			requestBody = req.Input
+		}
+	} else {
+		requestBody = &ChatRequest{
+			ChatInput: chatInput,
+			SessionID: req.SessionID,
+		}
 	}
 
-	body, err := json.Marshal(chatReq)
+	body, err := json.Marshal(requestBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
@@ -208,7 +232,7 @@ func (c *ChatWorkflowClient) InvokeStreamReader(ctx context.Context, req *Invoke
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
@@ -248,14 +272,14 @@ func (r *streamReader) Read() (*StreamChunk, error) {
 		}
 
 		// Parse N8N stream event
-		var event N8NStreamEvent
+		var event StreamEvent
 		if err := json.Unmarshal([]byte(line), &event); err != nil {
 			// Skip non-JSON lines
 			continue
 		}
 
 		// Only process "item" events with content from AI Agent node
-		if event.Type != N8NStreamTypeItem {
+		if event.Type != StreamTypeItem {
 			continue
 		}
 

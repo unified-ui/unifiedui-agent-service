@@ -23,6 +23,8 @@ package main
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -50,6 +52,7 @@ import (
 	"github.com/unifiedui/agent-service/internal/pkg/encryption"
 	"github.com/unifiedui/agent-service/internal/services/agents"
 	"github.com/unifiedui/agent-service/internal/services/ai"
+	"github.com/unifiedui/agent-service/internal/services/configcache"
 	"github.com/unifiedui/agent-service/internal/services/platform"
 	"github.com/unifiedui/agent-service/internal/services/session"
 	"github.com/unifiedui/agent-service/internal/services/traceimport"
@@ -58,116 +61,116 @@ import (
 )
 
 func main() {
-	// Load configuration
+	if err := run(); err != nil {
+		log.Fatalf("%v", err)
+	}
+}
+
+func run() error {
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("failed to load configuration: %v", err)
+		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
 	ctx := context.Background()
 
-	// Initialize app vault client (for service-to-service keys)
 	appVaultClient, err := createVaultClient(cfg.Vaults.ResolvedAppVaultType(), cfg.Vaults.App)
 	if err != nil {
-		log.Fatalf("failed to initialize app vault client: %v", err)
+		return fmt.Errorf("failed to initialize app vault client: %w", err)
 	}
-	defer appVaultClient.Close()
+	defer func() { _ = appVaultClient.Close() }()
 
-	// Initialize secrets vault client (for credential secrets)
 	secretsVaultClient, err := createVaultClient(cfg.Vaults.ResolvedSecretsVaultType(), cfg.Vaults.Secrets)
 	if err != nil {
-		log.Fatalf("failed to initialize secrets vault client: %v", err)
+		return fmt.Errorf("failed to initialize secrets vault client: %w", err)
 	}
-	defer secretsVaultClient.Close()
+	defer func() { _ = secretsVaultClient.Close() }()
 
-	// Initialize cache client using factory pattern
 	cacheClient, err := createCacheClient(cfg.Cache)
 	if err != nil {
-		log.Fatalf("failed to initialize cache client: %v", err)
+		return fmt.Errorf("failed to initialize cache client: %w", err)
 	}
-	defer cacheClient.Close()
+	defer func() { _ = cacheClient.Close() }()
 
-	// Initialize document db client using factory pattern
 	docDBClient, err := createDocDBClient(ctx, cfg.DocDB)
 	if err != nil {
-		log.Fatalf("failed to initialize document db client: %v", err)
+		return fmt.Errorf("failed to initialize document db client: %w", err)
 	}
-	defer docDBClient.Close(ctx)
+	defer func() { _ = docDBClient.Close(ctx) }()
 
-	// Ensure database indexes
 	if err := docDBClient.EnsureIndexes(ctx); err != nil {
 		log.Printf("warning: failed to ensure indexes: %v", err)
 	}
 
-	// Initialize encryptor
 	encryptor, err := createEncryptor(cfg.Vaults, secretsVaultClient)
 	if err != nil {
-		log.Fatalf("failed to initialize encryptor: %v", err)
+		return fmt.Errorf("failed to initialize encryptor: %w", err)
 	}
 
-	// Initialize session service
 	sessionService, err := session.NewService(&session.Config{
 		CacheClient: cacheClient,
 		Encryptor:   encryptor,
 		TTL:         cfg.Cache.TTL,
 	})
 	if err != nil {
-		log.Fatalf("failed to initialize session service: %v", err)
+		return fmt.Errorf("failed to initialize session service: %w", err)
 	}
 
-	// Create import service with job queue (3 workers by default)
+	configCacheService, err := configcache.NewService(&configcache.Config{
+		CacheClient: cacheClient,
+		Encryptor:   encryptor,
+		TTL:         cfg.Cache.ConfigCacheTTL,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to initialize config cache service: %w", err)
+	}
+
 	importService := traceimport.NewImportService(docDBClient)
 
-	// Register trace importers (breaks import cycle by registering here instead of in factory)
 	importService.RegisterImporter(foundry.NewTraceImporter(docDBClient))
 	importService.RegisterImporter(n8n.NewTraceImporter(docDBClient))
 
 	importService.Start(3)
 	defer importService.Stop()
 
-	// Set Gin mode
 	gin.SetMode(cfg.Server.GinMode)
 
-	// Resolve agent-to-platform service key from vault (fallback to env var)
 	agentToPlatformKey := resolveServiceKeyFromVault(ctx, appVaultClient, cfg.AppVault.AgentToPlatformKey)
 	if agentToPlatformKey == "" {
 		agentToPlatformKey = cfg.Platform.ServiceKey
 	}
 	cfg.Platform.ServiceKey = agentToPlatformKey
 
-	// Setup router
-	router := setupRouter(cfg, cacheClient, docDBClient, appVaultClient, sessionService, importService)
+	router := setupRouter(cfg, cacheClient, docDBClient, appVaultClient, sessionService, configCacheService, importService)
 
-	// Create HTTP server
 	srv := &http.Server{
-		Addr:    cfg.Server.Address(),
-		Handler: router,
+		Addr:              cfg.Server.Address(),
+		Handler:           router,
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 
-	// Start server in goroutine
 	go func() {
 		log.Printf("Starting server on %s", cfg.Server.Address())
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("failed to start server: %v", err)
 		}
 	}()
 
-	// Wait for interrupt signal for graceful shutdown
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
 	log.Println("Shutting down server...")
 
-	// Graceful shutdown with timeout
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		log.Fatalf("server forced to shutdown: %v", err)
+		return fmt.Errorf("server forced to shutdown: %w", err)
 	}
 
 	log.Println("Server exited")
+	return nil
 }
 
 // createVaultClient creates a vault client based on vault type and per-purpose configuration.
@@ -256,7 +259,7 @@ func createEncryptor(cfg config.VaultsConfig, vaultClient vault.Client) (encrypt
 }
 
 // setupRouter creates and configures the Gin router.
-func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb.Client, appVaultClient vault.Client, sessionService session.Service, importService *traceimport.ImportService) *gin.Engine {
+func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb.Client, appVaultClient vault.Client, sessionService session.Service, configCacheService configcache.Service, importService *traceimport.ImportService) *gin.Engine {
 	router := gin.New()
 
 	// Create CORS config
@@ -285,8 +288,9 @@ func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb
 		Timeout:    cfg.Platform.Timeout,
 	})
 
-	// Create agent factory
-	agentFactory := agents.NewFactory()
+	// Create agent factory with ReACT service support
+	reactServiceKey := resolveServiceKeyFromVault(context.Background(), appVaultClient, cfg.AppVault.AgentToReactAgentKey)
+	agentFactory := agents.NewFactoryWithReact(cfg.ReactService, reactServiceKey)
 
 	// Create handlers
 	healthHandler := handlers.NewHealthHandler(cacheClient, docDBClient)
@@ -295,19 +299,21 @@ func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb
 	aiService := ai.NewService(platformClient)
 	aiHandler := handlers.NewAIHandler(aiService, platformClient)
 
-	messagesHandler := handlers.NewMessagesHandler(docDBClient, platformClient, agentFactory, sessionService, importService, aiService)
+	messagesHandler := handlers.NewMessagesHandler(docDBClient, platformClient, agentFactory, sessionService, configCacheService, importService, aiService)
 	tracesHandler := handlers.NewTracesHandler(docDBClient, platformClient, importService)
+	reactionsHandler := handlers.NewReactionsHandler(docDBClient, platformClient)
 	dataHandler := handlers.NewDataHandler(docDBClient)
 
 	// Setup routes
 	routesCfg := &routes.Config{
-		HealthHandler:   healthHandler,
-		MessagesHandler: messagesHandler,
-		TracesHandler:   tracesHandler,
-		DataHandler:     dataHandler,
-		AIHandler:       aiHandler,
-		AuthMiddleware:  authMw,
-		ServiceKeyMw:    serviceKeyMw,
+		HealthHandler:    healthHandler,
+		MessagesHandler:  messagesHandler,
+		TracesHandler:    tracesHandler,
+		ReactionsHandler: reactionsHandler,
+		DataHandler:      dataHandler,
+		AIHandler:        aiHandler,
+		AuthMiddleware:   authMw,
+		ServiceKeyMw:     serviceKeyMw,
 	}
 
 	routes.SetupWithMiddleware(router, routesCfg, loggingMw, errorMw)

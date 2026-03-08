@@ -1,0 +1,53 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+docs/
+LICENSE
+
+# Test files
+tests/
+*_test.go
+**/*_test.go
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build artifacts
+tmp/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+main
+server
+agent-service
+
+# Coverage
+coverage.txt
+coverage.html
+*.out
+
+# Environment
+.env
+.env.*
+*.env
+
+# Misc
+.DS_Store
+Thumbs.db
+
+# Makefiles and configs only needed for dev
+Makefile
+.air.toml
+.golangci.yml
+
+# POC and notebooks
+poc/
+notebooks/

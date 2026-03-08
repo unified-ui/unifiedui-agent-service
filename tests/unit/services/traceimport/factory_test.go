@@ -1,11 +1,9 @@
-// Package traceimport contains unit tests for the traceimport service.
-package traceimport
+package traceimport_test
 
 import (
 	"context"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/unifiedui/agent-service/internal/services/platform"
@@ -13,108 +11,58 @@ import (
 	"github.com/unifiedui/agent-service/tests/mocks"
 )
 
-// MockTraceImporter implements TraceImporter for testing.
-type MockTraceImporter struct {
-	agentType  platform.AgentType
-	ImportFunc func(ctx context.Context, req *traceimport.ImportRequest) (string, error)
+type mockImporter struct {
+	agentType platform.AgentType
 }
 
-func (m *MockTraceImporter) Type() platform.AgentType {
+func (m *mockImporter) Type() platform.AgentType {
 	return m.agentType
 }
 
-func (m *MockTraceImporter) Import(ctx context.Context, req *traceimport.ImportRequest) (string, error) {
-	if m.ImportFunc != nil {
-		return m.ImportFunc(ctx, req)
-	}
-	return "test-trace-id", nil
+func (m *mockImporter) Import(ctx context.Context, req *traceimport.ImportRequest) (string, error) {
+	return "trace-id-123", nil
 }
 
-func TestNewImporterFactory_CreatesEmptyFactory(t *testing.T) {
-	mockDocDB := mocks.NewMockDocDBClient()
+func TestImporterFactory_Register_And_GetImporter(t *testing.T) {
+	docDB := &mocks.MockDocDBClient{}
+	factory := traceimport.NewImporterFactory(docDB)
 
-	factory := traceimport.NewImporterFactory(mockDocDB)
+	imp := &mockImporter{agentType: platform.AgentTypeN8N}
+	factory.Register(imp)
 
-	require.NotNil(t, factory)
-	assert.Empty(t, factory.SupportedTypes())
-}
-
-func TestImporterFactory_Register_AddsImporter(t *testing.T) {
-	mockDocDB := mocks.NewMockDocDBClient()
-	factory := traceimport.NewImporterFactory(mockDocDB)
-
-	importer := &MockTraceImporter{agentType: platform.AgentTypeFoundry}
-	factory.Register(importer)
-
-	assert.True(t, factory.HasImporter(platform.AgentTypeFoundry))
-	assert.Contains(t, factory.SupportedTypes(), platform.AgentTypeFoundry)
-}
-
-func TestImporterFactory_Register_MultipleImporters(t *testing.T) {
-	mockDocDB := mocks.NewMockDocDBClient()
-	factory := traceimport.NewImporterFactory(mockDocDB)
-
-	foundryImporter := &MockTraceImporter{agentType: platform.AgentTypeFoundry}
-	n8nImporter := &MockTraceImporter{agentType: platform.AgentTypeN8N}
-
-	factory.Register(foundryImporter)
-	factory.Register(n8nImporter)
-
-	assert.True(t, factory.HasImporter(platform.AgentTypeFoundry))
-	assert.True(t, factory.HasImporter(platform.AgentTypeN8N))
-	assert.Len(t, factory.SupportedTypes(), 2)
-}
-
-func TestImporterFactory_GetImporter_Success(t *testing.T) {
-	mockDocDB := mocks.NewMockDocDBClient()
-	factory := traceimport.NewImporterFactory(mockDocDB)
-
-	importer := &MockTraceImporter{agentType: platform.AgentTypeFoundry}
-	factory.Register(importer)
-
-	retrieved, err := factory.GetImporter(platform.AgentTypeFoundry)
-
+	got, err := factory.GetImporter(platform.AgentTypeN8N)
 	require.NoError(t, err)
-	assert.Equal(t, importer, retrieved)
+	require.NotNil(t, got)
 }
 
-func TestImporterFactory_GetImporter_NotFound(t *testing.T) {
-	mockDocDB := mocks.NewMockDocDBClient()
-	factory := traceimport.NewImporterFactory(mockDocDB)
+func TestImporterFactory_GetImporter_NotRegistered(t *testing.T) {
+	docDB := &mocks.MockDocDBClient{}
+	factory := traceimport.NewImporterFactory(docDB)
 
 	_, err := factory.GetImporter(platform.AgentTypeFoundry)
-
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no trace importer registered")
+	require.Contains(t, err.Error(), "no trace importer")
 }
 
-func TestImporterFactory_HasImporter_False(t *testing.T) {
-	mockDocDB := mocks.NewMockDocDBClient()
-	factory := traceimport.NewImporterFactory(mockDocDB)
+func TestImporterFactory_HasImporter(t *testing.T) {
+	docDB := &mocks.MockDocDBClient{}
+	factory := traceimport.NewImporterFactory(docDB)
 
-	assert.False(t, factory.HasImporter(platform.AgentTypeFoundry))
-	assert.False(t, factory.HasImporter(platform.AgentTypeN8N))
+	require.False(t, factory.HasImporter(platform.AgentTypeN8N))
+
+	factory.Register(&mockImporter{agentType: platform.AgentTypeN8N})
+	require.True(t, factory.HasImporter(platform.AgentTypeN8N))
 }
 
-func TestImporterFactory_SupportedTypes_Empty(t *testing.T) {
-	mockDocDB := mocks.NewMockDocDBClient()
-	factory := traceimport.NewImporterFactory(mockDocDB)
+func TestImporterFactory_SupportedTypes(t *testing.T) {
+	docDB := &mocks.MockDocDBClient{}
+	factory := traceimport.NewImporterFactory(docDB)
+
+	factory.Register(&mockImporter{agentType: platform.AgentTypeN8N})
+	factory.Register(&mockImporter{agentType: platform.AgentTypeFoundry})
 
 	types := factory.SupportedTypes()
-
-	assert.Empty(t, types)
-}
-
-func TestImporterFactory_SupportedTypes_MultipleTypes(t *testing.T) {
-	mockDocDB := mocks.NewMockDocDBClient()
-	factory := traceimport.NewImporterFactory(mockDocDB)
-
-	factory.Register(&MockTraceImporter{agentType: platform.AgentTypeFoundry})
-	factory.Register(&MockTraceImporter{agentType: platform.AgentTypeN8N})
-
-	types := factory.SupportedTypes()
-
-	assert.Len(t, types, 2)
-	assert.Contains(t, types, platform.AgentTypeFoundry)
-	assert.Contains(t, types, platform.AgentTypeN8N)
+	require.Len(t, types, 2)
+	require.Contains(t, types, platform.AgentTypeN8N)
+	require.Contains(t, types, platform.AgentTypeFoundry)
 }

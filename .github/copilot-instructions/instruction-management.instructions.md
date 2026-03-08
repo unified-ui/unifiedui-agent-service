@@ -15,6 +15,7 @@ After completing work, evaluate whether any instruction file needs updating.
 | Folder structure changed | `project-structure.instructions.md` |
 | New test pattern established | `testing.instructions.md` |
 | New mock added | `testing.instructions.md` (mock checklist) |
+| New sanitization function or security pattern | `security.instructions.md` |
 | New domain model added | `project-structure.instructions.md` (entity checklist) |
 | Golden rules changed | `copilot-instructions.md` |
 
@@ -50,4 +51,5 @@ Before finalizing instruction updates:
 | `handlers.instructions.md` | Handler struct/method pattern, Swagger annotations, error handling, DTOs |
 | `infrastructure.instructions.md` | Cache, docdb, vault, session, platform client, SSE, encryption, agents, trace import |
 | `testing.instructions.md` | Test naming, fixtures, helpers, mock pattern, handler test pattern, what to test |
+| `security.instructions.md` | NoSQL injection, SSRF, path param validation, secret management, CodeQL compliance |
 | `instruction-management.instructions.md` | This file — when/how to update docs |

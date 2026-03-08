@@ -140,7 +140,7 @@ DTOs live in `internal/api/dto/`:
 
 ```go
 type CreateTraceRequest struct {
-    ApplicationID     string            `json:"applicationId,omitempty"`
+    ChatAgentID        string            `json:"chatAgentId,omitempty"`
     ConversationID    string            `json:"conversationId,omitempty"`
     AutonomousAgentID string            `json:"autonomousAgentId,omitempty"`
     ReferenceID       string            `json:"referenceId"`
@@ -156,7 +156,8 @@ type CreateTraceRequest struct {
 | File | Resource | Handlers |
 |------|----------|----------|
 | `health.go` | Health | Health, Ready, Live |
-| `messages.go` | Messages | GetMessages, SendMessage |
+| `messages.go` | Messages | GetMessages, SendMessage, EditMessage, DeleteMessage |
+| `reactions.go` | Reactions | GetReactions, AddReaction, RemoveReaction |
 | `traces.go` | Traces | CreateTrace, GetTrace, DeleteTrace, AddNodes, AddLogs, GetConversationTraces, RefreshConversationTrace, ImportConversationTrace, ListAutonomousAgentTraces, GetAutonomousAgentTraces, RefreshAutonomousAgentTrace, ImportAutonomousAgentTrace, RefreshAutonomousAgentImportTrace |
 | `ai.go` | AI | GenerateDescription, AnalyzeTrace, SummarizeTrace, TestModel, GetCapabilities |
 | `data.go` | Data | DeleteConversationData, DeleteAutonomousAgentData |

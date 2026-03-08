@@ -21,8 +21,8 @@ const (
 	NodeStatusFailed NodeStatus = "failed"
 	// NodeStatusSkipped indicates the node was skipped.
 	NodeStatusSkipped NodeStatus = "skipped"
-	// NodeStatusCancelled indicates the node was cancelled.
-	NodeStatusCancelled NodeStatus = "cancelled"
+	// NodeStatusCanceled indicates the node was canceled.
+	NodeStatusCanceled NodeStatus = "cancelled" //nolint:misspell // value must stay "cancelled" for external API compatibility
 )
 
 // NodeType represents the type of a trace node.
@@ -53,6 +53,26 @@ const (
 	NodeTypeLoop NodeType = "loop"
 	// NodeTypeCustom represents a custom node type.
 	NodeTypeCustom NodeType = "custom"
+	// NodeTypeMemory represents a memory node.
+	NodeTypeMemory NodeType = "memory"
+	// NodeTypeVectorStore represents a vector store node.
+	NodeTypeVectorStore NodeType = "vector_store"
+	// NodeTypeEmbedding represents an embedding node.
+	NodeTypeEmbedding NodeType = "embedding"
+	// NodeTypeOutputParser represents an output parser node.
+	NodeTypeOutputParser NodeType = "output_parser"
+	// NodeTypeDocument represents a document loader node.
+	NodeTypeDocument NodeType = "document"
+	// NodeTypeTextSplitter represents a text splitter node.
+	NodeTypeTextSplitter NodeType = "text_splitter"
+	// NodeTypeApp represents a SaaS/app integration node.
+	NodeTypeApp NodeType = "app"
+	// NodeTypeDataTransform represents a data transformation node.
+	NodeTypeDataTransform NodeType = "data_transform"
+	// NodeTypeQueue represents a message queue node.
+	NodeTypeQueue NodeType = "queue"
+	// NodeTypeDatabase represents a database node.
+	NodeTypeDatabase NodeType = "database"
 )
 
 // TraceContextType represents the context type of a trace.
@@ -108,8 +128,8 @@ type Trace struct {
 	// TenantID is required for tenant isolation.
 	TenantID string `json:"tenantId" bson:"tenantId"`
 
-	// Context fields - either (ApplicationID + ConversationID) OR AutonomousAgentID
-	ApplicationID     string `json:"applicationId,omitempty" bson:"applicationId,omitempty"`
+	// Context fields - either (ChatAgentID + ConversationID) OR AutonomousAgentID
+	ChatAgentID       string `json:"chatAgentId,omitempty" bson:"chatAgentId,omitempty"`
 	ConversationID    string `json:"conversationId,omitempty" bson:"conversationId,omitempty"`
 	AutonomousAgentID string `json:"autonomousAgentId,omitempty" bson:"autonomousAgentId,omitempty"`
 
@@ -135,11 +155,11 @@ type Trace struct {
 }
 
 // NewConversationTrace creates a new trace for a conversation context.
-func NewConversationTrace(tenantID, applicationID, conversationID, createdBy string) *Trace {
+func NewConversationTrace(tenantID, chatAgentID, conversationID, createdBy string) *Trace {
 	now := time.Now().UTC()
 	return &Trace{
 		TenantID:       tenantID,
-		ApplicationID:  applicationID,
+		ChatAgentID:    chatAgentID,
 		ConversationID: conversationID,
 		ContextType:    TraceContextConversation,
 		Nodes:          []TraceNode{},
@@ -227,10 +247,10 @@ func (t *Trace) IsAutonomousAgentContext() bool {
 // ValidateContext validates that the trace has valid context fields.
 func (t *Trace) ValidateContext() bool {
 	if t.ContextType == TraceContextConversation {
-		return t.ApplicationID != "" && t.ConversationID != "" && t.AutonomousAgentID == ""
+		return t.ChatAgentID != "" && t.ConversationID != "" && t.AutonomousAgentID == ""
 	}
 	if t.ContextType == TraceContextAutonomousAgent {
-		return t.AutonomousAgentID != "" && t.ApplicationID == "" && t.ConversationID == ""
+		return t.AutonomousAgentID != "" && t.ChatAgentID == "" && t.ConversationID == ""
 	}
 	return false
 }
@@ -242,32 +262,32 @@ func (t *Trace) Validate() error {
 	}
 
 	// Check for mixed context
-	hasConversationContext := t.ApplicationID != "" || t.ConversationID != ""
+	hasConversationContext := t.ChatAgentID != "" || t.ConversationID != ""
 	hasAutonomousAgentContext := t.AutonomousAgentID != ""
 
 	if hasConversationContext && hasAutonomousAgentContext {
 		return fmt.Errorf("cannot have both conversation and autonomous agent context")
 	}
 
-	// Validate based on context type
-	if t.ContextType == TraceContextConversation {
-		if t.ApplicationID == "" {
-			return fmt.Errorf("applicationId is required for conversation context")
+	switch t.ContextType {
+	case TraceContextConversation:
+		if t.ChatAgentID == "" {
+			return fmt.Errorf("chatAgentId is required for conversation context")
 		}
 		if t.ConversationID == "" {
 			return fmt.Errorf("conversationId is required for conversation context")
 		}
-	} else if t.ContextType == TraceContextAutonomousAgent {
+	case TraceContextAutonomousAgent:
 		if t.AutonomousAgentID == "" {
 			return fmt.Errorf("autonomousAgentId is required for autonomous agent context")
 		}
-	} else {
+	default:
 		return fmt.Errorf("invalid context type: %s", t.ContextType)
 	}
 
 	// Validate nodes
-	for _, node := range t.Nodes {
-		if err := node.Validate(); err != nil {
+	for i := range t.Nodes {
+		if err := t.Nodes[i].Validate(); err != nil {
 			return err
 		}
 	}
@@ -279,7 +299,7 @@ func (t *Trace) Validate() error {
 func (s NodeStatus) IsValid() bool {
 	switch s {
 	case NodeStatusPending, NodeStatusRunning, NodeStatusCompleted,
-		NodeStatusFailed, NodeStatusSkipped, NodeStatusCancelled:
+		NodeStatusFailed, NodeStatusSkipped, NodeStatusCanceled:
 		return true
 	}
 	return false
@@ -313,8 +333,8 @@ func (n *TraceNode) Validate() error {
 	}
 
 	// Validate sub-nodes recursively
-	for _, subNode := range n.Nodes {
-		if err := subNode.Validate(); err != nil {
+	for i := range n.Nodes {
+		if err := n.Nodes[i].Validate(); err != nil {
 			return err
 		}
 	}

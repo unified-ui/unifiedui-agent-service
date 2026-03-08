@@ -43,7 +43,7 @@ func NewAIHandler(aiService ai.Service, platformClient platform.Client) *AIHandl
 // @Router /api/v1/agent-service/tenants/{tenantId}/ai/generate-description [post]
 // @Security BearerAuth
 func (h *AIHandler) GenerateDescription(c *gin.Context) {
-	tenantID := c.Param("tenantId")
+	tenantID := middleware.SanitizePathParam(c, "tenantId")
 
 	var req dto.GenerateDescriptionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -84,7 +84,7 @@ func (h *AIHandler) GenerateDescription(c *gin.Context) {
 // @Router /api/v1/agent-service/tenants/{tenantId}/ai/analyze-trace [post]
 // @Security BearerAuth
 func (h *AIHandler) AnalyzeTrace(c *gin.Context) {
-	tenantID := c.Param("tenantId")
+	tenantID := middleware.SanitizePathParam(c, "tenantId")
 
 	var req dto.AnalyzeTraceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -130,7 +130,7 @@ func (h *AIHandler) AnalyzeTrace(c *gin.Context) {
 // @Router /api/v1/agent-service/tenants/{tenantId}/ai/summarize-trace [post]
 // @Security BearerAuth
 func (h *AIHandler) SummarizeTrace(c *gin.Context) {
-	tenantID := c.Param("tenantId")
+	tenantID := middleware.SanitizePathParam(c, "tenantId")
 
 	var req dto.SummarizeTraceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -172,7 +172,7 @@ func (h *AIHandler) SummarizeTrace(c *gin.Context) {
 // @Router /api/v1/agent-service/tenants/{tenantId}/ai/test-model [post]
 // @Security BearerAuth
 func (h *AIHandler) TestModel(c *gin.Context) {
-	tenantID := c.Param("tenantId")
+	tenantID := middleware.SanitizePathParam(c, "tenantId")
 
 	var req dto.TestModelRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -232,7 +232,7 @@ func (h *AIHandler) TestModel(c *gin.Context) {
 // @Router /api/v1/agent-service/tenants/{tenantId}/ai/capabilities [get]
 // @Security BearerAuth
 func (h *AIHandler) GetCapabilities(c *gin.Context) {
-	tenantID := c.Param("tenantId")
+	tenantID := middleware.SanitizePathParam(c, "tenantId")
 
 	capabilities, err := h.aiService.GetCapabilities(c.Request.Context(), tenantID)
 	if err != nil {
@@ -263,7 +263,7 @@ func (h *AIHandler) GetCapabilities(c *gin.Context) {
 // @Router /api/v1/agent-service/tenants/{tenantId}/ai/trace-chat [post]
 // @Security BearerAuth
 func (h *AIHandler) TraceChat(c *gin.Context) {
-	tenantID := c.Param("tenantId")
+	tenantID := middleware.SanitizePathParam(c, "tenantId")
 
 	var req dto.TraceChatRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

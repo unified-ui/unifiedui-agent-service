@@ -60,6 +60,8 @@ type Client interface {
     Database() Database
     Messages() MessagesCollection
     MessagesRaw() Collection
+    Reactions() ReactionsCollection
+    ReactionsRaw() Collection
     Traces() TracesCollection
     TracesRaw() Collection
     Ping(ctx context.Context) error
@@ -78,6 +80,11 @@ type Client interface {
 
 **MessagesCollection** — message operations:
 - `Create(ctx, msg)`, `GetByConversation(ctx, tenantID, convID, opts)`
+- `Update(ctx, msg)`, `Delete(ctx, tenantID, convID, msgID)`
+
+**ReactionsCollection** — reaction operations:
+- `Add(ctx, reaction)`, `Remove(ctx, tenantID, convID, msgID, userID, reactionType)`
+- `GetByMessage(ctx, tenantID, convID, msgID)`
 
 ### Raw Collection
 
@@ -228,9 +235,9 @@ type Service interface {
 
 ```go
 type Client interface {
-    GetApplicationConfig(ctx context.Context, tenantID, applicationID, authToken string) (*ApplicationConfigResponse, error)
-    GetAgentConfig(ctx context.Context, tenantID, applicationID, conversationID, authToken string) (*AgentConfig, error)
-    GetAgentConfigFromFile(ctx context.Context, tenantID, applicationID string) (*AgentConfig, error)
+    GetChatAgentConfig(ctx context.Context, tenantID, chatAgentID, authToken string) (*ChatAgentConfigResponse, error)
+    GetAgentConfig(ctx context.Context, tenantID, chatAgentID, conversationID, authToken string) (*AgentConfig, error)
+    GetAgentConfigFromFile(ctx context.Context, tenantID, chatAgentID string) (*AgentConfig, error)
     GetMe(ctx context.Context, authToken string) (*UserInfo, error)
     GetConversation(ctx context.Context, tenantID, conversationID, authToken string) (*ConversationResponse, error)
     ValidateConversation(ctx context.Context, tenantID, conversationID, authToken string) error
@@ -364,6 +371,91 @@ Supported backends: N8N, Microsoft Foundry. Copilot and Custom are defined but n
 
 ---
 
+## Agent File Upload
+
+Unified file upload for AI agents. Files are sent as Base64-encoded data and converted to backend-specific formats.
+
+### Unified FileInput (`internal/services/agents/types.go`)
+
+```go
+type FileInput struct {
+    FileName string `json:"fileName"`
+    MimeType string `json:"mimeType"`
+    FileType string `json:"fileType"` // "image", "file", "audio", "video"
+    FileData string `json:"fileData"` // Base64-encoded content
+}
+```
+
+### Backend-Specific Conversion
+
+| Backend | Package | Format |
+|---------|---------|--------|
+| **Foundry** | `agents/foundry/converter.go` | Multimodal `input` array with Data-URL |
+| **N8N** | `agents/n8n/client.go` | Extended webhook body with `files` array |
+
+### Foundry Multimodal Format
+
+Foundry uses a multimodal `input` array with typed content objects. **Critical**: `file_data` must be in Data-URL format.
+
+```go
+// FileConverter converts unified FileInput to Foundry multimodal format.
+type FileConverter struct{}
+
+func (c *FileConverter) ConvertFiles(message string, files []FileInput) (interface{}, error)
+```
+
+| FileType | Foundry Type | Data Format |
+|----------|--------------|-------------|
+| `image` | `input_image` | `image_data`: Data-URL (`data:image/png;base64,...`) |
+| `file` | `input_file` | `file_data`: Data-URL (`data:application/pdf;base64,...`) |
+| `audio` | `input_audio` | `audio_data`: Data-URL (`data:audio/mp3;base64,...`) |
+| `video` | (not supported) | — |
+
+Example Foundry multimodal request:
+
+```json
+{
+  "input": [
+    {"type": "input_text", "text": "Analyze this document"},
+    {"type": "input_file", "file_name": "report.pdf", "file_data": "data:application/pdf;base64,JVBERi0..."}
+  ]
+}
+```
+
+### N8N Extended Webhook
+
+N8N receives files in the extended webhook body alongside the message.
+
+```go
+type FileInput struct {
+    FileName string `json:"fileName"`
+    MimeType string `json:"mimeType"`
+    FileType string `json:"fileType"`
+    FileData string `json:"fileData"` // Raw Base64 (no Data-URL prefix)
+}
+```
+
+N8N request structure:
+
+```json
+{
+  "message": "Analyze this document",
+  "sessionId": "...",
+  "files": [
+    {"fileName": "report.pdf", "mimeType": "application/pdf", "fileType": "file", "fileData": "JVBERi0..."}
+  ]
+}
+```
+
+### Adding File Upload to New Backend
+
+1. Define backend-specific `FileInput` struct in backend package
+2. Implement conversion from `agents.FileInput` (see `toN8NFileInputs`, `toFoundryFileInputs` in `factory.go`)
+3. Include files in request builder (e.g., `request.WithFiles(files)`)
+4. Handle multimodal formats per backend API requirements
+
+---
+
 ## Trace Import Service
 
 `internal/services/traceimport/` — imports and transforms traces from external platforms.
@@ -390,6 +482,27 @@ traceID, err := importService.Import(ctx, agentType, importRequest)
 importService.EnqueueImport(agentType, importRequest)
 ```
 
+### Error Resilience (MANDATORY)
+
+All trace transformers **must** follow these rules:
+
+1. **Unsupported node types → default fallback**: When a node type is not in the mapper, map it to `NodeTypeCustom` and set metadata markers:
+   - `_unsupported_node_type: true`
+   - `_original_node_type: "{original_type}"`
+   - `_fallback_reason: "node_type_not_mapped"` or `"item_type_not_recognized"`
+   - Preserve all original input/output data unchanged
+
+2. **Per-node error recovery**: Wrap each individual node transformation in `defer/recover`. If a node panics, create a fallback `TraceNode` with `Type: NodeTypeCustom`, `Status: NodeStatusFailed`, and metadata:
+   - `_transformation_error: true`
+   - `_error_message: "{panic message}"`
+   - Continue processing remaining nodes — never let one bad node kill the entire trace
+
+3. **Importer-level recovery**: Wrap the transformer call in the `Import()` method with `defer/recover`. If the transformer itself panics, persist a trace with a single error node and `ReferenceMetadata["_import_error"] = true`
+
+4. **Metadata convention**: All fallback/error metadata keys use underscore prefix (`_`) to distinguish from business metadata
+
+See `design/TRACE_ALGORITHM_REVIEW.md` § 12 and `design/N8N_AUTOMATION_NODES_CONCEPT.md` § 8.7 for full specification.
+
 ### Adding a New Importer
 
 1. Create `internal/services/traceimport/{name}/` directory
@@ -397,3 +510,35 @@ importService.EnqueueImport(agentType, importRequest)
 3. Implement transformer (converts external format → `[]TraceNode`)
 4. Register in `main.go`: `importService.RegisterImporter(newImporter)`
 5. Add `JobType{Name}` constant in `types.go`
+6. Follow Error Resilience rules above (per-node recovery, unsupported type metadata)
+
+### Adding New N8N Node Types
+
+When N8N adds new nodes, extend the transformer in this order:
+
+1. **Add node type constant** in `internal/services/traceimport/n8n/types.go`:
+   ```go
+   N8NNodeTypeNewNode = "n8n-nodes-base.newNode"
+   ```
+
+2. **Add suffix to `GetNodeCategory()`** in `types.go` — place the new suffix in the matching category block (messaging, spreadsheet, project_mgmt, crm, storage, devops, database, queue, payment, support, marketing, data_transform, file_io, data_store, security, productivity, identity). For new categories, add BEFORE the `strings.HasSuffix(suffix, "Trigger")` catch-all line
+
+3. **Add suffix to `mapNodeType()`** in `transformer.go` — map to the correct `models.NodeType`:
+   - SaaS integrations (Slack, Jira, etc.) → `models.NodeTypeApp`
+   - Data transformation nodes → `models.NodeTypeDataTransform`
+   - Database nodes → `models.NodeTypeDatabase`
+   - Message queue nodes → `models.NodeTypeQueue`
+   - File/binary utilities → `models.NodeTypeTool`
+   - Workflow control → `models.NodeTypeWorkflow`
+
+4. **Trigger variants** (e.g., `newNodeTrigger`) automatically match the existing `strings.HasSuffix(suffix, "Trigger")` catch-all → `NodeTypeWorkflow`. No extra code needed unless override is required
+
+5. **Add tests** in `tests/unit/services/traceimport/n8n/types_test.go` (for `GetNodeCategory`) and `transformer_test.go` (for `mapNodeType`)
+
+6. **No output extraction changes needed** — all automation/SaaS nodes use `data.main` which `GetOutputItems()` already handles as first priority
+
+**Domain model NodeType constants** (`internal/domain/models/trace.go`):
+- 22 types: `agent`, `tool`, `llm`, `chain`, `retriever`, `workflow`, `function`, `http`, `code`, `conditional`, `loop`, `custom`, `memory`, `vector_store`, `embedding`, `output_parser`, `document`, `text_splitter`, `app`, `data_transform`, `queue`, `database`
+- Only add new NodeType constants when a genuinely distinct node category emerges (coordinate with frontend for icon/color support)
+
+**Reference docs**: `design/N8N_AUTOMATION_NODES_CONCEPT.md` (78 automation nodes), `design/N8N_NODE_TYPES_CONCEPT.md` (34 AI/LangChain nodes), `design/TRACE_ALGORITHM_REVIEW.md` (algorithm overview)

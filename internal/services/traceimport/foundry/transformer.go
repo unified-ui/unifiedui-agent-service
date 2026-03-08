@@ -12,6 +12,16 @@ import (
 	"github.com/unifiedui/agent-service/internal/domain/models"
 )
 
+// isFunctionCallType returns true if the item type is a function call (local or remote).
+func isFunctionCallType(itemType string) bool {
+	return itemType == "function_call" || itemType == "remote_function_call"
+}
+
+// isFunctionCallOutputType returns true if the item type is a function call output (local or remote).
+func isFunctionCallOutputType(itemType string) bool {
+	return itemType == "function_call_output" || itemType == "remote_function_call_output"
+}
+
 // Transformer transforms Foundry conversation items into TraceNodes.
 type Transformer struct{}
 
@@ -21,37 +31,32 @@ func NewTransformer() *Transformer {
 }
 
 // Transform converts Foundry conversation items into a hierarchical TraceNode structure.
-// The transformation follows these rules:
-//   - Items are grouped by response_id to form "turns"
-//   - SendActivity workflow_action items become container nodes for their response_id group
-//   - Items with same response_id become children of the SendActivity
-//   - Items without response_id (user messages, standalone items) are root nodes
-//   - mcp_call, mcp_approval_request, mcp_approval_response are grouped by approval_request_id
-//   - The chronological order is preserved (oldest to newest)
+//
+// The transformation uses the action_id/previous_action_id DAG for sequencing and assigns
+// messages to their producing workflow actions:
+//   - Workflow actions become top-level nodes in chronological order
+//   - Messages with response_id matching a SendActivity/Question become children of that action
+//   - Sub-agent messages (no response_id) are assigned to the nearest preceding InvokeAzureAgent
+//   - User messages are always top-level
+//   - MCP groups (approval_request + response + call) are children of their triggering action
+//   - EndConversation and other actions without children are standalone top-level nodes
 func (t *Transformer) Transform(items []ConversationItem, createdBy string) []models.TraceNode {
 	if len(items) == 0 {
 		return []models.TraceNode{}
 	}
 
-	// Reverse items to get chronological order (API returns newest first)
-	reversedItems := make([]ConversationItem, len(items))
-	for i, item := range items {
-		reversedItems[len(items)-1-i] = item
+	chronological := make([]ConversationItem, len(items))
+	for i := range items {
+		chronological[len(items)-1-i] = items[i]
 	}
 
-	// Group items by response_id for turn-based grouping
-	responseGroups := t.groupByResponseID(reversedItems)
+	mcpApprovalGroups := t.groupByApprovalRequestID(chronological)
+	functionCallOutputs := t.groupFunctionCallOutputsByCallID(chronological)
+	functionCallsByRespID := t.groupFunctionCallsByResponseID(chronological)
+	mcpItemsByRespID := t.groupMCPItemsByResponseID(chronological)
+	assignment := t.buildActionAssignment(chronological)
 
-	// Build index maps for relationship resolution
-	mcpApprovalGroups := t.groupByApprovalRequestID(reversedItems)
-
-	// Find SendActivity containers for each response_id
-	sendActivityContainers := t.findSendActivityContainers(reversedItems)
-
-	// Transform into trace nodes with hierarchy
-	nodes := t.buildTraceNodesWithHierarchy(reversedItems, responseGroups, mcpApprovalGroups, sendActivityContainers, createdBy)
-
-	return nodes
+	return t.buildNodeList(chronological, mcpApprovalGroups, functionCallOutputs, functionCallsByRespID, mcpItemsByRespID, assignment, createdBy)
 }
 
 // TransformInterface implements TraceTransformer interface.
@@ -62,27 +67,413 @@ func (t *Transformer) TransformInterface(items interface{}, createdBy string) []
 	return []models.TraceNode{}
 }
 
-// groupByResponseID groups items by their response_id.
-func (t *Transformer) groupByResponseID(items []ConversationItem) map[string][]ConversationItem {
-	groups := make(map[string][]ConversationItem)
+// actionAssignment tracks which items become children of which workflow actions.
+type actionAssignment struct {
+	messageParent      map[string]int
+	mcpParent          map[string]int
+	mcpCallParent      map[string]int
+	functionCallParent map[string]int
+}
 
-	for _, item := range items {
-		responseID := t.extractResponseID(item)
-		if responseID != "" {
-			groups[responseID] = append(groups[responseID], item)
+// buildActionAssignment determines which messages and MCP items become children of which workflow actions.
+func (t *Transformer) buildActionAssignment(items []ConversationItem) actionAssignment {
+	a := actionAssignment{
+		messageParent:      make(map[string]int),
+		mcpParent:          make(map[string]int),
+		mcpCallParent:      make(map[string]int),
+		functionCallParent: make(map[string]int),
+	}
+
+	messageActionByRespID := make(map[string]int)
+	for i := range items {
+		if items[i].Type == "workflow_action" && t.isMessageProducingAction(items[i]) {
+			if respID := t.extractResponseID(items[i]); respID != "" {
+				messageActionByRespID[respID] = i
+			}
 		}
 	}
 
-	return groups
+	actionByRespID := make(map[string]int)
+	for i := range items {
+		if items[i].Type == "workflow_action" {
+			if respID := t.extractResponseID(items[i]); respID != "" {
+				if _, exists := actionByRespID[respID]; !exists {
+					actionByRespID[respID] = i
+				}
+			}
+		}
+	}
+
+	lastInvokeIdx := -1
+	for i := range items {
+		if items[i].Type == "workflow_action" && t.isInvokeAction(items[i]) {
+			lastInvokeIdx = i
+		}
+
+		if items[i].Type != "message" || items[i].Role == "user" {
+			continue
+		}
+
+		respID := t.extractResponseID(items[i])
+		if respID != "" {
+			if actionIdx, ok := messageActionByRespID[respID]; ok {
+				a.messageParent[items[i].ID] = actionIdx
+				continue
+			}
+		}
+
+		if respID == "" && lastInvokeIdx >= 0 && t.isSubAgentMessage(items[i]) {
+			a.messageParent[items[i].ID] = lastInvokeIdx
+		}
+	}
+
+	for i := range items {
+		if items[i].Type == "mcp_approval_request" {
+			if respID := t.extractResponseID(items[i]); respID != "" {
+				if actionIdx, ok := actionByRespID[respID]; ok {
+					a.mcpParent[items[i].ID] = actionIdx
+				}
+			}
+		}
+	}
+
+	for i := range items {
+		if items[i].Type == "mcp_call" && items[i].ApprovalRequestID == "" {
+			if respID := t.extractResponseID(items[i]); respID != "" {
+				if actionIdx, ok := actionByRespID[respID]; ok {
+					a.mcpCallParent[items[i].ID] = actionIdx
+				}
+			}
+		}
+	}
+
+	// Assign function_call / remote_function_call items to workflow actions
+	for i := range items {
+		if isFunctionCallType(items[i].Type) {
+			if respID := t.extractResponseID(items[i]); respID != "" {
+				if actionIdx, ok := actionByRespID[respID]; ok {
+					a.functionCallParent[items[i].ID] = actionIdx
+				}
+			}
+		}
+	}
+
+	return a
+}
+
+// buildNodeList creates the final list of top-level TraceNodes with children attached.
+func (t *Transformer) buildNodeList(
+	items []ConversationItem,
+	mcpApprovalGroups map[string][]ConversationItem,
+	functionCallOutputs map[string]*ConversationItem,
+	functionCallsByRespID map[string][]ConversationItem,
+	mcpItemsByRespID map[string][]ConversationItem,
+	assignment actionAssignment,
+	createdBy string,
+) []models.TraceNode {
+	actionChildren := make(map[int][]models.TraceNode)
+	processedIDs := make(map[string]bool)
+
+	for i := range items {
+		if actionIdx, ok := assignment.messageParent[items[i].ID]; ok {
+			actionChildren[actionIdx] = append(actionChildren[actionIdx], t.transformMessage(items[i], createdBy))
+			processedIDs[items[i].ID] = true
+		}
+	}
+
+	for i := range items {
+		if items[i].Type != "mcp_approval_request" {
+			continue
+		}
+		if actionIdx, ok := assignment.mcpParent[items[i].ID]; ok {
+			actionChildren[actionIdx] = append(actionChildren[actionIdx], t.transformMCPGroup(items[i], mcpApprovalGroups, createdBy))
+			processedIDs[items[i].ID] = true
+			t.markMCPGroupProcessed(items[i].ID, mcpApprovalGroups, processedIDs)
+		}
+	}
+
+	for i := range items {
+		if items[i].Type != "mcp_call" || items[i].ApprovalRequestID != "" {
+			continue
+		}
+		if actionIdx, ok := assignment.mcpCallParent[items[i].ID]; ok {
+			actionChildren[actionIdx] = append(actionChildren[actionIdx], t.transformMCPCall(items[i], createdBy))
+			processedIDs[items[i].ID] = true
+		}
+	}
+
+	// Assign function_call / remote_function_call items to their parent workflow actions
+	for i := range items {
+		if !isFunctionCallType(items[i].Type) {
+			continue
+		}
+		if actionIdx, ok := assignment.functionCallParent[items[i].ID]; ok {
+			actionChildren[actionIdx] = append(actionChildren[actionIdx], t.transformFunctionCall(items[i], functionCallOutputs, createdBy))
+			processedIDs[items[i].ID] = true
+			t.markFunctionCallOutputProcessed(items[i], functionCallOutputs, processedIDs)
+		}
+	}
+
+	var nodes []models.TraceNode
+
+	// Build set of response_ids that have assistant messages.
+	// Function calls and MCP items with these response_ids will be nested under the
+	// assistant message instead of appearing as standalone top-level nodes.
+	messageRespIDs := make(map[string]bool)
+	for i := range items {
+		if items[i].Type == "message" && items[i].Role != "user" {
+			if respID := t.extractResponseID(items[i]); respID != "" {
+				messageRespIDs[respID] = true
+			}
+		}
+	}
+
+	// Build set of orphaned response_ids: response_ids that have MCP items or function
+	// calls but no corresponding assistant message. These will get synthetic assistant nodes.
+	orphanedRespIDs := make(map[string]bool)
+	for respID := range mcpItemsByRespID {
+		if !messageRespIDs[respID] {
+			orphanedRespIDs[respID] = true
+		}
+	}
+	for respID := range functionCallsByRespID {
+		if !messageRespIDs[respID] {
+			orphanedRespIDs[respID] = true
+		}
+	}
+
+	// Track which orphaned response_ids have had synthetic assistant nodes created.
+	syntheticCreated := make(map[string]bool)
+
+	for i := range items {
+		if processedIDs[items[i].ID] {
+			continue
+		}
+
+		// For MCP/function-call items with orphaned response_ids (no matching assistant message),
+		// create a synthetic assistant node to group them under.
+		if isMCPItemType(items[i].Type) || isFunctionCallType(items[i].Type) {
+			if respID := t.extractResponseID(items[i]); respID != "" && orphanedRespIDs[respID] {
+				if !syntheticCreated[respID] {
+					node := t.createSyntheticAssistantNode(respID, mcpItemsByRespID, functionCallsByRespID, mcpApprovalGroups, functionCallOutputs, processedIDs, createdBy)
+					if len(node.Nodes) > 0 {
+						nodes = append(nodes, node)
+					}
+					syntheticCreated[respID] = true
+				}
+				continue
+			}
+		}
+
+		switch {
+		case items[i].Type == "message":
+			node := t.transformMessage(items[i], createdBy)
+			// For assistant messages, attach function calls and MCP items with the same response_id as children
+			if items[i].Role != "user" {
+				if respID := t.extractResponseID(items[i]); respID != "" {
+					// Attach function calls
+					if fcItems, ok := functionCallsByRespID[respID]; ok {
+						for j := range fcItems {
+							if !processedIDs[fcItems[j].ID] {
+								node.Nodes = append(node.Nodes, t.transformFunctionCall(fcItems[j], functionCallOutputs, createdBy))
+								processedIDs[fcItems[j].ID] = true
+								t.markFunctionCallOutputProcessed(fcItems[j], functionCallOutputs, processedIDs)
+							}
+						}
+					}
+					// Attach MCP items (mcp_list_tools, mcp_call, mcp_approval_request)
+					if mcpItems, ok := mcpItemsByRespID[respID]; ok {
+						for j := range mcpItems {
+							if processedIDs[mcpItems[j].ID] {
+								continue
+							}
+							// Skip mcp_call items with ApprovalRequestID - handled via approval group
+							if mcpItems[j].Type == "mcp_call" && mcpItems[j].ApprovalRequestID != "" {
+								continue
+							}
+							mcpNode := t.transformMCPItemForNesting(mcpItems[j], mcpApprovalGroups, createdBy)
+							node.Nodes = append(node.Nodes, mcpNode)
+							processedIDs[mcpItems[j].ID] = true
+							if mcpItems[j].Type == "mcp_approval_request" {
+								t.markMCPGroupProcessed(mcpItems[j].ID, mcpApprovalGroups, processedIDs)
+							}
+						}
+					}
+				}
+			}
+			nodes = append(nodes, node)
+
+		case items[i].Type == "workflow_action":
+			node := t.transformWorkflowAction(items[i], createdBy)
+			if children, ok := actionChildren[i]; ok {
+				node.Nodes = children
+			}
+			nodes = append(nodes, node)
+
+		case items[i].Type == "mcp_approval_request":
+			// Skip if will be nested under an assistant message
+			if respID := t.extractResponseID(items[i]); respID != "" && messageRespIDs[respID] {
+				t.markMCPGroupProcessed(items[i].ID, mcpApprovalGroups, processedIDs)
+				continue
+			}
+			nodes = append(nodes, t.transformMCPGroup(items[i], mcpApprovalGroups, createdBy))
+			t.markMCPGroupProcessed(items[i].ID, mcpApprovalGroups, processedIDs)
+
+		case items[i].Type == "mcp_call":
+			// Skip if will be nested under an assistant message
+			if respID := t.extractResponseID(items[i]); respID != "" && messageRespIDs[respID] {
+				continue
+			}
+			if items[i].ApprovalRequestID == "" || !t.hasApprovalRequest(items, items[i].ApprovalRequestID) {
+				nodes = append(nodes, t.transformMCPCall(items[i], createdBy))
+			}
+
+		case items[i].Type == "mcp_approval_response":
+			// Handled as part of MCP group
+
+		case items[i].Type == "mcp_list_tools":
+			// Skip if will be nested under an assistant message
+			if respID := t.extractResponseID(items[i]); respID != "" && messageRespIDs[respID] {
+				continue
+			}
+			nodes = append(nodes, t.transformMCPListTools(items[i], createdBy))
+
+		case isFunctionCallType(items[i].Type):
+			// Skip if this function call will be nested under an assistant message
+			if respID := t.extractResponseID(items[i]); respID != "" && messageRespIDs[respID] {
+				// Mark the output as processed so it doesn't appear standalone either
+				t.markFunctionCallOutputProcessed(items[i], functionCallOutputs, processedIDs)
+				continue
+			}
+			// Standalone function_call not assigned to any workflow action or assistant message
+			node := t.transformFunctionCall(items[i], functionCallOutputs, createdBy)
+			nodes = append(nodes, node)
+			t.markFunctionCallOutputProcessed(items[i], functionCallOutputs, processedIDs)
+
+		case isFunctionCallOutputType(items[i].Type):
+			// Standalone function_call_output (no matching function_call found)
+			nodes = append(nodes, t.transformFunctionCallOutput(items[i], createdBy))
+
+		default:
+			nodes = append(nodes, t.transformUnknown(items[i], createdBy))
+		}
+
+		processedIDs[items[i].ID] = true
+	}
+
+	return nodes
+}
+
+// isMessageProducingAction returns true for workflow action kinds that produce visible messages.
+func (t *Transformer) isMessageProducingAction(item ConversationItem) bool {
+	return item.Kind == "SendActivity" || item.Kind == "Question"
+}
+
+// isInvokeAction returns true for workflow action kinds that invoke sub-agents.
+func (t *Transformer) isInvokeAction(item ConversationItem) bool {
+	return item.Kind == "InvokeAzureAgent" || item.Kind == "InvokeAgent"
+}
+
+// isSubAgentMessage returns true if a message was created by a sub-agent.
+func (t *Transformer) isSubAgentMessage(item ConversationItem) bool {
+	if item.CreatedBy == nil {
+		return false
+	}
+	_, hasAgent := item.CreatedBy["agent"]
+	return hasAgent
+}
+
+// createSyntheticAssistantNode creates a virtual "Assistant Response" node for a response_id
+// that has MCP items or function calls but no corresponding assistant message item.
+// This happens when the model's response consists only of tool calls without any text output.
+func (t *Transformer) createSyntheticAssistantNode(
+	respID string,
+	mcpItemsByRespID map[string][]ConversationItem,
+	functionCallsByRespID map[string][]ConversationItem,
+	mcpApprovalGroups map[string][]ConversationItem,
+	functionCallOutputs map[string]*ConversationItem,
+	processedIDs map[string]bool,
+	createdBy string,
+) models.TraceNode {
+	now := time.Now().UTC()
+
+	var subNodes []models.TraceNode
+
+	// Attach function calls
+	if fcItems, ok := functionCallsByRespID[respID]; ok {
+		for j := range fcItems {
+			if !processedIDs[fcItems[j].ID] {
+				subNodes = append(subNodes, t.transformFunctionCall(fcItems[j], functionCallOutputs, createdBy))
+				processedIDs[fcItems[j].ID] = true
+				t.markFunctionCallOutputProcessed(fcItems[j], functionCallOutputs, processedIDs)
+			}
+		}
+	}
+
+	// Attach MCP items (mcp_list_tools, mcp_call, mcp_approval_request)
+	if mcpItems, ok := mcpItemsByRespID[respID]; ok {
+		for j := range mcpItems {
+			if processedIDs[mcpItems[j].ID] {
+				continue
+			}
+			// Skip mcp_call items with ApprovalRequestID - handled via approval group
+			if mcpItems[j].Type == "mcp_call" && mcpItems[j].ApprovalRequestID != "" {
+				continue
+			}
+			mcpNode := t.transformMCPItemForNesting(mcpItems[j], mcpApprovalGroups, createdBy)
+			subNodes = append(subNodes, mcpNode)
+			processedIDs[mcpItems[j].ID] = true
+			if mcpItems[j].Type == "mcp_approval_request" {
+				t.markMCPGroupProcessed(mcpItems[j].ID, mcpApprovalGroups, processedIDs)
+			}
+		}
+	}
+
+	return models.TraceNode{
+		ID:     "node_" + uuid.New().String(),
+		Name:   "Assistant Response",
+		Type:   models.NodeTypeLLM,
+		Status: models.NodeStatusCompleted,
+		Data: &models.NodeData{
+			Input: &models.NodeDataIO{
+				Metadata: map[string]interface{}{
+					"role": "assistant",
+					"type": "synthetic",
+				},
+			},
+			Output: &models.NodeDataIO{
+				Text: "",
+				Metadata: map[string]interface{}{
+					"role": "assistant",
+					"type": "synthetic",
+				},
+			},
+		},
+		Nodes:     subNodes,
+		Logs:      []string{},
+		CreatedAt: now,
+		UpdatedAt: now,
+		CreatedBy: createdBy,
+		UpdatedBy: createdBy,
+	}
+}
+
+// markMCPGroupProcessed marks all items in an MCP approval group as processed.
+func (t *Transformer) markMCPGroupProcessed(approvalRequestID string, mcpApprovalGroups map[string][]ConversationItem, processedIDs map[string]bool) {
+	if related, ok := mcpApprovalGroups[approvalRequestID]; ok {
+		for i := range related {
+			processedIDs[related[i].ID] = true
+		}
+	}
 }
 
 // groupByApprovalRequestID groups MCP items by their approval_request_id.
 func (t *Transformer) groupByApprovalRequestID(items []ConversationItem) map[string][]ConversationItem {
 	groups := make(map[string][]ConversationItem)
 
-	for _, item := range items {
-		if item.ApprovalRequestID != "" {
-			groups[item.ApprovalRequestID] = append(groups[item.ApprovalRequestID], item)
+	for i := range items {
+		if items[i].ApprovalRequestID != "" {
+			groups[items[i].ApprovalRequestID] = append(groups[items[i].ApprovalRequestID], items[i])
 		}
 	}
 
@@ -102,189 +493,10 @@ func (t *Transformer) extractResponseID(item ConversationItem) string {
 	return ""
 }
 
-// findSendActivityContainers finds all SendActivity workflow_actions and maps their response_id to the item.
-func (t *Transformer) findSendActivityContainers(items []ConversationItem) map[string]ConversationItem {
-	containers := make(map[string]ConversationItem)
-
-	for _, item := range items {
-		if item.Type == "workflow_action" && item.Kind == "SendActivity" {
-			responseID := t.extractResponseID(item)
-			if responseID != "" {
-				containers[responseID] = item
-			}
-		}
-	}
-
-	return containers
-}
-
-// buildTraceNodesWithHierarchy builds the hierarchical trace node structure.
-func (t *Transformer) buildTraceNodesWithHierarchy(
-	items []ConversationItem,
-	responseGroups map[string][]ConversationItem,
-	mcpApprovalGroups map[string][]ConversationItem,
-	sendActivityContainers map[string]ConversationItem,
-	createdBy string,
-) []models.TraceNode {
-	var nodes []models.TraceNode
-	processedIDs := make(map[string]bool)
-
-	for _, item := range items {
-		if processedIDs[item.ID] {
-			continue
-		}
-
-		responseID := t.extractResponseID(item)
-
-		// Check if this item belongs to a SendActivity container
-		if responseID != "" {
-			if containerItem, hasContainer := sendActivityContainers[responseID]; hasContainer {
-				if item.ID != containerItem.ID {
-					continue
-				}
-			}
-		}
-
-		switch item.Type {
-		case "message":
-			node := t.transformMessage(item, createdBy)
-			nodes = append(nodes, node)
-			processedIDs[item.ID] = true
-
-		case "workflow_action":
-			if item.Kind == "SendActivity" && responseID != "" {
-				node := t.transformSendActivityWithChildren(item, responseGroups, mcpApprovalGroups, processedIDs, createdBy)
-				nodes = append(nodes, node)
-			} else {
-				node := t.transformWorkflowAction(item, createdBy)
-				nodes = append(nodes, node)
-				processedIDs[item.ID] = true
-			}
-
-		case "mcp_approval_request":
-			node := t.transformMCPGroup(item, mcpApprovalGroups, createdBy)
-			nodes = append(nodes, node)
-			processedIDs[item.ID] = true
-			if relatedItems, ok := mcpApprovalGroups[item.ID]; ok {
-				for _, related := range relatedItems {
-					processedIDs[related.ID] = true
-				}
-			}
-
-		case "mcp_call":
-			if item.ApprovalRequestID == "" || !t.hasApprovalRequest(items, item.ApprovalRequestID) {
-				node := t.transformMCPCall(item, createdBy)
-				nodes = append(nodes, node)
-			}
-			processedIDs[item.ID] = true
-
-		case "mcp_approval_response":
-			processedIDs[item.ID] = true
-
-		case "mcp_list_tools":
-			node := t.transformMCPListTools(item, createdBy)
-			nodes = append(nodes, node)
-			processedIDs[item.ID] = true
-
-		default:
-			node := t.transformUnknown(item, createdBy)
-			nodes = append(nodes, node)
-			processedIDs[item.ID] = true
-		}
-	}
-
-	return nodes
-}
-
-// transformSendActivityWithChildren transforms a SendActivity into a container node.
-func (t *Transformer) transformSendActivityWithChildren(
-	sendActivity ConversationItem,
-	responseGroups map[string][]ConversationItem,
-	mcpApprovalGroups map[string][]ConversationItem,
-	processedIDs map[string]bool,
-	createdBy string,
-) models.TraceNode {
-	now := time.Now().UTC()
-	responseID := t.extractResponseID(sendActivity)
-
-	processedIDs[sendActivity.ID] = true
-
-	var childNodes []models.TraceNode
-	if groupItems, ok := responseGroups[responseID]; ok {
-		for _, groupItem := range groupItems {
-			if groupItem.ID == sendActivity.ID {
-				continue
-			}
-			if processedIDs[groupItem.ID] {
-				continue
-			}
-
-			var childNode models.TraceNode
-			switch groupItem.Type {
-			case "message":
-				childNode = t.transformMessage(groupItem, createdBy)
-			case "workflow_action":
-				childNode = t.transformWorkflowAction(groupItem, createdBy)
-			case "mcp_approval_request":
-				childNode = t.transformMCPGroup(groupItem, mcpApprovalGroups, createdBy)
-				if relatedItems, ok := mcpApprovalGroups[groupItem.ID]; ok {
-					for _, related := range relatedItems {
-						processedIDs[related.ID] = true
-					}
-				}
-			case "mcp_call":
-				childNode = t.transformMCPCall(groupItem, createdBy)
-			case "mcp_list_tools":
-				childNode = t.transformMCPListTools(groupItem, createdBy)
-			default:
-				childNode = t.transformUnknown(groupItem, createdBy)
-			}
-
-			childNodes = append(childNodes, childNode)
-			processedIDs[groupItem.ID] = true
-		}
-	}
-
-	metadata := map[string]interface{}{
-		"kind": sendActivity.Kind,
-	}
-	if sendActivity.ActionID != "" {
-		metadata["action_id"] = sendActivity.ActionID
-	}
-	if sendActivity.PreviousActionID != "" {
-		metadata["previous_action_id"] = sendActivity.PreviousActionID
-	}
-	if sendActivity.CreatedBy != nil {
-		metadata["created_by"] = sendActivity.CreatedBy
-	}
-
-	node := models.TraceNode{
-		ID:          "node_" + uuid.New().String(),
-		Name:        "SendActivity",
-		Type:        models.NodeTypeWorkflow,
-		ReferenceID: sendActivity.ID,
-		Status:      t.mapStatus(sendActivity.Status),
-		Data: &models.NodeData{
-			Output: &models.NodeDataIO{
-				Metadata: metadata,
-			},
-		},
-		Metadata:  t.buildWorkflowMetadata(sendActivity),
-		Nodes:     childNodes,
-		Logs:      []string{},
-		CreatedAt: now,
-		UpdatedAt: now,
-		CreatedBy: createdBy,
-		UpdatedBy: createdBy,
-	}
-
-	return node
-}
-
 // hasApprovalRequest checks if there's an approval request item with the given ID.
 func (t *Transformer) hasApprovalRequest(items []ConversationItem, approvalRequestID string) bool {
-	for _, item := range items {
-		if item.Type == "mcp_approval_request" && item.ID == approvalRequestID {
+	for i := range items {
+		if items[i].Type == "mcp_approval_request" && items[i].ID == approvalRequestID {
 			return true
 		}
 	}
@@ -298,9 +510,10 @@ func (t *Transformer) transformMessage(item ConversationItem, createdBy string) 
 	inputText, outputText := t.extractMessageContent(item)
 
 	name := "Message"
-	if item.Role == "user" {
+	switch item.Role {
+	case "user":
 		name = "User Message"
-	} else if item.Role == "assistant" {
+	case "assistant":
 		name = "Assistant Response"
 	}
 
@@ -402,15 +615,15 @@ func (t *Transformer) transformMCPGroup(
 		name = approvalRequest.Name
 	}
 
-	inputText := approvalRequest.Arguments
+	inputText := RawMessageToString(approvalRequest.Arguments)
 	outputText := ""
-	if mcpCall != nil && mcpCall.Output != "" {
-		outputText = mcpCall.Output
+	if mcpCall != nil && len(mcpCall.Output) > 0 {
+		outputText = RawMessageToString(mcpCall.Output)
 	}
 
 	status := models.NodeStatusCompleted
 	if mcpResponse != nil && mcpResponse.Approve != nil && !*mcpResponse.Approve {
-		status = models.NodeStatusCancelled
+		status = models.NodeStatusCanceled
 	}
 
 	var subNodes []models.TraceNode
@@ -464,7 +677,7 @@ func (t *Transformer) transformMCPApprovalRequest(item ConversationItem, created
 		Status:      models.NodeStatusCompleted,
 		Data: &models.NodeData{
 			Input: &models.NodeDataIO{
-				Text: item.Arguments,
+				Text: RawMessageToString(item.Arguments),
 				Metadata: map[string]interface{}{
 					"server_label": item.ServerLabel,
 					"tool_name":    item.Name,
@@ -490,7 +703,7 @@ func (t *Transformer) transformMCPApprovalResponse(item ConversationItem, create
 	if item.Approve != nil {
 		approved = *item.Approve
 		if !approved {
-			status = models.NodeStatusCancelled
+			status = models.NodeStatusCanceled
 		}
 	}
 
@@ -543,14 +756,14 @@ func (t *Transformer) transformMCPCall(item ConversationItem, createdBy string) 
 		Status:      t.mapStatus(item.Status),
 		Data: &models.NodeData{
 			Input: &models.NodeDataIO{
-				Text: item.Arguments,
+				Text: RawMessageToString(item.Arguments),
 				Metadata: map[string]interface{}{
 					"server_label": item.ServerLabel,
 					"tool_name":    item.Name,
 				},
 			},
 			Output: &models.NodeDataIO{
-				Text: item.Output,
+				Text: RawMessageToString(item.Output),
 			},
 		},
 		Metadata:  t.buildMCPMetadata(item),
@@ -639,6 +852,191 @@ func (t *Transformer) transformUnknown(item ConversationItem, createdBy string) 
 	}
 }
 
+// markFunctionCallOutputProcessed marks the matching function_call_output as processed.
+func (t *Transformer) markFunctionCallOutputProcessed(
+	fcItem ConversationItem,
+	functionCallOutputs map[string]*ConversationItem,
+	processedIDs map[string]bool,
+) {
+	if fcItem.CallID != "" {
+		if fco, ok := functionCallOutputs[fcItem.CallID]; ok {
+			processedIDs[fco.ID] = true
+		}
+	}
+}
+
+// groupFunctionCallOutputsByCallID maps function_call_output / remote_function_call_output items by their call_id.
+func (t *Transformer) groupFunctionCallOutputsByCallID(items []ConversationItem) map[string]*ConversationItem {
+	outputs := make(map[string]*ConversationItem)
+
+	for i := range items {
+		if isFunctionCallOutputType(items[i].Type) && items[i].CallID != "" {
+			item := items[i]
+			outputs[items[i].CallID] = &item
+		}
+	}
+
+	return outputs
+}
+
+// groupFunctionCallsByResponseID groups function_call / remote_function_call items by their response_id.
+// This is used to nest function calls under the assistant message that triggered them.
+func (t *Transformer) groupFunctionCallsByResponseID(items []ConversationItem) map[string][]ConversationItem {
+	groups := make(map[string][]ConversationItem)
+
+	for i := range items {
+		if isFunctionCallType(items[i].Type) {
+			if respID := t.extractResponseID(items[i]); respID != "" {
+				groups[respID] = append(groups[respID], items[i])
+			}
+		}
+	}
+
+	return groups
+}
+
+// isMCPItemType returns true if the item type is an MCP item that can be nested.
+func isMCPItemType(itemType string) bool {
+	return itemType == "mcp_list_tools" || itemType == "mcp_call" || itemType == "mcp_approval_request"
+}
+
+// groupMCPItemsByResponseID groups MCP items (mcp_list_tools, mcp_call, mcp_approval_request)
+// by their response_id. This is used to nest MCP items under the assistant message that triggered them.
+func (t *Transformer) groupMCPItemsByResponseID(items []ConversationItem) map[string][]ConversationItem {
+	groups := make(map[string][]ConversationItem)
+
+	for i := range items {
+		if isMCPItemType(items[i].Type) {
+			if respID := t.extractResponseID(items[i]); respID != "" {
+				groups[respID] = append(groups[respID], items[i])
+			}
+		}
+	}
+
+	return groups
+}
+
+// transformMCPItemForNesting transforms an MCP item into a TraceNode for nesting under an assistant message.
+func (t *Transformer) transformMCPItemForNesting(
+	item ConversationItem,
+	mcpApprovalGroups map[string][]ConversationItem,
+	createdBy string,
+) models.TraceNode {
+	switch item.Type {
+	case "mcp_list_tools":
+		return t.transformMCPListTools(item, createdBy)
+	case "mcp_approval_request":
+		return t.transformMCPGroup(item, mcpApprovalGroups, createdBy)
+	case "mcp_call":
+		return t.transformMCPCall(item, createdBy)
+	default:
+		return t.transformUnknown(item, createdBy)
+	}
+}
+
+// transformFunctionCall transforms a function_call item and its matching function_call_output into a TraceNode.
+func (t *Transformer) transformFunctionCall(
+	item ConversationItem,
+	functionCallOutputs map[string]*ConversationItem,
+	createdBy string,
+) models.TraceNode {
+	now := time.Now().UTC()
+
+	name := "Function Call"
+	if item.Name != "" {
+		name = item.Name
+	}
+
+	inputText := RawMessageToString(item.Arguments)
+	outputText := ""
+	if item.CallID != "" {
+		if fco, ok := functionCallOutputs[item.CallID]; ok {
+			outputText = RawMessageToString(fco.Output)
+		}
+	}
+
+	node := models.TraceNode{
+		ID:          "node_" + uuid.New().String(),
+		Name:        name,
+		Type:        models.NodeTypeTool,
+		ReferenceID: item.ID,
+		Status:      t.mapStatus(item.Status),
+		Data: &models.NodeData{
+			Input: &models.NodeDataIO{
+				Text: inputText,
+				Metadata: map[string]interface{}{
+					"tool_name": item.Name,
+					"call_id":   item.CallID,
+				},
+			},
+			Output: &models.NodeDataIO{
+				Text: outputText,
+			},
+		},
+		Metadata:  t.buildFunctionCallMetadata(item),
+		Nodes:     []models.TraceNode{},
+		Logs:      []string{},
+		CreatedAt: now,
+		UpdatedAt: now,
+		CreatedBy: createdBy,
+		UpdatedBy: createdBy,
+	}
+
+	return node
+}
+
+// transformFunctionCallOutput transforms a standalone function_call_output item into a TraceNode.
+func (t *Transformer) transformFunctionCallOutput(item ConversationItem, createdBy string) models.TraceNode {
+	now := time.Now().UTC()
+
+	return models.TraceNode{
+		ID:          "node_" + uuid.New().String(),
+		Name:        "Function Call Output",
+		Type:        models.NodeTypeTool,
+		ReferenceID: item.ID,
+		Status:      models.NodeStatusCompleted,
+		Data: &models.NodeData{
+			Output: &models.NodeDataIO{
+				Text: RawMessageToString(item.Output),
+				Metadata: map[string]interface{}{
+					"call_id": item.CallID,
+				},
+			},
+		},
+		Metadata: map[string]interface{}{
+			"partition_key": item.PartitionKey,
+			"call_id":       item.CallID,
+		},
+		Nodes:     []models.TraceNode{},
+		Logs:      []string{},
+		CreatedAt: now,
+		UpdatedAt: now,
+		CreatedBy: createdBy,
+		UpdatedBy: createdBy,
+	}
+}
+
+// buildFunctionCallMetadata builds metadata for a function_call node.
+func (t *Transformer) buildFunctionCallMetadata(item ConversationItem) map[string]interface{} {
+	metadata := map[string]interface{}{
+		"partition_key": item.PartitionKey,
+		"call_id":       item.CallID,
+		"tool_name":     item.Name,
+	}
+
+	if responseID := t.extractResponseID(item); responseID != "" {
+		metadata["response_id"] = responseID
+	}
+
+	if item.CreatedBy != nil {
+		if agent, ok := item.CreatedBy["agent"].(map[string]interface{}); ok {
+			metadata["agent"] = agent
+		}
+	}
+
+	return metadata
+}
+
 // extractMessageContent extracts input and output text from message content.
 func (t *Transformer) extractMessageContent(item ConversationItem) (inputText, outputText string) {
 	if item.Content == nil {
@@ -672,8 +1070,8 @@ func (t *Transformer) mapStatus(status string) models.NodeStatus {
 		return models.NodeStatusCompleted
 	case "failed":
 		return models.NodeStatusFailed
-	case "cancelled":
-		return models.NodeStatusCancelled
+	case "cancelled": //nolint:misspell // value must stay "cancelled" for external API compatibility
+		return models.NodeStatusCanceled
 	case "pending":
 		return models.NodeStatusPending
 	case "running", "in_progress":

@@ -22,7 +22,9 @@ Read the relevant instruction file **before** working in that area.
 | [api-routes.instructions.md](./api-routes.instructions.md) | Adding or modifying API routes, middleware groups, URL conventions |
 | [handlers.instructions.md](./handlers.instructions.md) | Implementing handler methods, Swagger annotations, error handling |
 | [infrastructure.instructions.md](./infrastructure.instructions.md) | Working with cache, vault, docdb, SSE, session, platform client |
+| [security.instructions.md](./security.instructions.md) | **ALWAYS read** — NoSQL injection, SSRF, path param validation, secrets |
 | [testing.instructions.md](./testing.instructions.md) | Writing tests, running tests, understanding mock/fixture patterns |
+| [github-pipelines.instructions.md](./github-pipelines.instructions.md) | Working with CI/CD workflows, adding pipelines, coverage thresholds |
 | [instruction-management.instructions.md](./instruction-management.instructions.md) | After completing work — decides if/how to update docs |
 
 ---
@@ -38,7 +40,8 @@ Read the relevant instruction file **before** working in that area.
 7. **`context.Context` first parameter** — All service/repository methods take `context.Context` as first parameter.
 8. **Keep files under 300 lines** — Split large handlers into helper methods or separate files.
 9. **Handlers are thin** — Parse request → validate → call service/docdb → return response. Complex logic goes into services.
-10. **Run tests after changes** — After significant changes: `make test` (runs `go test -v ./...`). Regenerate swagger after handler annotation changes: `swag init -g cmd/server/main.go -o docs`.
+10. **Run tests after changes** — After significant changes: `make test` (runs `go test -v ./...`). Run `go vet ./...` to verify code correctness. Regenerate swagger after handler annotation changes: `swag init -g cmd/server/main.go -o docs`.
+11. **Run pre-commit after EVERY task** — After completing any task (including intermediate sub-tasks), ALWAYS run `pre-commit run --all-files` and fix any failures before reporting completion. This is mandatory — never skip this step, even for small changes. Pre-commit must pass before any task is considered done.
 
 ---
 
@@ -69,11 +72,12 @@ Read the relevant instruction file **before** working in that area.
 - **Test**: `make test` (runs `go test -v ./...`)
 - **Test with coverage**: `make test-cover`
 - **Lint**: `make lint` (requires `golangci-lint`)
+- **Pre-commit**: `pre-commit run --all-files`
 - **Swagger docs**: `swag init -g cmd/server/main.go -o docs`
 - **Entry point**: `cmd/server/main.go`
 - **Config**: `internal/config/config.go` → `Config` struct, loaded from env vars
 - **Routes**: `internal/api/routes/routes.go` → `Setup()`
-- **Models**: `internal/domain/models/` (trace.go, message.go, session.go)
+- **Models**: `internal/domain/models/` (trace.go, message.go, session.go, reaction.go)
 - **Errors**: `internal/domain/errors/errors.go` → `DomainError` types
 - **Core interfaces**: `internal/core/` (cache, vault, docdb)
 - **Platform client**: `internal/services/platform/client.go` → `Client` interface

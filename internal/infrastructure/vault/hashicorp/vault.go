@@ -62,7 +62,7 @@ func (v *Vault) BuildSecretURI(keyName string) string {
 }
 
 // StoreSecret stores a secret in HashiCorp Vault KV v2.
-func (v *Vault) StoreSecret(ctx context.Context, key string, value string, metadata map[string]string) (string, error) {
+func (v *Vault) StoreSecret(ctx context.Context, key, value string, metadata map[string]string) (string, error) {
 	data := map[string]interface{}{
 		"data": map[string]interface{}{
 			"value": value,
@@ -111,7 +111,7 @@ func (v *Vault) GetSecret(ctx context.Context, uri string) (string, error) {
 }
 
 // UpdateSecret updates an existing secret in HashiCorp Vault KV v2.
-func (v *Vault) UpdateSecret(ctx context.Context, uri string, value string, metadata map[string]string) (bool, error) {
+func (v *Vault) UpdateSecret(ctx context.Context, uri, value string, metadata map[string]string) (bool, error) {
 	mount, secretPath, err := v.parseURI(uri)
 	if err != nil {
 		return false, err
@@ -169,7 +169,7 @@ func (v *Vault) Close() error {
 	return nil
 }
 
-func (v *Vault) parseURI(uri string) (string, string, error) {
+func (v *Vault) parseURI(uri string) (mount, path string, err error) {
 	stripped := strings.TrimPrefix(uri, "vault://")
 	parts := strings.SplitN(stripped, "/", 3)
 

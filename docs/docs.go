@@ -727,7 +727,7 @@ const docTemplate = `{
                         "in": "header"
                     },
                     {
-                        "description": "Message content with applicationId",
+                        "description": "Message content with chatAgentId",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -1090,7 +1090,7 @@ const docTemplate = `{
                         }
                     },
                     "404": {
-                        "description": "Application, Conversation, or AutonomousAgent not found",
+                        "description": "ChatAgent, Conversation, or AutonomousAgent not found",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
@@ -1451,8 +1451,8 @@ const docTemplate = `{
         "dto.CreateTraceRequest": {
             "type": "object",
             "properties": {
-                "applicationId": {
-                    "description": "Context fields - EITHER (applicationId + conversationId) OR autonomousAgentId",
+                "chatAgentId": {
+                    "description": "Context fields - EITHER (chatAgentId + conversationId) OR autonomousAgentId",
                     "type": "string"
                 },
                 "autonomousAgentId": {
@@ -1732,7 +1732,7 @@ const docTemplate = `{
         "dto.TraceResponse": {
             "type": "object",
             "properties": {
-                "applicationId": {
+                "chatAgentId": {
                     "type": "string"
                 },
                 "autonomousAgentId": {
@@ -1847,7 +1847,7 @@ const docTemplate = `{
         "handlers.MessageResponse": {
             "type": "object",
             "properties": {
-                "applicationId": {
+                "chatAgentId": {
                     "type": "string"
                 },
                 "content": {
@@ -1894,11 +1894,11 @@ const docTemplate = `{
         "handlers.SendMessageRequest": {
             "type": "object",
             "required": [
-                "applicationId",
+                "chatAgentId",
                 "message"
             ],
             "properties": {
-                "applicationId": {
+                "chatAgentId": {
                     "type": "string"
                 },
                 "conversationId": {

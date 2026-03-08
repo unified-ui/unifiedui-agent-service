@@ -10,127 +10,89 @@ import (
 
 // Config holds the dependencies for setting up routes.
 type Config struct {
-	HealthHandler   *handlers.HealthHandler
-	MessagesHandler *handlers.MessagesHandler
-	TracesHandler   *handlers.TracesHandler
-	DataHandler     *handlers.DataHandler
-	AIHandler       *handlers.AIHandler
-	AuthMiddleware  *middleware.AuthMiddleware
-	ServiceKeyMw    *middleware.ServiceKeyMiddleware
+	HealthHandler    *handlers.HealthHandler
+	MessagesHandler  *handlers.MessagesHandler
+	ReactionsHandler *handlers.ReactionsHandler
+	TracesHandler    *handlers.TracesHandler
+	DataHandler      *handlers.DataHandler
+	AIHandler        *handlers.AIHandler
+	AuthMiddleware   *middleware.AuthMiddleware
+	ServiceKeyMw     *middleware.ServiceKeyMiddleware
 }
 
 // Setup configures all routes on the Gin engine.
 func Setup(r *gin.Engine, cfg *Config) {
-	// API v1 routes - all routes under /api/v1/agent-service
 	v1 := r.Group("/api/v1/agent-service")
-	{
-		// Health check routes (no auth required)
-		v1.GET("/health", cfg.HealthHandler.Health)
-		v1.GET("/ready", cfg.HealthHandler.Ready)
-		v1.GET("/live", cfg.HealthHandler.Live)
 
-		// Apply auth middleware to protected API routes
-		protected := v1.Group("")
-		protected.Use(cfg.AuthMiddleware.Authenticate())
+	v1.GET("/health", cfg.HealthHandler.Health)
+	v1.GET("/ready", cfg.HealthHandler.Ready)
+	v1.GET("/live", cfg.HealthHandler.Live)
 
-		// Tenant-scoped routes
-		tenants := protected.Group("/tenants/:tenantId")
-		{
-			// Conversation routes (conversationId in request body)
-			conversation := tenants.Group("/conversation")
-			{
-				// Messages
-				conversation.GET("/messages", cfg.MessagesHandler.GetMessages)
-				conversation.POST("/messages", cfg.MessagesHandler.SendMessage)
-			}
+	protected := v1.Group("")
+	protected.Use(cfg.AuthMiddleware.Authenticate())
 
-			// --- Traces CRUD Routes ---
-			traces := tenants.Group("/traces")
-			{
-				// Get, delete trace by ID
-				traces.GET("/:traceId", cfg.TracesHandler.GetTrace)
-				traces.DELETE("/:traceId", cfg.TracesHandler.DeleteTrace)
-			}
+	tenants := protected.Group("/tenants/:tenantId")
 
-			// --- Conversation Traces Routes ---
-			conversations := tenants.Group("/conversations/:conversationId")
-			{
-				// Get traces for conversation
-				conversations.GET("/traces", cfg.TracesHandler.GetConversationTraces)
-				// Refresh (replace) trace for conversation
-				conversations.PUT("/traces", cfg.TracesHandler.RefreshConversationTrace)
-				// Import traces from external system (Foundry, N8N)
-				conversations.PUT("/traces/import/refresh", cfg.TracesHandler.ImportConversationTrace)
-			}
+	conversation := tenants.Group("/conversation")
+	conversation.GET("/messages", cfg.MessagesHandler.GetMessages)
+	conversation.GET("/messages/search", cfg.MessagesHandler.SearchMessages)
+	conversation.POST("/messages", cfg.MessagesHandler.SendMessage)
 
-			// --- Autonomous Agent Routes ---
-			// List all autonomous agent traces
-			tenants.GET("/autonomous-agents/traces", cfg.TracesHandler.ListAutonomousAgentTraces)
+	conversations := tenants.Group("/conversations/:conversationId")
+	conversations.PUT("/messages/:messageId", cfg.MessagesHandler.EditMessage)
+	conversations.DELETE("/messages/:messageId", cfg.MessagesHandler.DeleteMessage)
 
-			// --- AI Feature Routes ---
-			if cfg.AIHandler != nil {
-				aiRoutes := tenants.Group("/ai")
-				{
-					aiRoutes.POST("/generate-description", cfg.AIHandler.GenerateDescription)
-					aiRoutes.POST("/analyze-trace", cfg.AIHandler.AnalyzeTrace)
-					aiRoutes.POST("/summarize-trace", cfg.AIHandler.SummarizeTrace)
-					aiRoutes.POST("/trace-chat", cfg.AIHandler.TraceChat)
-					aiRoutes.POST("/test-model", cfg.AIHandler.TestModel)
-					aiRoutes.GET("/capabilities", cfg.AIHandler.GetCapabilities)
-				}
-			}
+	if cfg.ReactionsHandler != nil {
+		reactions := conversations.Group("/messages/:messageId/reactions")
+		reactions.POST("", cfg.ReactionsHandler.UpsertReaction)
+		reactions.DELETE("", cfg.ReactionsHandler.DeleteReaction)
+		reactions.GET("", cfg.ReactionsHandler.GetReactions)
+	}
 
-			// Specific autonomous agent routes
-			agents := tenants.Group("/autonomous-agents/:agentId")
-			{
-				// Get traces for agent
-				agents.GET("/traces", cfg.TracesHandler.GetAutonomousAgentTraces)
-				// Refresh (replace) trace for agent
-				agents.PUT("/traces", cfg.TracesHandler.RefreshAutonomousAgentTrace)
-			}
-		}
+	conversations.GET("/traces", cfg.TracesHandler.GetConversationTraces)
+	conversations.PUT("/traces", cfg.TracesHandler.RefreshConversationTrace)
+	conversations.PUT("/traces/import/refresh", cfg.TracesHandler.ImportConversationTrace)
 
-		// --- Autonomous Agent Import Routes (Bearer OR API Key Auth) ---
-		// These routes accept either Bearer token (with WRITE permission) or
-		// X-Unified-UI-Autonomous-Agent-API-Key header for authentication.
-		agentImport := v1.Group("/tenants/:tenantId")
-		agentImport.Use(cfg.AuthMiddleware.AuthenticateFlexible())
-		{
-			agentImportRoutes := agentImport.Group("/autonomous-agents/:agentId")
-			{
-				// Import/upsert traces for an autonomous agent (create or replace by executionId)
-				agentImportRoutes.PUT("/traces/import", cfg.TracesHandler.ImportAutonomousAgentTrace)
-				// Refresh imported trace for an autonomous agent
-				agentImportRoutes.PUT("/traces/:traceId/import/refresh", cfg.TracesHandler.RefreshAutonomousAgentImportTrace)
-			}
-		}
+	traces := tenants.Group("/traces")
+	traces.GET("/:traceId", cfg.TracesHandler.GetTrace)
+	traces.DELETE("/:traceId", cfg.TracesHandler.DeleteTrace)
 
-		// --- Flexible Auth Routes (Bearer OR API Key) ---
-		// These routes accept either Bearer token (for user/conversation context) or
-		// X-Unified-UI-Autonomous-Agent-API-Key (for autonomous agent context).
-		// The handler determines which auth type is required based on request content.
-		flexibleAuth := v1.Group("/tenants/:tenantId")
-		flexibleAuth.Use(cfg.AuthMiddleware.AuthenticateFlexible())
-		{
-			flexibleTraces := flexibleAuth.Group("/traces")
-			{
-				// Create a new trace (Bearer for conversation, API key for agent)
-				flexibleTraces.POST("", cfg.TracesHandler.CreateTrace)
-				// Add nodes/logs to existing trace
-				flexibleTraces.POST("/:traceId/nodes", cfg.TracesHandler.AddNodes)
-				flexibleTraces.POST("/:traceId/logs", cfg.TracesHandler.AddLogs)
-			}
-		}
+	tenants.GET("/autonomous-agents/traces", cfg.TracesHandler.ListAutonomousAgentTraces)
 
-		// --- Service Key Auth Routes (internal service-to-service) ---
-		if cfg.ServiceKeyMw != nil && cfg.DataHandler != nil {
-			serviceAuth := v1.Group("/tenants/:tenantId")
-			serviceAuth.Use(cfg.ServiceKeyMw.AuthenticateServiceKey())
-			{
-				serviceAuth.DELETE("/conversations/:conversationId/data", cfg.DataHandler.DeleteConversationData)
-				serviceAuth.DELETE("/autonomous-agents/:agentId/data", cfg.DataHandler.DeleteAutonomousAgentData)
-			}
-		}
+	if cfg.AIHandler != nil {
+		aiRoutes := tenants.Group("/ai")
+		aiRoutes.POST("/generate-description", cfg.AIHandler.GenerateDescription)
+		aiRoutes.POST("/analyze-trace", cfg.AIHandler.AnalyzeTrace)
+		aiRoutes.POST("/summarize-trace", cfg.AIHandler.SummarizeTrace)
+		aiRoutes.POST("/trace-chat", cfg.AIHandler.TraceChat)
+		aiRoutes.POST("/test-model", cfg.AIHandler.TestModel)
+		aiRoutes.GET("/capabilities", cfg.AIHandler.GetCapabilities)
+	}
+
+	agents := tenants.Group("/autonomous-agents/:agentId")
+	agents.GET("/traces", cfg.TracesHandler.GetAutonomousAgentTraces)
+	agents.PUT("/traces", cfg.TracesHandler.RefreshAutonomousAgentTrace)
+
+	agentImport := v1.Group("/tenants/:tenantId")
+	agentImport.Use(cfg.AuthMiddleware.AuthenticateFlexible())
+
+	agentImportRoutes := agentImport.Group("/autonomous-agents/:agentId")
+	agentImportRoutes.PUT("/traces/import", cfg.TracesHandler.ImportAutonomousAgentTrace)
+	agentImportRoutes.PUT("/traces/:traceId/import/refresh", cfg.TracesHandler.RefreshAutonomousAgentImportTrace)
+
+	flexibleAuth := v1.Group("/tenants/:tenantId")
+	flexibleAuth.Use(cfg.AuthMiddleware.AuthenticateFlexible())
+
+	flexibleTraces := flexibleAuth.Group("/traces")
+	flexibleTraces.POST("", cfg.TracesHandler.CreateTrace)
+	flexibleTraces.POST("/:traceId/nodes", cfg.TracesHandler.AddNodes)
+	flexibleTraces.POST("/:traceId/logs", cfg.TracesHandler.AddLogs)
+
+	if cfg.ServiceKeyMw != nil && cfg.DataHandler != nil {
+		serviceAuth := v1.Group("/tenants/:tenantId")
+		serviceAuth.Use(cfg.ServiceKeyMw.AuthenticateServiceKey())
+		serviceAuth.DELETE("/conversations/:conversationId/data", cfg.DataHandler.DeleteConversationData)
+		serviceAuth.DELETE("/autonomous-agents/:agentId/data", cfg.DataHandler.DeleteAutonomousAgentData)
 	}
 }
 

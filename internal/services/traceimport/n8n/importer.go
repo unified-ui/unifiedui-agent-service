@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -166,7 +168,7 @@ func (n *TraceImporter) Import(ctx context.Context, req *traceimport.ImportReque
 	trace := &models.Trace{
 		ID:                traceID,
 		TenantID:          req.TenantID,
-		ApplicationID:     req.ApplicationID,
+		ChatAgentID:       req.ChatAgentID,
 		ConversationID:    req.ConversationID,
 		AutonomousAgentID: req.AutonomousAgentID,
 		ContextType:       contextType,
@@ -189,15 +191,22 @@ func (n *TraceImporter) Import(ctx context.Context, req *traceimport.ImportReque
 }
 
 // fetchExecution fetches execution details from N8N API.
-func (n *TraceImporter) fetchExecution(ctx context.Context, config *N8NConfig) (*ExecutionResponse, error) {
-	// Build URL: {BASE_URL}/api/v1/executions/{EXECUTION_ID}?includeData=true
-	url := fmt.Sprintf("%s/api/v1/executions/%s?includeData=true",
-		config.BaseURL,
-		config.ExecutionID,
-	)
+func (n *TraceImporter) fetchExecution(ctx context.Context, config *Config) (*ExecutionResponse, error) {
+	baseURL, err := validateHTTPURL(config.BaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid base URL: %w", err)
+	}
 
-	// Create request
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	u, err := url.Parse(baseURL + "/api/v1/executions/" + url.PathEscape(validateIdentifier(config.ExecutionID)))
+	if err != nil {
+		return nil, fmt.Errorf("failed to construct request URL: %w", err)
+	}
+
+	q := u.Query()
+	q.Set("includeData", "true")
+	u.RawQuery = q.Encode()
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -212,7 +221,7 @@ func (n *TraceImporter) fetchExecution(ctx context.Context, config *N8NConfig) (
 	if err != nil {
 		return nil, fmt.Errorf("failed to call N8N API: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Read response body
 	body, err := io.ReadAll(resp.Body)
@@ -236,19 +245,27 @@ func (n *TraceImporter) fetchExecution(ctx context.Context, config *N8NConfig) (
 
 // findExecutionBySessionID searches for an execution with the given session ID.
 // This is used when the execution ID is not available in the stream response.
-func (n *TraceImporter) findExecutionBySessionID(ctx context.Context, config *N8NConfig) (string, error) {
-	// Build URL for listing executions
-	// We'll fetch recent executions and filter by session ID
-	// If workflowId is available, use it to narrow down the search
-	url := fmt.Sprintf("%s/api/v1/executions?status=success&limit=100&includeData=true",
-		config.BaseURL,
-	)
-	if config.WorkflowID != "" {
-		url = fmt.Sprintf("%s&workflowId=%s", url, config.WorkflowID)
+func (n *TraceImporter) findExecutionBySessionID(ctx context.Context, config *Config) (string, error) {
+	baseURL, err := validateHTTPURL(config.BaseURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid base URL: %w", err)
 	}
 
-	// Create request
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	u, err := url.Parse(baseURL + "/api/v1/executions")
+	if err != nil {
+		return "", fmt.Errorf("failed to construct request URL: %w", err)
+	}
+
+	q := u.Query()
+	q.Set("status", "success")
+	q.Set("limit", "100")
+	q.Set("includeData", "true")
+	if config.WorkflowID != "" {
+		q.Set("workflowId", validateIdentifier(config.WorkflowID))
+	}
+	u.RawQuery = q.Encode()
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), http.NoBody)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
@@ -263,7 +280,7 @@ func (n *TraceImporter) findExecutionBySessionID(ctx context.Context, config *N8
 	if err != nil {
 		return "", fmt.Errorf("failed to call N8N API: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Read response body
 	body, err := io.ReadAll(resp.Body)
@@ -283,10 +300,10 @@ func (n *TraceImporter) findExecutionBySessionID(ctx context.Context, config *N8
 	}
 
 	// Search for execution with matching session ID
-	for _, exec := range execList.Data {
-		sessionID := n.transformer.ExtractSessionID(&exec)
+	for i := range execList.Data {
+		sessionID := n.transformer.ExtractSessionID(&execList.Data[i])
 		if sessionID == config.SessionID {
-			return exec.ID, nil
+			return execList.Data[i].ID, nil
 		}
 	}
 
@@ -304,4 +321,18 @@ func (n *TraceImporter) getWorkflowName(execution *ExecutionResponse) string {
 // GetTransformer returns the transformer for testing purposes.
 func (n *TraceImporter) GetTransformer() *Transformer {
 	return n.transformer
+}
+
+func validateHTTPURL(rawURL string) (string, error) {
+	parsed, err := url.Parse(strings.TrimRight(rawURL, "/"))
+	if err != nil {
+		return "", fmt.Errorf("invalid URL: %w", err)
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return "", fmt.Errorf("unsupported URL scheme: %s", parsed.Scheme)
+	}
+	if parsed.Host == "" {
+		return "", fmt.Errorf("URL missing host")
+	}
+	return parsed.String(), nil
 }

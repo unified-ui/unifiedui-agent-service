@@ -113,7 +113,7 @@ func BuildTestModelMessages() []ChatMessage {
 }
 
 // BuildTraceChatMessages builds the messages for trace chat conversation.
-func BuildTraceChatMessages(traceJSON string, selectedNodeJSON string, history []ChatMessage, userMessage string) []ChatMessage {
+func BuildTraceChatMessages(traceJSON, selectedNodeJSON string, history []ChatMessage, userMessage string) []ChatMessage {
 	selectedNodeSection := ""
 	if selectedNodeJSON != "" {
 		selectedNodeSection = fmt.Sprintf("\n\nCurrently selected/focused node (JSON):\n%s", selectedNodeJSON)

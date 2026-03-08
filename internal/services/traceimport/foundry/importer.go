@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -136,7 +138,7 @@ func (f *TraceImporter) Import(ctx context.Context, req *traceimport.ImportReque
 	trace := &models.Trace{
 		ID:                traceID,
 		TenantID:          req.TenantID,
-		ApplicationID:     req.ApplicationID,
+		ChatAgentID:       req.ChatAgentID,
 		ConversationID:    req.ConversationID,
 		AutonomousAgentID: req.AutonomousAgentID,
 		ContextType:       contextType,
@@ -165,16 +167,22 @@ func (f *TraceImporter) Import(ctx context.Context, req *traceimport.ImportReque
 }
 
 // fetchConversationItems fetches conversation items from Microsoft Foundry.
-func (f *TraceImporter) fetchConversationItems(ctx context.Context, config *FoundryConfig) (*ConversationItemsResponse, error) {
-	// Build URL: {PROJECT_ENDPOINT}/openai/conversations/{FOUNDRY_CONV_ID}/items?api-version={VERSION}
-	url := fmt.Sprintf("%s/openai/conversations/%s/items?api-version=%s",
-		config.ProjectEndpoint,
-		config.FoundryConversationID,
-		config.APIVersion,
-	)
+func (f *TraceImporter) fetchConversationItems(ctx context.Context, config *Config) (*ConversationItemsResponse, error) {
+	baseURL, err := validateHTTPURL(config.ProjectEndpoint)
+	if err != nil {
+		return nil, fmt.Errorf("invalid project endpoint: %w", err)
+	}
 
-	// Create request
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	u, err := url.Parse(baseURL + "/openai/conversations/" + url.PathEscape(validateIdentifier(config.FoundryConversationID)) + "/items")
+	if err != nil {
+		return nil, fmt.Errorf("failed to construct request URL: %w", err)
+	}
+
+	q := u.Query()
+	q.Set("api-version", validateIdentifier(config.APIVersion))
+	u.RawQuery = q.Encode()
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -188,7 +196,7 @@ func (f *TraceImporter) fetchConversationItems(ctx context.Context, config *Foun
 	if err != nil {
 		return nil, fmt.Errorf("failed to call Foundry API: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Read response body
 	body, err := io.ReadAll(resp.Body)
@@ -204,12 +212,6 @@ func (f *TraceImporter) fetchConversationItems(ctx context.Context, config *Foun
 	// Parse response
 	var items ConversationItemsResponse
 	if err := json.Unmarshal(body, &items); err != nil {
-		var rawData interface{}
-		if jsonErr := json.Unmarshal(body, &rawData); jsonErr == nil {
-			return &ConversationItemsResponse{
-				Data: nil,
-			}, nil
-		}
 		return nil, fmt.Errorf("failed to parse Foundry response: %w", err)
 	}
 
@@ -219,4 +221,18 @@ func (f *TraceImporter) fetchConversationItems(ctx context.Context, config *Foun
 // GetTransformer returns the transformer for testing purposes.
 func (f *TraceImporter) GetTransformer() *Transformer {
 	return f.transformer
+}
+
+func validateHTTPURL(rawURL string) (string, error) {
+	parsed, err := url.Parse(strings.TrimRight(rawURL, "/"))
+	if err != nil {
+		return "", fmt.Errorf("invalid URL: %w", err)
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return "", fmt.Errorf("unsupported URL scheme: %s", parsed.Scheme)
+	}
+	if parsed.Host == "" {
+		return "", fmt.Errorf("URL missing host")
+	}
+	return parsed.String(), nil
 }

@@ -21,8 +21,8 @@ const (
 	DefaultChatHistoryCount = 30
 )
 
-// SessionData represents cached session data.
-type SessionData struct {
+// Data represents cached session data.
+type Data struct {
 	Config         *platform.AgentConfig     `json:"config"`
 	ChatHistory    []models.ChatHistoryEntry `json:"chatHistory"`
 	TenantID       string                    `json:"tenantId"`
@@ -35,10 +35,10 @@ type SessionData struct {
 // Service provides session management with caching.
 type Service interface {
 	// GetSession retrieves a session from cache, or returns nil if not found.
-	GetSession(ctx context.Context, tenantID, userID, conversationID string) (*SessionData, error)
+	GetSession(ctx context.Context, tenantID, userID, conversationID string) (*Data, error)
 
 	// SetSession stores a session in cache with the configured TTL.
-	SetSession(ctx context.Context, session *SessionData) error
+	SetSession(ctx context.Context, session *Data) error
 
 	// UpdateChatHistory updates the chat history in an existing session.
 	// Removes oldest messages if count exceeds limit, then adds new messages.
@@ -91,7 +91,7 @@ func NewService(cfg *Config) (Service, error) {
 
 // GetSession retrieves a session from cache.
 // Returns nil (not an error) if decryption fails (e.g., key changed) - cache will be skipped.
-func (s *service) GetSession(ctx context.Context, tenantID, userID, conversationID string) (*SessionData, error) {
+func (s *service) GetSession(ctx context.Context, tenantID, userID, conversationID string) (*Data, error) {
 	key := s.BuildCacheKey(tenantID, userID, conversationID)
 
 	encrypted, err := s.cacheClient.Get(ctx, key)
@@ -108,21 +108,21 @@ func (s *service) GetSession(ctx context.Context, tenantID, userID, conversation
 	if err != nil {
 		// Key might have changed - delete stale cache entry and return nil to fetch fresh data
 		_, _ = s.cacheClient.Delete(ctx, key)
-		return nil, nil
+		return nil, nil //nolint:nilerr // graceful fallback: decryption failure means stale cache, not a caller error
 	}
 
 	// Unmarshal - if unmarshal fails, data is corrupted, skip cache
-	var session SessionData
+	var session Data
 	if err := json.Unmarshal(decrypted, &session); err != nil {
 		_, _ = s.cacheClient.Delete(ctx, key)
-		return nil, nil
+		return nil, nil //nolint:nilerr // graceful fallback: corrupted cache data, not a caller error
 	}
 
 	return &session, nil
 }
 
 // SetSession stores a session in cache.
-func (s *service) SetSession(ctx context.Context, session *SessionData) error {
+func (s *service) SetSession(ctx context.Context, session *Data) error {
 	if session == nil {
 		return fmt.Errorf("session is required")
 	}
@@ -198,14 +198,14 @@ func (s *service) BuildCacheKey(tenantID, userID, conversationID string) string 
 	return fmt.Sprintf("session:%s:%s:%s", tenantID, userID, conversationID)
 }
 
-// NewSessionData creates a new SessionData with the given parameters.
-func NewSessionData(
+// NewData creates a new Data with the given parameters.
+func NewData(
 	config *platform.AgentConfig,
 	chatHistory []models.ChatHistoryEntry,
 	tenantID, userID, conversationID string,
-) *SessionData {
+) *Data {
 	now := time.Now().UTC()
-	return &SessionData{
+	return &Data{
 		Config:         config,
 		ChatHistory:    chatHistory,
 		TenantID:       tenantID,

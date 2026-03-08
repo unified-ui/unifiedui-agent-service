@@ -12,6 +12,7 @@ import (
 // APIVersion represents the N8N API version.
 type APIVersion string
 
+// APIVersion constants define the supported N8N API versions.
 const (
 	APIVersionV1 APIVersion = "v1"
 )
@@ -19,6 +20,7 @@ const (
 // WorkflowType represents the type of N8N workflow.
 type WorkflowType string
 
+// WorkflowType constants define the types of N8N workflows.
 const (
 	WorkflowTypeChatAgent   WorkflowType = "N8N_CHAT_AGENT_WORKFLOW"
 	WorkflowTypeHumanInLoop WorkflowType = "N8N_HUMAN_IN_THE_LOOP"
@@ -30,17 +32,33 @@ type ChatRequest struct {
 	SessionID string `json:"sessionId,omitempty"`
 }
 
-// N8NStreamType represents the type of N8N stream event.
-type N8NStreamType string
+// FileAttachment represents a file attachment for N8N chat requests.
+type FileAttachment struct {
+	Type     string `json:"type"`
+	Data     string `json:"data"`
+	Filename string `json:"filename,omitempty"`
+	MimeType string `json:"mimeType,omitempty"`
+}
 
+// ChatRequestWithFiles extends ChatRequest with file attachments.
+type ChatRequestWithFiles struct {
+	ChatInput string           `json:"chatInput"`
+	SessionID string           `json:"sessionId,omitempty"`
+	Files     []FileAttachment `json:"files,omitempty"`
+}
+
+// StreamType represents the type of N8N stream event.
+type StreamType string
+
+// StreamType constants define the types of N8N stream events.
 const (
-	N8NStreamTypeBegin N8NStreamType = "begin"
-	N8NStreamTypeItem  N8NStreamType = "item"
-	N8NStreamTypeEnd   N8NStreamType = "end"
+	StreamTypeBegin StreamType = "begin"
+	StreamTypeItem  StreamType = "item"
+	StreamTypeEnd   StreamType = "end"
 )
 
-// N8NStreamMetadata represents metadata in N8N stream events.
-type N8NStreamMetadata struct {
+// StreamMetadata represents metadata in N8N stream events.
+type StreamMetadata struct {
 	NodeID    string `json:"nodeId,omitempty"`
 	NodeName  string `json:"nodeName,omitempty"`
 	ItemIndex int    `json:"itemIndex,omitempty"`
@@ -48,11 +66,11 @@ type N8NStreamMetadata struct {
 	Timestamp int64  `json:"timestamp,omitempty"`
 }
 
-// N8NStreamEvent represents a stream event from N8N.
-type N8NStreamEvent struct {
-	Type     N8NStreamType     `json:"type"`
-	Content  string            `json:"content,omitempty"`
-	Metadata N8NStreamMetadata `json:"metadata,omitempty"`
+// StreamEvent represents a stream event from N8N.
+type StreamEvent struct {
+	Type     StreamType     `json:"type"`
+	Content  string         `json:"content,omitempty"`
+	Metadata StreamMetadata `json:"metadata,omitempty"`
 }
 
 // ChatStreamChunk represents a chunk from the N8N streaming response (legacy format).

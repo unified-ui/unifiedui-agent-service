@@ -1,0 +1,81 @@
+# Docker Compose for unified-ui Agent Service
+# Includes development and production configurations
+
+services:
+  # Development configuration with hot reload
+  agent-service-dev:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dev
+    container_name: unified-ui-agent-service-dev
+    ports:
+      - "8085:8085"
+    environment:
+      - GIN_MODE=debug
+      - LOG_LEVEL=debug
+      - REDIS_ADDRESS=redis:6379
+      - MONGODB_URI=mongodb://mongodb:27017
+      - MONGODB_DATABASE=unified_ui_agent
+      - PLATFORM_SERVICE_URL=http://platform-service:8000
+    volumes:
+      - ../:/app
+      - go-modules:/go/pkg/mod
+    depends_on:
+      - redis
+      - mongodb
+    profiles:
+      - dev
+
+  # Production configuration
+  agent-service:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: unified-ui-agent-service
+    ports:
+      - "8085:8085"
+    environment:
+      - GIN_MODE=release
+      - LOG_LEVEL=info
+      - REDIS_ADDRESS=redis:6379
+      - MONGODB_URI=mongodb://mongodb:27017
+      - MONGODB_DATABASE=unified_ui_agent
+      - PLATFORM_SERVICE_URL=http://platform-service:8000
+    depends_on:
+      - redis
+      - mongodb
+    profiles:
+      - prod
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+  redis:
+    image: redis:7-alpine
+    container_name: unified-ui-agent-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+
+  mongodb:
+    image: mongo:7
+    container_name: unified-ui-agent-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+    restart: unless-stopped
+
+volumes:
+  go-modules:
+  redis-data:
+  mongodb-data:

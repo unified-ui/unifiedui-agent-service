@@ -1,0 +1,52 @@
+# Labels PRs based on files changed
+
+# API changes
+api:
+  - changed-files:
+    - any-glob-to-any-file: 'internal/api/**/*'
+
+# Handler changes
+handlers:
+  - changed-files:
+    - any-glob-to-any-file: 'internal/api/handlers/**/*'
+
+# Infrastructure changes
+infrastructure:
+  - changed-files:
+    - any-glob-to-any-file: 'internal/infrastructure/**/*'
+    - any-glob-to-any-file: 'internal/core/**/*'
+
+# Service changes
+services:
+  - changed-files:
+    - any-glob-to-any-file: 'internal/services/**/*'
+
+# Tests
+tests:
+  - changed-files:
+    - any-glob-to-any-file: 'tests/**/*'
+    - any-glob-to-any-file: '**/*_test.go'
+
+# Documentation
+documentation:
+  - changed-files:
+    - any-glob-to-any-file: '**/*.md'
+    - any-glob-to-any-file: 'docs/**/*'
+
+# CI/CD
+ci:
+  - changed-files:
+    - any-glob-to-any-file: '.github/**/*'
+
+# Docker
+docker:
+  - changed-files:
+    - any-glob-to-any-file: 'docker/**/*'
+    - any-glob-to-any-file: '**/Dockerfile*'
+    - any-glob-to-any-file: '**/.dockerignore'
+
+# Dependencies
+dependencies:
+  - changed-files:
+    - any-glob-to-any-file: 'go.mod'
+    - any-glob-to-any-file: 'go.sum'

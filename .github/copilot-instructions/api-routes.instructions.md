@@ -9,22 +9,22 @@ Routes are organized into **groups by authentication type** using Gin middleware
 ```go
 func Setup(r *gin.Engine, cfg *Config) {
     base := r.Group("/api/v1/agent-service")
-    
+
     // Group 1: No auth (health endpoints)
     health := base.Group("")
-    
+
     // Group 2: Bearer token auth
     protected := base.Group("")
     protected.Use(cfg.AuthMiddleware.Authenticate())
-    
+
     // Group 3: API key auth only
     agentImport := base.Group("")
     agentImport.Use(cfg.AuthMiddleware.AuthenticateAutonomousAgentAPIKey())
-    
+
     // Group 4: Bearer OR API key (flexible)
     flexibleAuth := base.Group("")
     flexibleAuth.Use(cfg.AuthMiddleware.AuthenticateFlexible())
-    
+
     // Group 5: Service key auth (S2S only)
     serviceKey := base.Group("")
     serviceKey.Use(cfg.ServiceKeyMw.Authenticate())
@@ -55,6 +55,13 @@ func Setup(r *gin.Engine, cfg *Config) {
 # Messages
 GET  /tenants/{tenantId}/conversations/{conversationId}/messages
 POST /tenants/{tenantId}/conversations/{conversationId}/messages
+PUT  /tenants/{tenantId}/conversations/{conversationId}/messages/{messageId}
+DELETE /tenants/{tenantId}/conversations/{conversationId}/messages/{messageId}
+
+# Message Reactions
+GET    /tenants/{tenantId}/conversations/{conversationId}/messages/{messageId}/reactions
+POST   /tenants/{tenantId}/conversations/{conversationId}/messages/{messageId}/reactions
+DELETE /tenants/{tenantId}/conversations/{conversationId}/messages/{messageId}/reactions/{reactionType}
 
 # Trace CRUD (flexible auth)
 POST   /tenants/{tenantId}/traces
@@ -147,13 +154,14 @@ if token != "" {
 
 ```go
 type Config struct {
-    HealthHandler   *handlers.HealthHandler
-    MessagesHandler *handlers.MessagesHandler
-    TracesHandler   *handlers.TracesHandler
-    DataHandler     *handlers.DataHandler
-    AIHandler       *handlers.AIHandler
-    AuthMiddleware  *middleware.AuthMiddleware
-    ServiceKeyMw    *middleware.ServiceKeyMiddleware
+    HealthHandler    *handlers.HealthHandler
+    MessagesHandler  *handlers.MessagesHandler
+    ReactionsHandler *handlers.ReactionsHandler
+    TracesHandler    *handlers.TracesHandler
+    DataHandler      *handlers.DataHandler
+    AIHandler        *handlers.AIHandler
+    AuthMiddleware   *middleware.AuthMiddleware
+    ServiceKeyMw     *middleware.ServiceKeyMiddleware
 }
 ```
 

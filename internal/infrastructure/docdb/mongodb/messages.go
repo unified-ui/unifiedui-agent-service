@@ -3,6 +3,7 @@ package mongodb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -52,9 +53,9 @@ func (c *MessagesCollection) Add(ctx context.Context, message *models.Message) e
 // Get retrieves a message by ID.
 func (c *MessagesCollection) Get(ctx context.Context, id string) (*models.Message, error) {
 	var message models.Message
-	err := c.collection.FindOne(ctx, bson.M{"_id": id}).Decode(&message)
+	err := c.collection.FindOne(ctx, bson.M{"_id": sanitizeValue(id)}).Decode(&message)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
+		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to get message: %w", err)
@@ -65,14 +66,14 @@ func (c *MessagesCollection) Get(ctx context.Context, id string) (*models.Messag
 // GetByUserMessageID retrieves assistant message by user message ID.
 func (c *MessagesCollection) GetByUserMessageID(ctx context.Context, userMessageID string) (*models.Message, error) {
 	filter := bson.M{
-		"userMessageId": userMessageID,
+		"userMessageId": sanitizeValue(userMessageID),
 		"type":          models.MessageTypeAssistant,
 	}
 
 	var message models.Message
 	err := c.collection.FindOne(ctx, filter).Decode(&message)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
+		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to get assistant message by user message ID: %w", err)
@@ -89,7 +90,7 @@ func (c *MessagesCollection) List(ctx context.Context, opts *docdb.ListMessagesO
 	if err != nil {
 		return nil, fmt.Errorf("failed to list messages: %w", err)
 	}
-	defer cursor.Close(ctx)
+	defer func() { _ = cursor.Close(ctx) }()
 
 	var messages []*models.Message
 	if err := cursor.All(ctx, &messages); err != nil {
@@ -114,11 +115,40 @@ func (c *MessagesCollection) ListChatHistory(ctx context.Context, opts *docdb.Li
 	return entries, nil
 }
 
+// Search searches messages by content text using case-insensitive regex matching.
+func (c *MessagesCollection) Search(ctx context.Context, opts *docdb.SearchMessagesOptions) ([]*models.Message, error) {
+	filter := bson.M{
+		"tenantId": sanitizeValue(opts.TenantID),
+		"content":  bson.M{"$regex": sanitizeRegex(opts.Query), "$options": "i"},
+	}
+
+	findOpts := options.Find().SetSort(bson.D{{Key: "createdAt", Value: -1}})
+	if opts.Limit > 0 {
+		findOpts.SetLimit(opts.Limit)
+	}
+	if opts.Skip > 0 {
+		findOpts.SetSkip(opts.Skip)
+	}
+
+	cursor, err := c.collection.Find(ctx, filter, findOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search messages: %w", err)
+	}
+	defer func() { _ = cursor.Close(ctx) }()
+
+	var messages []*models.Message
+	if err := cursor.All(ctx, &messages); err != nil {
+		return nil, fmt.Errorf("failed to decode search results: %w", err)
+	}
+
+	return messages, nil
+}
+
 // Update updates an existing message.
 func (c *MessagesCollection) Update(ctx context.Context, message *models.Message) error {
 	message.UpdatedAt = time.Now().UTC()
 
-	result, err := c.collection.ReplaceOne(ctx, bson.M{"_id": message.ID}, message)
+	result, err := c.collection.ReplaceOne(ctx, bson.M{"_id": sanitizeValue(message.ID)}, message)
 	if err != nil {
 		return fmt.Errorf("failed to update message: %w", err)
 	}
@@ -135,8 +165,8 @@ func (c *MessagesCollection) Delete(ctx context.Context, opts *docdb.DeleteMessa
 	if opts.MessageID != "" {
 		// Delete specific message
 		result, err := c.collection.DeleteOne(ctx, bson.M{
-			"_id":      opts.MessageID,
-			"tenantId": opts.TenantID,
+			"_id":      sanitizeValue(opts.MessageID),
+			"tenantId": sanitizeValue(opts.TenantID),
 		})
 		if err != nil {
 			return 0, fmt.Errorf("failed to delete message: %w", err)
@@ -147,8 +177,8 @@ func (c *MessagesCollection) Delete(ctx context.Context, opts *docdb.DeleteMessa
 	if opts.ConversationID != "" {
 		// Delete all messages in conversation
 		filter := bson.M{
-			"conversationId": opts.ConversationID,
-			"tenantId":       opts.TenantID,
+			"conversationId": sanitizeValue(opts.ConversationID),
+			"tenantId":       sanitizeValue(opts.TenantID),
 		}
 
 		result, err := c.collection.DeleteMany(ctx, filter)
@@ -164,8 +194,8 @@ func (c *MessagesCollection) Delete(ctx context.Context, opts *docdb.DeleteMessa
 // CountByConversation returns the count of messages in a conversation.
 func (c *MessagesCollection) CountByConversation(ctx context.Context, tenantID, conversationID string) (int64, error) {
 	filter := bson.M{
-		"conversationId": conversationID,
-		"tenantId":       tenantID,
+		"conversationId": sanitizeValue(conversationID),
+		"tenantId":       sanitizeValue(tenantID),
 	}
 
 	count, err := c.collection.CountDocuments(ctx, filter)
@@ -216,6 +246,14 @@ func (c *MessagesCollection) EnsureIndexes(ctx context.Context) error {
 			Keys:    bson.D{{Key: "status", Value: 1}},
 			Options: options.Index().SetName("idx_status"),
 		},
+		{
+			Keys: bson.D{
+				{Key: "tenantId", Value: 1},
+				{Key: "content", Value: 1},
+				{Key: "createdAt", Value: -1},
+			},
+			Options: options.Index().SetName("idx_tenant_content_search"),
+		},
 	}
 
 	_, err := c.collection.Indexes().CreateMany(ctx, indexes)
@@ -235,13 +273,13 @@ func (c *MessagesCollection) buildFilter(opts *docdb.ListMessagesOptions) bson.M
 	}
 
 	if opts.TenantID != "" {
-		filter["tenantId"] = opts.TenantID
+		filter["tenantId"] = sanitizeValue(opts.TenantID)
 	}
 	if opts.ConversationID != "" {
-		filter["conversationId"] = opts.ConversationID
+		filter["conversationId"] = sanitizeValue(opts.ConversationID)
 	}
 	if opts.Type != "" {
-		filter["type"] = opts.Type
+		filter["type"] = sanitizeValue(string(opts.Type))
 	}
 
 	return filter

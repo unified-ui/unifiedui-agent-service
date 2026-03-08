@@ -70,6 +70,60 @@ func TestHealthHandler_Health_CacheUnhealthy(t *testing.T) {
 	assert.Equal(t, "healthy", response.Components["docdb"])
 }
 
+func TestHealthHandler_Health_DocDBUnhealthy(t *testing.T) {
+	// Setup
+	mockCache := mocks.NewMockCacheClient()
+	mockDocDB := mocks.NewMockDocDBClient()
+
+	mockCache.On("Ping", mock.Anything).Return(nil)
+	mockDocDB.On("Ping", mock.Anything).Return(assert.AnError)
+
+	handler := handlers.NewHealthHandler(mockCache, mockDocDB)
+
+	router := testutils.SetupTestRouter()
+	router.GET("/health", handler.Health)
+
+	// Execute
+	w := testutils.PerformRequest(router, "GET", "/health", nil, nil)
+
+	// Assert
+	testutils.AssertStatusCode(t, http.StatusServiceUnavailable, w)
+
+	var response handlers.HealthResponse
+	testutils.ParseJSONResponse(t, w, &response)
+
+	assert.Equal(t, "unhealthy", response.Status)
+	assert.Equal(t, "healthy", response.Components["cache"])
+	assert.Equal(t, "unhealthy", response.Components["docdb"])
+}
+
+func TestHealthHandler_Health_BothUnhealthy(t *testing.T) {
+	// Setup
+	mockCache := mocks.NewMockCacheClient()
+	mockDocDB := mocks.NewMockDocDBClient()
+
+	mockCache.On("Ping", mock.Anything).Return(assert.AnError)
+	mockDocDB.On("Ping", mock.Anything).Return(assert.AnError)
+
+	handler := handlers.NewHealthHandler(mockCache, mockDocDB)
+
+	router := testutils.SetupTestRouter()
+	router.GET("/health", handler.Health)
+
+	// Execute
+	w := testutils.PerformRequest(router, "GET", "/health", nil, nil)
+
+	// Assert
+	testutils.AssertStatusCode(t, http.StatusServiceUnavailable, w)
+
+	var response handlers.HealthResponse
+	testutils.ParseJSONResponse(t, w, &response)
+
+	assert.Equal(t, "unhealthy", response.Status)
+	assert.Equal(t, "unhealthy", response.Components["cache"])
+	assert.Equal(t, "unhealthy", response.Components["docdb"])
+}
+
 func TestHealthHandler_Ready_AllReady(t *testing.T) {
 	// Setup
 	mockCache := mocks.NewMockCacheClient()
@@ -107,6 +161,41 @@ func TestHealthHandler_Ready_NotReady(t *testing.T) {
 
 	// Assert
 	testutils.AssertStatusCode(t, http.StatusServiceUnavailable, w)
+
+	// Verify response contains reason
+	var response map[string]string
+	testutils.ParseJSONResponse(t, w, &response)
+	assert.Equal(t, "not ready", response["status"])
+	assert.Equal(t, "cache unavailable", response["reason"])
+}
+
+func TestHealthHandler_Ready_DocDBNotReady(t *testing.T) {
+	// Setup - cache is OK but DocDB fails
+	mockCache := mocks.NewMockCacheClient()
+	mockDocDB := mocks.NewMockDocDBClient()
+
+	mockCache.On("Ping", mock.Anything).Return(nil)
+	mockDocDB.On("Ping", mock.Anything).Return(assert.AnError)
+
+	handler := handlers.NewHealthHandler(mockCache, mockDocDB)
+
+	router := testutils.SetupTestRouter()
+	router.GET("/ready", handler.Ready)
+
+	// Execute
+	w := testutils.PerformRequest(router, "GET", "/ready", nil, nil)
+
+	// Assert
+	testutils.AssertStatusCode(t, http.StatusServiceUnavailable, w)
+
+	// Verify response contains reason
+	var response map[string]string
+	testutils.ParseJSONResponse(t, w, &response)
+	assert.Equal(t, "not ready", response["status"])
+	assert.Equal(t, "docdb unavailable", response["reason"])
+
+	mockCache.AssertExpectations(t)
+	mockDocDB.AssertExpectations(t)
 }
 
 func TestHealthHandler_Live(t *testing.T) {

@@ -13,16 +13,16 @@ import (
 func TestNewConversationTrace(t *testing.T) {
 	// Arrange
 	tenantID := "tenant-123"
-	applicationID := "app-456"
+	chatAgentID := "app-456"
 	conversationID := "conv-789"
 	createdBy := "user-abc"
 
 	// Act
-	trace := models.NewConversationTrace(tenantID, applicationID, conversationID, createdBy)
+	trace := models.NewConversationTrace(tenantID, chatAgentID, conversationID, createdBy)
 
 	// Assert
 	assert.Equal(t, tenantID, trace.TenantID)
-	assert.Equal(t, applicationID, trace.ApplicationID)
+	assert.Equal(t, chatAgentID, trace.ChatAgentID)
 	assert.Equal(t, conversationID, trace.ConversationID)
 	assert.Equal(t, "", trace.AutonomousAgentID)
 	assert.Equal(t, models.TraceContextConversation, trace.ContextType)
@@ -45,7 +45,7 @@ func TestNewAutonomousAgentTrace(t *testing.T) {
 
 	// Assert
 	assert.Equal(t, tenantID, trace.TenantID)
-	assert.Equal(t, "", trace.ApplicationID)
+	assert.Equal(t, "", trace.ChatAgentID)
 	assert.Equal(t, "", trace.ConversationID)
 	assert.Equal(t, autonomousAgentID, trace.AutonomousAgentID)
 	assert.Equal(t, models.TraceContextAutonomousAgent, trace.ContextType)
@@ -92,7 +92,7 @@ func TestTrace_Validate_MixedContext_Error(t *testing.T) {
 	// Arrange
 	trace := &models.Trace{
 		TenantID:          "tenant",
-		ApplicationID:     "app",
+		ChatAgentID:       "app",
 		ConversationID:    "conv",
 		AutonomousAgentID: "auto-agent", // Both contexts set - invalid
 		ContextType:       models.TraceContextConversation,
@@ -106,7 +106,7 @@ func TestTrace_Validate_MixedContext_Error(t *testing.T) {
 	assert.Contains(t, err.Error(), "cannot have both conversation and autonomous agent context")
 }
 
-func TestTrace_Validate_ConversationMissingApplicationID_Error(t *testing.T) {
+func TestTrace_Validate_ConversationMissingChatAgentID_Error(t *testing.T) {
 	// Arrange
 	trace := &models.Trace{
 		TenantID:       "tenant",
@@ -119,7 +119,7 @@ func TestTrace_Validate_ConversationMissingApplicationID_Error(t *testing.T) {
 
 	// Assert
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "applicationId is required for conversation context")
+	assert.Contains(t, err.Error(), "chatAgentId is required for conversation context")
 }
 
 func TestTrace_Validate_AutonomousAgentMissingAgentID_Error(t *testing.T) {
@@ -309,7 +309,7 @@ func TestNodeStatus_IsValid(t *testing.T) {
 		models.NodeStatusCompleted,
 		models.NodeStatusFailed,
 		models.NodeStatusSkipped,
-		models.NodeStatusCancelled,
+		models.NodeStatusCanceled,
 	}
 
 	for _, status := range validStatuses {

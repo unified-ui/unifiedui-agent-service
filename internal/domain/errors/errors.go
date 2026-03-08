@@ -53,7 +53,7 @@ func NewNotFoundError(resource, identifier string) *DomainError {
 }
 
 // NewValidationError creates a new validation error.
-func NewValidationError(message string, details string) *DomainError {
+func NewValidationError(message, details string) *DomainError {
 	return &DomainError{
 		Code:       ErrCodeValidation,
 		Message:    message,
@@ -96,7 +96,7 @@ func NewInternalError(message string, err error) *DomainError {
 }
 
 // NewBadRequestError creates a new bad request error.
-func NewBadRequestError(message string, details string) *DomainError {
+func NewBadRequestError(message, details string) *DomainError {
 	return &DomainError{
 		Code:       ErrCodeBadRequest,
 		Message:    message,
@@ -106,7 +106,7 @@ func NewBadRequestError(message string, details string) *DomainError {
 }
 
 // NewConflictError creates a new conflict error.
-func NewConflictError(message string, details string) *DomainError {
+func NewConflictError(message, details string) *DomainError {
 	return &DomainError{
 		Code:       ErrCodeConflict,
 		Message:    message,
