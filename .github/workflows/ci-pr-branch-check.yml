@@ -15,7 +15,7 @@ jobs:
       - name: Check branch naming convention
         run: |
           BRANCH="${{ github.head_ref }}"
-          PATTERN="^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|hotfix)/"
+          PATTERN="^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|hotfix|dependabot)/"
 
           # Allow special branches without prefix
           if [[ "$BRANCH" == "develop" || "$BRANCH" == "main" ]]; then
@@ -90,6 +90,10 @@ jobs:
             elif [[ "$SOURCE" =~ ^hotfix/ ]]; then
               echo "✅ PR to 'develop' from '$SOURCE' (backport) is allowed."
               exit 0
+            # Allow dependabot branches (dependency updates)
+            elif [[ "$SOURCE" =~ ^dependabot/ ]]; then
+              echo "✅ PR to 'develop' from '$SOURCE' (dependency update) is allowed."
+              exit 0
             else
               echo "❌ PRs to 'develop' are only allowed from:"
               echo "   • feat/*"
@@ -100,6 +104,7 @@ jobs:
               echo "   • ci/*"
               echo "   • chore/*"
               echo "   • hotfix/* (backport)"
+              echo "   • dependabot/* (dependency updates)"
               echo ""
               echo "   Your branch: $SOURCE"
               exit 1
