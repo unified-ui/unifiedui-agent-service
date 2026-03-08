@@ -13,6 +13,16 @@ const (
 	MessageTypeUser MessageType = "user"
 	// MessageTypeAssistant represents an assistant message.
 	MessageTypeAssistant MessageType = "assistant"
+	// MessageTypeReasoning represents a reasoning/thinking step from a ReACT agent.
+	MessageTypeReasoning MessageType = "reasoning"
+	// MessageTypeToolCall represents a tool invocation from a ReACT agent.
+	MessageTypeToolCall MessageType = "tool_call"
+	// MessageTypeToolResult represents the result of a tool invocation.
+	MessageTypeToolResult MessageType = "tool_result"
+	// MessageTypePlan represents a planning step from a ReACT agent.
+	MessageTypePlan MessageType = "plan"
+	// MessageTypeSubAgent represents a sub-agent delegation step.
+	MessageTypeSubAgent MessageType = "sub_agent"
 )
 
 // MessageStatus represents the status of a message (mainly for assistant messages).
@@ -25,11 +35,13 @@ const (
 	MessageStatusSuccess MessageStatus = "success"
 	// MessageStatusFailed indicates the message processing failed.
 	MessageStatusFailed MessageStatus = "failed"
+	// MessageStatusCanceled indicates the message generation was canceled by the user.
+	MessageStatusCanceled MessageStatus = "cancelled" //nolint:misspell // value must stay "cancelled" for external API compatibility
 )
 
 // MessageRequest represents the original request that triggered a message.
 type MessageRequest struct {
-	ApplicationID  string                 `json:"applicationId" bson:"applicationId"`
+	ChatAgentID    string                 `json:"chatAgentId" bson:"chatAgentId"`
 	ConversationID string                 `json:"conversationId,omitempty" bson:"conversationId,omitempty"`
 	Message        MessageRequestContent  `json:"message" bson:"message"`
 	InvokeConfig   MessageInvokeConfig    `json:"invokeConfig,omitempty" bson:"invokeConfig,omitempty"`
@@ -44,7 +56,8 @@ type MessageRequestContent struct {
 
 // MessageInvokeConfig represents configuration for agent invocation.
 type MessageInvokeConfig struct {
-	ChatHistoryMessageCount int `json:"chatHistoryMessageCount,omitempty" bson:"chatHistoryMessageCount,omitempty"`
+	ChatHistoryMessageCount int               `json:"chatHistoryMessageCount,omitempty" bson:"chatHistoryMessageCount,omitempty"`
+	ContextData             map[string]string `json:"contextData,omitempty" bson:"contextData,omitempty"`
 }
 
 // AssistantMetadata holds metadata about an assistant response.
@@ -55,6 +68,17 @@ type AssistantMetadata struct {
 	LatencyMs    int64  `json:"latencyMs,omitempty" bson:"latencyMs,omitempty"`
 	ExecutionID  string `json:"executionId,omitempty" bson:"executionId,omitempty"`
 	AgentType    string `json:"agentType,omitempty" bson:"agentType,omitempty"`
+	// ExtMessageID is the external message ID from the backend (e.g., Foundry message ID).
+	// This allows mapping between chat messages and trace nodes.
+	ExtMessageID string `json:"extMessageId,omitempty" bson:"extMessageId,omitempty"`
+}
+
+// AttachmentMetadata holds metadata about a file attached to a user message.
+type AttachmentMetadata struct {
+	FileName     string `json:"fileName" bson:"fileName"`
+	FileType     string `json:"fileType" bson:"fileType"`
+	FileSize     int64  `json:"fileSize" bson:"fileSize"`
+	FileCategory string `json:"fileCategory" bson:"fileCategory"`
 }
 
 // StatusTrace represents a trace entry during message processing.
@@ -73,16 +97,17 @@ type Message struct {
 	ID             string      `json:"id" bson:"_id"`
 	Type           MessageType `json:"type" bson:"type"`
 	ConversationID string      `json:"conversationId" bson:"conversationId"`
-	ApplicationID  string      `json:"applicationId" bson:"applicationId"`
+	ChatAgentID    string      `json:"chatAgentId" bson:"chatAgentId"`
 	TenantID       string      `json:"tenantId" bson:"tenantId"`
 	Content        string      `json:"content" bson:"content"`
 	CreatedAt      time.Time   `json:"createdAt" bson:"createdAt"`
 	UpdatedAt      time.Time   `json:"updatedAt" bson:"updatedAt"`
 
 	// User message specific fields (only set when Type == MessageTypeUser)
-	UserID      string          `json:"userId,omitempty" bson:"userId,omitempty"`
-	Request     *MessageRequest `json:"request,omitempty" bson:"request,omitempty"`
-	Attachments []string        `json:"attachments,omitempty" bson:"attachments,omitempty"`
+	UserID              string               `json:"userId,omitempty" bson:"userId,omitempty"`
+	Request             *MessageRequest      `json:"request,omitempty" bson:"request,omitempty"`
+	Attachments         []string             `json:"attachments,omitempty" bson:"attachments,omitempty"`
+	AttachmentsMetadata []AttachmentMetadata `json:"attachmentsMetadata,omitempty" bson:"attachmentsMetadata,omitempty"`
 
 	// Assistant message specific fields (only set when Type == MessageTypeAssistant)
 	UserMessageID string             `json:"userMessageId,omitempty" bson:"userMessageId,omitempty"`
@@ -103,7 +128,7 @@ type ChatHistoryEntry struct {
 func NewUserMessage(
 	tenantID string,
 	conversationID string,
-	applicationID string,
+	chatAgentID string,
 	userID string,
 	content string,
 	attachments []string,
@@ -113,7 +138,7 @@ func NewUserMessage(
 	return &Message{
 		Type:           MessageTypeUser,
 		ConversationID: conversationID,
-		ApplicationID:  applicationID,
+		ChatAgentID:    chatAgentID,
 		TenantID:       tenantID,
 		UserID:         userID,
 		Content:        content,
@@ -129,7 +154,7 @@ func NewAssistantMessage(
 	tenantID string,
 	conversationID string,
 	userMessageID string,
-	applicationID string,
+	chatAgentID string,
 	content string,
 	status MessageStatus,
 ) *Message {
@@ -138,7 +163,7 @@ func NewAssistantMessage(
 		Type:           MessageTypeAssistant,
 		ConversationID: conversationID,
 		UserMessageID:  userMessageID,
-		ApplicationID:  applicationID,
+		ChatAgentID:    chatAgentID,
 		TenantID:       tenantID,
 		Content:        content,
 		Status:         status,
@@ -162,6 +187,13 @@ func (m *Message) IsAssistantMessage() bool {
 func (m *Message) SetError(errorMessage string) {
 	m.Status = MessageStatusFailed
 	m.ErrorMessage = errorMessage
+	m.UpdatedAt = time.Now().UTC()
+}
+
+// SetCanceled sets the content and updates the status to canceled.
+func (m *Message) SetCanceled(content string) {
+	m.Content = content
+	m.Status = MessageStatusCanceled
 	m.UpdatedAt = time.Now().UTC()
 }
 

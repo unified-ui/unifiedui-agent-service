@@ -1,0 +1,57 @@
+#:schema https://raw.githubusercontent.com/air-verse/air/refs/heads/master/air_example.toml
+# Air configuration for unified-ui-agent-service hot reload
+# Documentation: https://github.com/air-verse/air
+
+root = "."
+testdata_dir = "testdata"
+tmp_dir = "tmp"
+
+[build]
+  # Main entry point
+  cmd = "go build -o ./tmp/main ./cmd/server"
+  # Binary to execute
+  bin = "./tmp/main"
+  # Watch these directories
+  include_dir = ["cmd", "internal"]
+  # Watch these extensions
+  include_ext = ["go", "toml", "yaml", "yml"]
+  # Exclude patterns
+  exclude_dir = ["tmp", "vendor", "testdata", "tests", "docs", "poc"]
+  exclude_file = ["_test.go"]
+  exclude_regex = ["_test\\.go$"]
+  # Build delay after file change (ms)
+  delay = 500
+  # Stop running old binary before building
+  stop_on_error = true
+  # Send SIGINT to stop
+  send_interrupt = true
+  # Delay after sending SIGINT (ms)
+  kill_delay = 500
+  # Build arguments
+  full_bin = "./tmp/main"
+  # Log build time
+  log = "build-errors.log"
+  # Pass arguments to binary
+  args_bin = []
+
+[log]
+  # Show timestamp
+  time = false
+  # Log level (debug, info, warn, error)
+  main_only = true
+
+[color]
+  main = "magenta"
+  watcher = "cyan"
+  build = "yellow"
+  runner = "green"
+
+[misc]
+  # Delete tmp directory on exit
+  clean_on_exit = true
+
+[screen]
+  # Clear screen on rebuild
+  clear_on_rebuild = true
+  # Keep scroll position
+  keep_scroll = true

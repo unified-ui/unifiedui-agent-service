@@ -73,7 +73,7 @@ func (c *Collection) Find(ctx context.Context, filter interface{}, opts *docdb.F
 }
 
 // UpdateOne updates a single document matching the filter.
-func (c *Collection) UpdateOne(ctx context.Context, filter interface{}, update interface{}) (*docdb.UpdateResult, error) {
+func (c *Collection) UpdateOne(ctx context.Context, filter, update interface{}) (*docdb.UpdateResult, error) {
 	result, err := c.collection.UpdateOne(ctx, filter, update)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update document: %w", err)
@@ -88,7 +88,7 @@ func (c *Collection) UpdateOne(ctx context.Context, filter interface{}, update i
 }
 
 // UpdateMany updates all documents matching the filter.
-func (c *Collection) UpdateMany(ctx context.Context, filter interface{}, update interface{}) (*docdb.UpdateResult, error) {
+func (c *Collection) UpdateMany(ctx context.Context, filter, update interface{}) (*docdb.UpdateResult, error) {
 	result, err := c.collection.UpdateMany(ctx, filter, update)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update documents: %w", err)

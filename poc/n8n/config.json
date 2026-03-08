@@ -8,6 +8,8 @@
         "workflow_type": "N8N_CHAT_AGENT_WORKFLOW",
         "use_unified_chat_history": true,
         "chat_history_count": 30,
+        "workflow_id": "01V4K8pjRhOVncdg",
+        "n8n_host": "http://localhost:5678",
         "chat_url": "http://localhost:5678/webhook/7fb04e65-fe13-4de6-b5df-6239ce26c48c/chat",
         "api_credentials": {
             "id": "2f0232d7-9b68-4259-a2fd-7ff8867d066f",

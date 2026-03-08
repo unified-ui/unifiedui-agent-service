@@ -24,8 +24,13 @@ func (c *Client) GetVault() vault.Vault {
 	return c.vault
 }
 
+// BuildSecretURI builds a dotenv URI for the given key name.
+func (c *Client) BuildSecretURI(keyName string) string {
+	return c.vault.BuildSecretURI(keyName)
+}
+
 // StoreSecret stores a secret in the vault.
-func (c *Client) StoreSecret(ctx context.Context, key string, value string, metadata map[string]string) (string, error) {
+func (c *Client) StoreSecret(ctx context.Context, key, value string, metadata map[string]string) (string, error) {
 	return c.vault.StoreSecret(ctx, key, value, metadata)
 }
 
@@ -36,7 +41,7 @@ func (c *Client) GetSecret(ctx context.Context, uri string, useCache bool) (stri
 }
 
 // UpdateSecret updates an existing secret.
-func (c *Client) UpdateSecret(ctx context.Context, uri string, value string, metadata map[string]string) (bool, error) {
+func (c *Client) UpdateSecret(ctx context.Context, uri, value string, metadata map[string]string) (bool, error) {
 	return c.vault.UpdateSecret(ctx, uri, value, metadata)
 }
 

@@ -1,0 +1,79 @@
+{
+  "data": [
+    {
+      "type": "message",
+      "id": "msg_d470e95d2519176900nlk4Jc4c9XLbyEbD3wMIXhY6cxDO1vuL",
+      "created_by": {
+        "agent": {
+          "type": "agent_id",
+          "name": "BasicWorkflow",
+          "version": "2"
+        },
+        "response_id": "wfresp_d470e95d2519176900DB1KsVSPIwjWmLmO2Sx04i3LCoku2wED"
+      },
+      "status": "completed",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "What is your name?",
+          "annotations": []
+        }
+      ]
+    },
+    {
+      "type": "workflow_action",
+      "id": "wfa_d470e95d2519176900gAtAEkxgLXvTaMkIpI0CVKut1664em8W",
+      "created_by": {
+        "agent": {
+          "type": "agent_id",
+          "name": "BasicWorkflow",
+          "version": "2"
+        },
+        "response_id": "wfresp_d470e95d2519176900DB1KsVSPIwjWmLmO2Sx04i3LCoku2wED"
+      },
+      "kind": "SendActivity",
+      "action_id": "action-1767653509477",
+      "parent_action_id": "trigger_wf",
+      "previous_action_id": "trigger_wf",
+      "status": "completed"
+    },
+    {
+      "type": "message",
+      "id": "msg_d470e95d25191769002XdTKU2sapwDdLtIvteS9r02hqULSYI7",
+      "created_by": {
+        "agent": {
+          "type": "agent_id",
+          "name": "BasicWorkflow",
+          "version": "2"
+        },
+        "response_id": "wfresp_d470e95d2519176900DB1KsVSPIwjWmLmO2Sx04i3LCoku2wED"
+      },
+      "status": "completed",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "Hey du!",
+          "annotations": []
+        }
+      ]
+    },
+    {
+      "type": "message",
+      "id": "msg_d470e95d2519176900EB8HH6OjwDKI0dgem09fRXxjJrV91STz",
+      "status": "completed",
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "My name is Teddy :)"
+        }
+      ]
+    }
+  ],
+  "first_id": "msg_d470e95d2519176900nlk4Jc4c9XLbyEbD3wMIXhY6cxDO1vuL",
+  "last_id": "msg_d470e95d2519176900EB8HH6OjwDKI0dgem09fRXxjJrV91STz",
+  "has_more": false,
+  "object": "list"
+}

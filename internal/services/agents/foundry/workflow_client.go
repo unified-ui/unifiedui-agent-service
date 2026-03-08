@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -55,20 +56,25 @@ func NewWorkflowClient(config *WorkflowClientConfig) (*WorkflowClient, error) {
 	}, nil
 }
 
+// SetHTTPClient sets a custom HTTP client (used for testing).
+func (c *WorkflowClient) SetHTTPClient(client *http.Client) {
+	c.httpClient = client
+}
+
 // Invoke sends a message and returns the complete response (non-streaming).
 func (c *WorkflowClient) Invoke(ctx context.Context, req *InvokeRequest) (*InvokeResponse, error) {
 	reader, err := c.InvokeStreamReader(ctx, req)
 	if err != nil {
 		return nil, err
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	var fullContent string
 	var lastChunk *StreamChunk
 
 	for {
 		chunk, err := reader.Read()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -105,11 +111,11 @@ func (c *WorkflowClient) InvokeStream(ctx context.Context, req *InvokeRequest) (
 
 	go func() {
 		defer close(ch)
-		defer reader.Close()
+		defer func() { _ = reader.Close() }()
 
 		for {
 			chunk, err := reader.Read()
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return
 			}
 			if err != nil {
@@ -135,13 +141,21 @@ func (c *WorkflowClient) InvokeStream(ctx context.Context, req *InvokeRequest) (
 func (c *WorkflowClient) InvokeStreamReader(ctx context.Context, req *InvokeRequest) (StreamReader, error) {
 	url := fmt.Sprintf("%s/openai/responses?api-version=%s", c.projectEndpoint, c.apiVersion)
 
-	payload := &FoundryRequestPayload{
-		Agent: FoundryAgentPayload{
+	// Use multimodal Input if provided, otherwise use plain text Message
+	var input interface{}
+	if req.Input != nil {
+		input = req.Input
+	} else {
+		input = req.Message
+	}
+
+	payload := &RequestPayload{
+		Agent: AgentPayload{
 			Type: "agent_reference",
 			Name: c.agentName,
 		},
 		Conversation: req.ExtConversationID,
-		Input:        req.Message,
+		Input:        input,
 		Stream:       true,
 	}
 
@@ -165,7 +179,7 @@ func (c *WorkflowClient) InvokeStreamReader(ctx context.Context, req *InvokeRequ
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		bodyBytes, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("foundry API error: status=%d, body=%s", resp.StatusCode, string(bodyBytes))
 	}
@@ -190,7 +204,7 @@ type foundryStreamReader struct {
 	closed        bool
 	messages      []*MessageInfo
 	agentType     string
-	lastEvent     *FoundryEvent
+	lastEvent     *Event
 	lastMessageID string
 }
 
@@ -216,11 +230,12 @@ func (r *foundryStreamReader) Read() (*StreamChunk, error) {
 
 		// Handle data lines - can be "data: {...}" or just "{...}"
 		var jsonData string
-		if strings.HasPrefix(line, "data: ") {
+		switch {
+		case strings.HasPrefix(line, "data: "):
 			jsonData = strings.TrimPrefix(line, "data: ")
-		} else if strings.HasPrefix(line, "{") {
+		case strings.HasPrefix(line, "{"):
 			jsonData = line
-		} else {
+		default:
 			continue
 		}
 
@@ -230,7 +245,7 @@ func (r *foundryStreamReader) Read() (*StreamChunk, error) {
 		}
 
 		// Parse the JSON event
-		var event FoundryEvent
+		var event Event
 		if err := json.Unmarshal([]byte(jsonData), &event); err != nil {
 			// Skip malformed events
 			continue
@@ -251,7 +266,7 @@ func (r *foundryStreamReader) Read() (*StreamChunk, error) {
 }
 
 // processEvent processes a Foundry SSE event and returns a StreamChunk if applicable.
-func (r *foundryStreamReader) processEvent(event *FoundryEvent) *StreamChunk {
+func (r *foundryStreamReader) processEvent(event *Event) *StreamChunk {
 	r.lastEvent = event
 
 	switch event.Type {

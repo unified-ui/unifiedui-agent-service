@@ -11,12 +11,31 @@ import (
 // ChunkType represents the type of stream chunk.
 type ChunkType string
 
+// ChunkType constants define the types of stream chunks.
 const (
 	ChunkTypeContent    ChunkType = "content"
 	ChunkTypeMetadata   ChunkType = "metadata"
 	ChunkTypeError      ChunkType = "error"
 	ChunkTypeDone       ChunkType = "done"
 	ChunkTypeNewMessage ChunkType = "new_message"
+
+	// ReACT Agent chunk types
+
+	ChunkTypeReasoningStart  ChunkType = "reasoning_start"
+	ChunkTypeReasoningStream ChunkType = "reasoning_stream"
+	ChunkTypeReasoningEnd    ChunkType = "reasoning_end"
+	ChunkTypeToolCallStart   ChunkType = "tool_call_start"
+	ChunkTypeToolCallStream  ChunkType = "tool_call_stream"
+	ChunkTypeToolCallEnd     ChunkType = "tool_call_end"
+	ChunkTypePlanStart       ChunkType = "plan_start"
+	ChunkTypePlanStream      ChunkType = "plan_stream"
+	ChunkTypePlanComplete    ChunkType = "plan_complete"
+	ChunkTypeSubAgentStart   ChunkType = "sub_agent_start"
+	ChunkTypeSubAgentStream  ChunkType = "sub_agent_stream"
+	ChunkTypeSubAgentEnd     ChunkType = "sub_agent_end"
+	ChunkTypeSynthesisStart  ChunkType = "synthesis_start"
+	ChunkTypeSynthesisStream ChunkType = "synthesis_stream"
+	ChunkTypeTrace           ChunkType = "trace"
 )
 
 // StreamChunk represents a chunk of streamed content.
@@ -33,8 +52,32 @@ type StreamChunk struct {
 	// Metadata contains additional information
 	Metadata map[string]interface{}
 
+	// Config contains event-specific configuration (for ReACT agent events)
+	Config map[string]interface{}
+
 	// Error contains error information (for error chunks)
 	Error error
+}
+
+// FileInput represents a unified file attachment for agent invocation.
+type FileInput struct {
+	// Type is the file type: "image", "file", or "audio"
+	Type string
+
+	// ImageURL contains image data (Data-URL or external URL) for image type
+	ImageURL string
+
+	// FileData contains Base64-encoded data for file/audio types
+	FileData string
+
+	// Filename is the original filename
+	Filename string
+
+	// MimeType is the MIME type of the file
+	MimeType string
+
+	// Detail specifies image detail level for vision models: "low", "high", "auto"
+	Detail string
 }
 
 // InvokeRequest represents a request to invoke an agent.
@@ -51,6 +94,13 @@ type InvokeRequest struct {
 	// ChatHistory contains the previous messages in the conversation
 	// This is used when UseUnifiedChatHistory is enabled
 	ChatHistory []models.ChatHistoryEntry
+
+	// ContextData contains additional context metadata from query parameters
+	// Format: key-value pairs that will be converted to TOML and prepended to the message
+	ContextData map[string]string
+
+	// Files contains file attachments to send with the message
+	Files []FileInput
 }
 
 // InvokeResponse represents the response from an agent invocation.

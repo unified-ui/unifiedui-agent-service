@@ -2,20 +2,18 @@
 package handlers
 
 import (
-	"context"
-	"io"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 
 	"github.com/unifiedui/agent-service/internal/api/middleware"
-	"github.com/unifiedui/agent-service/internal/api/sse"
 	"github.com/unifiedui/agent-service/internal/core/docdb"
 	"github.com/unifiedui/agent-service/internal/domain/errors"
 	"github.com/unifiedui/agent-service/internal/domain/models"
 	"github.com/unifiedui/agent-service/internal/services/agents"
+	"github.com/unifiedui/agent-service/internal/services/ai"
+	"github.com/unifiedui/agent-service/internal/services/configcache"
 	"github.com/unifiedui/agent-service/internal/services/platform"
 	"github.com/unifiedui/agent-service/internal/services/session"
 	"github.com/unifiedui/agent-service/internal/services/traceimport"
@@ -34,7 +32,9 @@ type MessagesHandler struct {
 	platformClient platform.Client
 	agentFactory   *agents.Factory
 	sessionService session.Service
+	configCache    configcache.Service
 	importService  *traceimport.ImportService
+	aiService      ai.Service
 }
 
 // NewMessagesHandler creates a new MessagesHandler.
@@ -43,14 +43,18 @@ func NewMessagesHandler(
 	platformClient platform.Client,
 	agentFactory *agents.Factory,
 	sessionService session.Service,
+	configCache configcache.Service,
 	importService *traceimport.ImportService,
+	aiService ai.Service,
 ) *MessagesHandler {
 	return &MessagesHandler{
 		docDBClient:    docDBClient,
 		platformClient: platformClient,
 		agentFactory:   agentFactory,
 		sessionService: sessionService,
+		configCache:    configCache,
 		importService:  importService,
+		aiService:      aiService,
 	}
 }
 
@@ -68,19 +72,64 @@ type GetMessagesResponse struct {
 
 // MessageResponse represents a message in the API response.
 type MessageResponse struct {
-	ID             string                    `json:"id"`
-	Type           models.MessageType        `json:"type"`
-	ConversationID string                    `json:"conversationId"`
-	ApplicationID  string                    `json:"applicationId"`
-	Content        string                    `json:"content"`
-	UserID         string                    `json:"userId,omitempty"`
-	UserMessageID  string                    `json:"userMessageId,omitempty"`
-	Status         models.MessageStatus      `json:"status,omitempty"`
-	ErrorMessage   string                    `json:"errorMessage,omitempty"`
-	StatusTraces   []models.StatusTrace      `json:"statusTraces,omitempty"`
-	Metadata       *models.AssistantMetadata `json:"metadata,omitempty"`
-	CreatedAt      time.Time                 `json:"createdAt"`
-	UpdatedAt      time.Time                 `json:"updatedAt"`
+	ID                  string                      `json:"id"`
+	Type                models.MessageType          `json:"type"`
+	ConversationID      string                      `json:"conversationId"`
+	ChatAgentID         string                      `json:"chatAgentId"`
+	Content             string                      `json:"content"`
+	UserID              string                      `json:"userId,omitempty"`
+	UserMessageID       string                      `json:"userMessageId,omitempty"`
+	Status              models.MessageStatus        `json:"status,omitempty"`
+	ErrorMessage        string                      `json:"errorMessage,omitempty"`
+	StatusTraces        []models.StatusTrace        `json:"statusTraces,omitempty"`
+	Metadata            *models.AssistantMetadata   `json:"metadata,omitempty"`
+	AttachmentsMetadata []models.AttachmentMetadata `json:"attachmentsMetadata,omitempty"`
+	CreatedAt           time.Time                   `json:"createdAt"`
+	UpdatedAt           time.Time                   `json:"updatedAt"`
+}
+
+// FileAttachment represents a file attachment in the message request.
+type FileAttachment struct {
+	Type     string `json:"type" binding:"required,oneof=image file audio"`
+	ImageURL string `json:"imageUrl,omitempty"`
+	FileData string `json:"fileData,omitempty"`
+	Filename string `json:"filename,omitempty"`
+	MimeType string `json:"mimeType,omitempty"`
+	Detail   string `json:"detail,omitempty"`
+}
+
+// MessageContent represents the message content in the request.
+type MessageContent struct {
+	Content     string           `json:"content" binding:"required,min=1,max=32000"`
+	Attachments []string         `json:"attachments,omitempty"`
+	Files       []FileAttachment `json:"files,omitempty"`
+}
+
+// InvokeConfig represents configuration options for agent invocation.
+type InvokeConfig struct {
+	ChatHistoryMessageCount int               `json:"chatHistoryMessageCount,omitempty"`
+	ContextData             map[string]string `json:"contextData,omitempty"`
+}
+
+// SendMessageRequest represents the request body for sending a message.
+type SendMessageRequest struct {
+	ConversationID    string         `json:"conversationId,omitempty"`
+	ChatAgentID       string         `json:"chatAgentId" binding:"required"`
+	ExtConversationID string         `json:"extConversationId,omitempty"`
+	Message           MessageContent `json:"message" binding:"required"`
+	InvokeConfig      InvokeConfig   `json:"invokeConfig,omitempty"`
+}
+
+// SendMessageResponse represents the response for sending a message.
+type SendMessageResponse struct {
+	UserMessageID      string `json:"userMessageId"`
+	AssistantMessageID string `json:"assistantMessageId"`
+	ConversationID     string `json:"conversationId"`
+}
+
+// EditMessageRequest represents the request body for editing a message.
+type EditMessageRequest struct {
+	Content string `json:"content" binding:"required,min=1,max=32000"`
 }
 
 // GetMessages handles GET /tenants/{tenantId}/conversation/messages
@@ -103,19 +152,16 @@ func (h *MessagesHandler) GetMessages(c *gin.Context) {
 	ctx := c.Request.Context()
 	tenantCtx := middleware.GetTenantContext(c)
 
-	// Parse query parameters
 	var req GetMessagesRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		middleware.HandleError(c, errors.NewValidationError("invalid query parameters", err.Error()))
 		return
 	}
 
-	// Set defaults
 	if req.Limit == 0 {
 		req.Limit = DefaultMessagesLimit
 	}
 
-	// Build list options
 	listOpts := &docdb.ListMessagesOptions{
 		ConversationID: req.ConversationID,
 		TenantID:       tenantCtx.TenantID,
@@ -124,14 +170,12 @@ func (h *MessagesHandler) GetMessages(c *gin.Context) {
 		OrderBy:        docdb.SortOrderDesc,
 	}
 
-	// Get messages from unified collection
 	messages, err := h.docDBClient.Messages().List(ctx, listOpts)
 	if err != nil {
 		middleware.HandleError(c, errors.NewInternalError("failed to list messages", err))
 		return
 	}
 
-	// Convert to response
 	response := make([]MessageResponse, 0, len(messages))
 	for _, msg := range messages {
 		response = append(response, h.toMessageResponse(msg))
@@ -142,639 +186,204 @@ func (h *MessagesHandler) GetMessages(c *gin.Context) {
 	})
 }
 
-// toMessageResponse converts a Message to MessageResponse.
 func (h *MessagesHandler) toMessageResponse(msg *models.Message) MessageResponse {
 	return MessageResponse{
-		ID:             msg.ID,
-		Type:           msg.Type,
-		ConversationID: msg.ConversationID,
-		ApplicationID:  msg.ApplicationID,
-		Content:        msg.Content,
-		UserID:         msg.UserID,
-		UserMessageID:  msg.UserMessageID,
-		Status:         msg.Status,
-		ErrorMessage:   msg.ErrorMessage,
-		StatusTraces:   msg.StatusTraces,
-		Metadata:       msg.Metadata,
-		CreatedAt:      msg.CreatedAt,
-		UpdatedAt:      msg.UpdatedAt,
+		ID:                  msg.ID,
+		Type:                msg.Type,
+		ConversationID:      msg.ConversationID,
+		ChatAgentID:         msg.ChatAgentID,
+		Content:             msg.Content,
+		UserID:              msg.UserID,
+		UserMessageID:       msg.UserMessageID,
+		Status:              msg.Status,
+		ErrorMessage:        msg.ErrorMessage,
+		StatusTraces:        msg.StatusTraces,
+		Metadata:            msg.Metadata,
+		AttachmentsMetadata: msg.AttachmentsMetadata,
+		CreatedAt:           msg.CreatedAt,
+		UpdatedAt:           msg.UpdatedAt,
 	}
 }
 
-// MessageContent represents the message content in the request.
-type MessageContent struct {
-	Content     string   `json:"content" binding:"required,min=1,max=32000"`
-	Attachments []string `json:"attachments,omitempty"`
-}
-
-// InvokeConfig represents configuration options for agent invocation.
-type InvokeConfig struct {
-	ChatHistoryMessageCount int `json:"chatHistoryMessageCount,omitempty"`
-}
-
-// SendMessageRequest represents the request body for sending a message.
-type SendMessageRequest struct {
-	ConversationID    string         `json:"conversationId,omitempty"`
-	ApplicationID     string         `json:"applicationId" binding:"required"`
-	ExtConversationID string         `json:"extConversationId,omitempty"`
-	Message           MessageContent `json:"message" binding:"required"`
-	InvokeConfig      InvokeConfig   `json:"invokeConfig,omitempty"`
-}
-
-// SendMessageResponse represents the response for sending a message.
-type SendMessageResponse struct {
-	UserMessageID      string `json:"userMessageId"`
-	AssistantMessageID string `json:"assistantMessageId"`
-	ConversationID     string `json:"conversationId"`
-}
-
-// SendMessage handles POST /tenants/{tenantId}/conversation/messages
-// @Summary Send a message
-// @Description Sends a message to an AI agent and returns the response via SSE streaming
+// DeleteMessage handles DELETE /tenants/{tenantId}/conversations/{conversationId}/messages/{messageId}
+// @Summary Delete a message
+// @Description Deletes a user message and its associated assistant response
 // @Tags Messages
 // @Accept json
-// @Produce text/event-stream
+// @Produce json
 // @Param tenantId path string true "Tenant ID"
-// @Param X-Microsoft-Foundry-API-Key header string false "Microsoft Foundry API Key (required for Foundry agents)"
-// @Param request body SendMessageRequest true "Message content with applicationId"
-// @Success 200 {object} SendMessageResponse
+// @Param conversationId path string true "Conversation ID"
+// @Param messageId path string true "Message ID"
+// @Success 204 "No Content"
 // @Failure 400 {object} dto.ErrorResponse
 // @Failure 401 {object} dto.ErrorResponse
+// @Failure 404 {object} dto.ErrorResponse
 // @Failure 500 {object} dto.ErrorResponse
 // @Security BearerAuth
-// @Router /api/v1/agent-service/tenants/{tenantId}/conversation/messages [post]
-func (h *MessagesHandler) SendMessage(c *gin.Context) {
+// @Router /api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/messages/{messageId} [delete]
+func (h *MessagesHandler) DeleteMessage(c *gin.Context) {
 	ctx := c.Request.Context()
 	tenantCtx := middleware.GetTenantContext(c)
+	messageID := middleware.SanitizePathParam(c, "messageId")
 
-	// Parse request body
-	var req SendMessageRequest
+	message, err := h.docDBClient.Messages().Get(ctx, messageID)
+	if err != nil {
+		middleware.HandleError(c, errors.NewInternalError("failed to get message", err))
+		return
+	}
+	if message == nil {
+		middleware.HandleError(c, errors.NewNotFoundError("message", messageID))
+		return
+	}
+
+	if message.TenantID != tenantCtx.TenantID {
+		middleware.HandleError(c, errors.NewNotFoundError("message", messageID))
+		return
+	}
+
+	_, err = h.docDBClient.Messages().Delete(ctx, &docdb.DeleteMessagesOptions{
+		MessageID: messageID,
+		TenantID:  tenantCtx.TenantID,
+	})
+	if err != nil {
+		middleware.HandleError(c, errors.NewInternalError("failed to delete message", err))
+		return
+	}
+
+	if message.Type == models.MessageTypeUser {
+		assistantMsg, err := h.docDBClient.Messages().GetByUserMessageID(ctx, messageID)
+		if err == nil && assistantMsg != nil {
+			_, _ = h.docDBClient.Messages().Delete(ctx, &docdb.DeleteMessagesOptions{
+				MessageID: assistantMsg.ID,
+				TenantID:  tenantCtx.TenantID,
+			})
+		}
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
+// EditMessage handles PUT /tenants/{tenantId}/conversations/{conversationId}/messages/{messageId}
+// @Summary Edit a message
+// @Description Updates the content of an existing user message
+// @Tags Messages
+// @Accept json
+// @Produce json
+// @Param tenantId path string true "Tenant ID"
+// @Param conversationId path string true "Conversation ID"
+// @Param messageId path string true "Message ID"
+// @Param request body EditMessageRequest true "Updated message content"
+// @Success 200 {object} MessageResponse
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 401 {object} dto.ErrorResponse
+// @Failure 403 {object} dto.ErrorResponse
+// @Failure 404 {object} dto.ErrorResponse
+// @Failure 500 {object} dto.ErrorResponse
+// @Security BearerAuth
+// @Router /api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/messages/{messageId} [put]
+func (h *MessagesHandler) EditMessage(c *gin.Context) {
+	ctx := c.Request.Context()
+	tenantCtx := middleware.GetTenantContext(c)
+	messageID := middleware.SanitizePathParam(c, "messageId")
+
+	var req EditMessageRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		middleware.HandleError(c, errors.NewValidationError("invalid request body", err.Error()))
 		return
 	}
 
-	// Generate conversation ID if not provided
-	conversationID := req.ConversationID
-	if conversationID == "" {
-		conversationID = generateConversationID()
-	}
-
-	// Generate message IDs
-	userMessageID := generateMessageID()
-	assistantMessageID := generateMessageID()
-
-	// Try to get session from cache
-	sessionData, err := h.sessionService.GetSession(ctx, tenantCtx.TenantID, tenantCtx.UserID, conversationID)
+	message, err := h.docDBClient.Messages().Get(ctx, messageID)
 	if err != nil {
-		// Log error but continue - we'll fetch fresh config
-		sessionData = nil
+		middleware.HandleError(c, errors.NewInternalError("failed to get message", err))
+		return
 	}
-
-	var agentConfig *platform.AgentConfig
-	var chatHistory []models.ChatHistoryEntry
-
-	if sessionData != nil {
-		// Use cached config and chat history
-		agentConfig = sessionData.Config
-		chatHistory = sessionData.ChatHistory
-	} else {
-		// Get auth token from context for Platform Service call
-		authToken := middleware.GetToken(c)
-		if authToken == "" {
-			middleware.HandleError(c, errors.NewUnauthorizedError("auth token not found in context"))
-			return
-		}
-
-		// Get agent configuration from Platform Service
-		// The /config endpoint requires both X-Service-Key AND Bearer token
-		agentConfig, err = h.platformClient.GetAgentConfig(ctx, tenantCtx.TenantID, req.ApplicationID, conversationID, authToken)
-		if err != nil {
-			middleware.HandleError(c, errors.NewInternalError("failed to get agent configuration", err))
-			return
-		}
-
-		// Fetch chat history from database if use_unified_chat_history is enabled
-		// Skip for Foundry agents - they manage their own conversation history
-		if agentConfig.Settings.UseUnifiedChatHistory && agentConfig.Type != platform.AgentTypeFoundry {
-			chatHistoryCount := agentConfig.Settings.ChatHistoryCount
-			if chatHistoryCount == 0 {
-				chatHistoryCount = DefaultChatHistoryCount
-			}
-
-			listOpts := &docdb.ListMessagesOptions{
-				ConversationID: conversationID,
-				TenantID:       tenantCtx.TenantID,
-				Limit:          int64(chatHistoryCount),
-				OrderBy:        docdb.SortOrderAsc, // Get oldest first for proper conversation order
-			}
-
-			chatHistory, err = h.docDBClient.Messages().ListChatHistory(ctx, listOpts)
-			if err != nil {
-				// Log error but continue without chat history
-				chatHistory = []models.ChatHistoryEntry{}
-			}
-		}
-	}
-
-	// Create user message
-	userMessage := models.NewUserMessage(
-		tenantCtx.TenantID,
-		conversationID,
-		req.ApplicationID,
-		tenantCtx.UserID,
-		req.Message.Content,
-		req.Message.Attachments,
-		&models.MessageRequest{
-			ApplicationID:  req.ApplicationID,
-			ConversationID: req.ConversationID,
-			Message: models.MessageRequestContent{
-				Content:     req.Message.Content,
-				Attachments: req.Message.Attachments,
-			},
-			InvokeConfig: models.MessageInvokeConfig{
-				ChatHistoryMessageCount: req.InvokeConfig.ChatHistoryMessageCount,
-			},
-		},
-	)
-	userMessage.ID = userMessageID
-
-	// Store user message
-	if err := h.docDBClient.Messages().Add(ctx, userMessage); err != nil {
-		middleware.HandleError(c, errors.NewInternalError("failed to store user message", err))
+	if message == nil {
+		middleware.HandleError(c, errors.NewNotFoundError("message", messageID))
 		return
 	}
 
-	// Create agent clients using factory
-	var agentClients *agents.AgentClients
-	var createErr error
-
-	if agentConfig.Type == platform.AgentTypeFoundry {
-		// For Foundry, we need the API key from header
-		foundryAPIKey := c.GetHeader("X-Microsoft-Foundry-API-Key")
-		if foundryAPIKey == "" {
-			middleware.HandleError(c, errors.NewValidationError("X-Microsoft-Foundry-API-Key header is required for Foundry agents", ""))
-			return
-		}
-		agentClients, createErr = h.agentFactory.CreateFoundryClients(agentConfig, foundryAPIKey)
-	} else {
-		agentClients, createErr = h.agentFactory.CreateClients(agentConfig)
-	}
-
-	if createErr != nil {
-		middleware.HandleError(c, errors.NewInternalError("failed to create agent clients", createErr))
+	if message.TenantID != tenantCtx.TenantID {
+		middleware.HandleError(c, errors.NewNotFoundError("message", messageID))
 		return
 	}
-	defer agentClients.Close()
 
-	// Create assistant message (initially pending)
-	assistantMessage := models.NewAssistantMessage(
-		tenantCtx.TenantID,
-		conversationID,
-		userMessageID,
-		req.ApplicationID,
-		"",
-		models.MessageStatusPending,
-	)
-	assistantMessage.ID = assistantMessageID
+	if message.Type != models.MessageTypeUser {
+		middleware.HandleError(c, errors.NewForbiddenError("only user messages can be edited"))
+		return
+	}
 
-	// Handle streaming response
-	foundryAPIKey := c.GetHeader("X-Microsoft-Foundry-API-Key")
-	h.handleStreamingResponse(c, tenantCtx, agentClients, agentConfig, userMessage, assistantMessage, chatHistory, req.ExtConversationID, foundryAPIKey)
+	message.Content = req.Content
+	message.UpdatedAt = time.Now().UTC()
+
+	if err := h.docDBClient.Messages().Update(ctx, message); err != nil {
+		middleware.HandleError(c, errors.NewInternalError("failed to update message", err))
+		return
+	}
+
+	c.JSON(http.StatusOK, h.toMessageResponse(message))
 }
 
-// handleStreamingResponse handles SSE streaming for message responses.
-func (h *MessagesHandler) handleStreamingResponse(
-	c *gin.Context,
-	tenantCtx *middleware.TenantContext,
-	agentClients *agents.AgentClients,
-	agentConfig *platform.AgentConfig,
-	userMessage *models.Message,
-	assistantMessage *models.Message,
-	chatHistory []models.ChatHistoryEntry,
-	extConversationID string,
-	foundryAPIKey string,
-) {
+// SearchMessagesRequest represents the query parameters for searching messages.
+type SearchMessagesRequest struct {
+	Query string `form:"query" binding:"required,min=1,max=500"`
+	Limit int64  `form:"limit" binding:"omitempty,min=1,max=50"`
+	Skip  int64  `form:"skip" binding:"omitempty,min=0"`
+}
+
+// SearchMessagesResponse represents the response for searching messages.
+type SearchMessagesResponse struct {
+	Messages []MessageResponse `json:"messages"`
+}
+
+// SearchMessages handles GET /tenants/{tenantId}/conversation/messages/search
+// @Summary Search messages
+// @Description Searches messages by content text using case-insensitive matching across all conversations
+// @Tags Messages
+// @Accept json
+// @Produce json
+// @Param tenantId path string true "Tenant ID"
+// @Param query query string true "Search query text"
+// @Param limit query int false "Maximum number of messages" default(20) minimum(1) maximum(50)
+// @Param skip query int false "Offset for pagination" default(0) minimum(0)
+// @Success 200 {object} SearchMessagesResponse
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 401 {object} dto.ErrorResponse
+// @Failure 500 {object} dto.ErrorResponse
+// @Security BearerAuth
+// @Router /api/v1/agent-service/tenants/{tenantId}/conversation/messages/search [get]
+func (h *MessagesHandler) SearchMessages(c *gin.Context) {
 	ctx := c.Request.Context()
+	tenantCtx := middleware.GetTenantContext(c)
 
-	// Create SSE writer
-	writer, err := sse.NewWriter(c.Writer)
+	var req SearchMessagesRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		middleware.HandleError(c, errors.NewValidationError("invalid query parameters", err.Error()))
+		return
+	}
+
+	if req.Limit == 0 {
+		req.Limit = 20
+	}
+
+	searchOpts := &docdb.SearchMessagesOptions{
+		TenantID: tenantCtx.TenantID,
+		Query:    req.Query,
+		Limit:    req.Limit,
+		Skip:     req.Skip,
+	}
+
+	messages, err := h.docDBClient.Messages().Search(ctx, searchOpts)
 	if err != nil {
-		middleware.HandleError(c, errors.NewInternalError("streaming not supported", err))
+		middleware.HandleError(c, errors.NewInternalError("failed to search messages", err))
 		return
 	}
 
-	// Build invoke request with chat history
-	// For Foundry, use ext_conversation_id as the conversation ID, or empty string for new conversations
-	conversationIDForInvoke := userMessage.ConversationID
-	if agentConfig.Type == platform.AgentTypeFoundry {
-		// Foundry manages its own conversation/thread IDs
-		// Use ext_conversation_id if provided, otherwise empty string to create a new thread
-		conversationIDForInvoke = extConversationID // Will be empty string for new conversations
+	response := make([]MessageResponse, 0, len(messages))
+	for _, msg := range messages {
+		response = append(response, h.toMessageResponse(msg))
 	}
 
-	invokeReq := &agents.InvokeRequest{
-		ConversationID: conversationIDForInvoke,
-		Message:        userMessage.Content,
-		SessionID:      userMessage.ConversationID,
-		ChatHistory:    chatHistory,
-	}
-
-	// Get stream reader from workflow client
-	streamReader, err := agentClients.WorkflowClient.InvokeStreamReader(ctx, invokeReq)
-	if err != nil {
-		writer.WriteStreamError("STREAM_ERROR", "Failed to invoke agent", err.Error())
-		writer.WriteStreamEnd()
-		h.saveFailedAssistantMessage(ctx, assistantMessage, "Failed to invoke agent: "+err.Error())
-		return
-	}
-	defer streamReader.Close()
-
-	startTime := time.Now()
-
-	// Use Foundry-specific streaming handler if applicable
-	if agentConfig.Type == platform.AgentTypeFoundry {
-		h.handleFoundryStreaming(ctx, writer, streamReader, tenantCtx, agentConfig, userMessage, assistantMessage, startTime)
-		// Cache config for Foundry but with empty chat history (Foundry manages its own conversation history)
-		h.updateSessionCacheConfigOnly(ctx, tenantCtx, agentConfig, userMessage.ConversationID)
-
-		// Enqueue trace import job for Foundry after streaming completes
-		if h.importService != nil && extConversationID != "" && foundryAPIKey != "" {
-			h.enqueueFoundryTraceImport(tenantCtx, agentConfig, userMessage, extConversationID, foundryAPIKey)
-		}
-	} else {
-		h.handleDefaultStreaming(ctx, writer, streamReader, agentConfig, userMessage, assistantMessage, startTime)
-		// Update session cache with new chat history (only for non-Foundry agents)
-		h.updateSessionCache(ctx, tenantCtx, agentConfig, userMessage, assistantMessage)
-	}
-}
-
-// handleDefaultStreaming handles the default streaming response (for N8N etc.)
-func (h *MessagesHandler) handleDefaultStreaming(
-	ctx context.Context,
-	writer *sse.Writer,
-	streamReader agents.StreamReader,
-	agentConfig *platform.AgentConfig,
-	userMessage *models.Message,
-	assistantMessage *models.Message,
-	startTime time.Time,
-) {
-	var fullContent string
-
-	// Send STREAM_START with messageId and conversationId
-	writer.WriteStreamStart(assistantMessage.ID, userMessage.ConversationID)
-
-	// Read and forward stream chunks
-	for {
-		chunk, err := streamReader.Read()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			writer.WriteStreamError("STREAM_ERROR", "Error reading stream", err.Error())
-			h.saveFailedAssistantMessage(ctx, assistantMessage, "Stream error: "+err.Error())
-			break
-		}
-
-		switch chunk.Type {
-		case agents.ChunkTypeContent:
-			fullContent += chunk.Content
-			writer.WriteTextStream(chunk.Content)
-		case agents.ChunkTypeMetadata:
-			if chunk.ExecutionID != "" {
-				if assistantMessage.Metadata == nil {
-					assistantMessage.Metadata = &models.AssistantMetadata{}
-				}
-				assistantMessage.Metadata.ExecutionID = chunk.ExecutionID
-			}
-		case agents.ChunkTypeError:
-			if chunk.Error != nil {
-				writer.WriteStreamError("CHUNK_ERROR", "Error in chunk", chunk.Error.Error())
-			}
-		}
-	}
-
-	// Send STREAM_END
-	writer.WriteStreamEnd()
-
-	// Calculate latency
-	latencyMs := time.Since(startTime).Milliseconds()
-
-	// Set success and metadata
-	assistantMessage.SetSuccess(fullContent)
-	if assistantMessage.Metadata == nil {
-		assistantMessage.Metadata = &models.AssistantMetadata{}
-	}
-	assistantMessage.Metadata.LatencyMs = latencyMs
-	assistantMessage.Metadata.AgentType = string(agentConfig.Type)
-
-	// Store assistant message
-	if err := h.docDBClient.Messages().Add(ctx, assistantMessage); err != nil {
-		// Log error but don't fail - message was already sent to client
-	}
-}
-
-// handleFoundryStreaming handles Microsoft Foundry streaming responses with multiple messages support.
-func (h *MessagesHandler) handleFoundryStreaming(
-	ctx context.Context,
-	writer *sse.Writer,
-	streamReader agents.StreamReader,
-	tenantCtx *middleware.TenantContext,
-	agentConfig *platform.AgentConfig,
-	userMessage *models.Message,
-	currentMessage *models.Message,
-	startTime time.Time,
-) {
-	var currentContent string
-	allMessages := []*models.Message{currentMessage}
-
-	// Helper function to save and start new message
-	saveCurrentAndStartNew := func() {
-		// Save current message if it has content
-		if currentContent != "" {
-			currentMessage.SetSuccess(currentContent)
-			h.saveAssistantMessageWithMetadata(ctx, currentMessage, agentConfig, startTime)
-		}
-
-		// Signal new message to client
-		writer.WriteJSON(sse.EventMessage, &sse.StreamMessage{
-			Type: "STREAM_NEW_MESSAGE",
-		})
-
-		// Create new assistant message
-		currentMessage = models.NewAssistantMessage(
-			tenantCtx.TenantID,
-			userMessage.ConversationID,
-			userMessage.ID,
-			userMessage.ApplicationID,
-			"",
-			models.MessageStatusPending,
-		)
-		currentMessage.ID = generateMessageID()
-		allMessages = append(allMessages, currentMessage)
-		currentContent = ""
-
-		// Send new STREAM_START
-		writer.WriteStreamStart(currentMessage.ID, userMessage.ConversationID)
-	}
-
-	// Send STREAM_START with messageId and conversationId
-	writer.WriteStreamStart(currentMessage.ID, userMessage.ConversationID)
-
-	// Read and forward stream chunks
-	for {
-		chunk, err := streamReader.Read()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			writer.WriteStreamError("STREAM_ERROR", "Error reading stream", err.Error())
-			h.saveFailedAssistantMessage(ctx, currentMessage, "Stream error: "+err.Error())
-			break
-		}
-
-		switch chunk.Type {
-		case agents.ChunkTypeContent:
-			currentContent += chunk.Content
-			writer.WriteTextStream(chunk.Content)
-
-		case agents.ChunkTypeNewMessage:
-			// New message starting - save previous and create new
-			saveCurrentAndStartNew()
-
-			// Apply metadata from chunk if available
-			if chunk.Metadata != nil {
-				currentMessage.Metadata = h.extractFoundryMetadata(chunk.Metadata)
-			}
-
-		case agents.ChunkTypeMetadata:
-			// Update current message metadata
-			if currentMessage.Metadata == nil {
-				currentMessage.Metadata = &models.AssistantMetadata{}
-			}
-			if chunk.ExecutionID != "" {
-				currentMessage.Metadata.ExecutionID = chunk.ExecutionID
-			}
-
-			// Extract and store Foundry-specific metadata
-			if chunk.Metadata != nil {
-				h.mergeFoundryMetadata(currentMessage, chunk.Metadata)
-			}
-
-		case agents.ChunkTypeDone:
-			// Response completed - extract final metadata
-			if chunk.Metadata != nil {
-				h.mergeFoundryMetadata(currentMessage, chunk.Metadata)
-			}
-			if chunk.ExecutionID != "" && currentMessage.Metadata != nil {
-				currentMessage.Metadata.ExecutionID = chunk.ExecutionID
-			}
-
-		case agents.ChunkTypeError:
-			if chunk.Error != nil {
-				writer.WriteStreamError("CHUNK_ERROR", "Error in chunk", chunk.Error.Error())
-			}
-		}
-	}
-
-	// Send STREAM_END
-	writer.WriteStreamEnd()
-
-	// Save the final message (always save the last one)
-	currentMessage.SetSuccess(currentContent)
-	h.saveAssistantMessageWithMetadata(ctx, currentMessage, agentConfig, startTime)
-}
-
-// saveAssistantMessageWithMetadata saves an assistant message with timing metadata.
-func (h *MessagesHandler) saveAssistantMessageWithMetadata(
-	ctx context.Context,
-	msg *models.Message,
-	agentConfig *platform.AgentConfig,
-	startTime time.Time,
-) {
-	latencyMs := time.Since(startTime).Milliseconds()
-
-	if msg.Metadata == nil {
-		msg.Metadata = &models.AssistantMetadata{}
-	}
-	msg.Metadata.LatencyMs = latencyMs
-	msg.Metadata.AgentType = string(agentConfig.Type)
-
-	if err := h.docDBClient.Messages().Add(ctx, msg); err != nil {
-		// Log error but don't fail - message was already sent to client
-	}
-}
-
-// extractFoundryMetadata extracts Foundry-specific metadata into AssistantMetadata.
-func (h *MessagesHandler) extractFoundryMetadata(metadata map[string]interface{}) *models.AssistantMetadata {
-	result := &models.AssistantMetadata{}
-
-	if messageID, ok := metadata["message_id"].(string); ok {
-		result.ExecutionID = messageID
-	}
-
-	return result
-}
-
-// mergeFoundryMetadata merges Foundry metadata into the message's metadata.
-func (h *MessagesHandler) mergeFoundryMetadata(msg *models.Message, metadata map[string]interface{}) {
-	if msg.Metadata == nil {
-		msg.Metadata = &models.AssistantMetadata{}
-	}
-
-	// Extract execution ID
-	if responseID, ok := metadata["response_id"].(string); ok && msg.Metadata.ExecutionID == "" {
-		msg.Metadata.ExecutionID = responseID
-	}
-
-	// Extract model if available
-	if model, ok := metadata["model"].(string); ok {
-		msg.Metadata.Model = model
-	}
-
-	// Extract agent name
-	if agentName, ok := metadata["agent_name"].(string); ok {
-		msg.Metadata.AgentType = agentName
-	}
-
-	// Extract token usage
-	if usage, ok := metadata["usage"].(map[string]interface{}); ok {
-		if inputTokens, ok := usage["input_tokens"].(int); ok {
-			msg.Metadata.TokensInput = inputTokens
-		}
-		if outputTokens, ok := usage["output_tokens"].(int); ok {
-			msg.Metadata.TokensOutput = outputTokens
-		}
-	}
-
-	// Store additional workflow-specific data in status traces
-	if workflowType, ok := metadata["type"].(string); ok {
-		if workflowType == "workflow_action" {
-			msg.AddStatusTrace(
-				"workflow_action",
-				getStringFromMap(metadata, "kind"),
-				"",
-				map[string]interface{}{
-					"action_id":          getStringFromMap(metadata, "action_id"),
-					"parent_action_id":   getStringFromMap(metadata, "parent_action_id"),
-					"previous_action_id": getStringFromMap(metadata, "previous_action_id"),
-					"status":             getStringFromMap(metadata, "status"),
-				},
-			)
-		}
-	}
-}
-
-// getStringFromMap safely extracts a string from a map.
-func getStringFromMap(m map[string]interface{}, key string) string {
-	if val, ok := m[key].(string); ok {
-		return val
-	}
-	return ""
-}
-
-// saveFailedAssistantMessage saves an assistant message with failed status.
-func (h *MessagesHandler) saveFailedAssistantMessage(ctx context.Context, assistantMessage *models.Message, errorMsg string) {
-	assistantMessage.SetError(errorMsg)
-	_ = h.docDBClient.Messages().Add(ctx, assistantMessage)
-}
-
-// updateSessionCache updates the session cache with new messages.
-func (h *MessagesHandler) updateSessionCache(
-	ctx context.Context,
-	tenantCtx *middleware.TenantContext,
-	agentConfig *platform.AgentConfig,
-	userMessage *models.Message,
-	assistantMessage *models.Message,
-) {
-	// Only update cache if unified chat history is enabled
-	if !agentConfig.Settings.UseUnifiedChatHistory {
-		return
-	}
-
-	// Get existing session
-	sessionData, err := h.sessionService.GetSession(ctx, tenantCtx.TenantID, tenantCtx.UserID, userMessage.ConversationID)
-	if err != nil || sessionData == nil {
-		// Create new session
-		chatHistory := []models.ChatHistoryEntry{
-			userMessage.ToChatHistoryEntry(),
-			assistantMessage.ToChatHistoryEntry(),
-		}
-		sessionData = session.NewSessionData(
-			agentConfig,
-			chatHistory,
-			tenantCtx.TenantID,
-			tenantCtx.UserID,
-			userMessage.ConversationID,
-		)
-		_ = h.sessionService.SetSession(ctx, sessionData)
-		return
-	}
-
-	// Update existing session with new messages
-	newEntries := []models.ChatHistoryEntry{
-		userMessage.ToChatHistoryEntry(),
-		assistantMessage.ToChatHistoryEntry(),
-	}
-	_ = h.sessionService.UpdateChatHistory(ctx, tenantCtx.TenantID, tenantCtx.UserID, userMessage.ConversationID, newEntries)
-}
-
-// updateSessionCacheConfigOnly caches only the agent config without chat history.
-// Used for Foundry agents which manage their own conversation history.
-func (h *MessagesHandler) updateSessionCacheConfigOnly(
-	ctx context.Context,
-	tenantCtx *middleware.TenantContext,
-	agentConfig *platform.AgentConfig,
-	conversationID string,
-) {
-	// Check if session already exists - if so, no need to update (config doesn't change)
-	existingSession, _ := h.sessionService.GetSession(ctx, tenantCtx.TenantID, tenantCtx.UserID, conversationID)
-	if existingSession != nil {
-		return
-	}
-
-	// Create new session with config but empty chat history
-	sessionData := session.NewSessionData(
-		agentConfig,
-		[]models.ChatHistoryEntry{}, // Empty chat history for Foundry
-		tenantCtx.TenantID,
-		tenantCtx.UserID,
-		conversationID,
-	)
-	_ = h.sessionService.SetSession(ctx, sessionData)
-}
-
-// enqueueFoundryTraceImport enqueues a trace import job for Foundry agents.
-func (h *MessagesHandler) enqueueFoundryTraceImport(
-	tenantCtx *middleware.TenantContext,
-	agentConfig *platform.AgentConfig,
-	userMessage *models.Message,
-	extConversationID string,
-	foundryAPIKey string,
-) {
-	req := &traceimport.FoundryImportRequest{
-		ImportRequest: traceimport.ImportRequest{
-			TenantID:       tenantCtx.TenantID,
-			ConversationID: userMessage.ConversationID,
-			ApplicationID:  userMessage.ApplicationID,
-			Logs:           []string{},
-			UserID:         tenantCtx.UserID,
-		},
-		FoundryConversationID: extConversationID,
-		ProjectEndpoint:       agentConfig.Settings.ProjectEndpoint,
-		APIVersion:            agentConfig.Settings.APIVersion,
-		FoundryAPIToken:       foundryAPIKey,
-	}
-
-	h.importService.EnqueueFoundryImport(req)
-}
-
-// generateMessageID generates a unique message ID.
-func generateMessageID() string {
-	return "msg_" + uuid.New().String()
-}
-
-// generateConversationID generates a unique conversation ID.
-func generateConversationID() string {
-	return "conv_" + uuid.New().String()
+	c.JSON(http.StatusOK, SearchMessagesResponse{
+		Messages: response,
+	})
 }

@@ -4,61 +4,65 @@ package platform
 // AgentType represents the type of agent backend.
 type AgentType string
 
+// AgentType constants define the supported agent backend types.
 const (
-	AgentTypeN8N     AgentType = "N8N"
-	AgentTypeFoundry AgentType = "MICROSOFT_FOUNDRY"
-	AgentTypeCopilot AgentType = "COPILOT"
-	AgentTypeCustom  AgentType = "CUSTOM"
+	AgentTypeN8N        AgentType = "N8N"
+	AgentTypeFoundry    AgentType = "MICROSOFT_FOUNDRY"
+	AgentTypeReactAgent AgentType = "REACT_AGENT"
+	AgentTypeCopilot    AgentType = "COPILOT"
+	AgentTypeCustom     AgentType = "CUSTOM"
 )
 
 // CredentialType represents the type of credentials.
 type CredentialType string
 
+// CredentialType constants define the supported credential types.
 const (
-	CredentialTypeN8NAPIKey    CredentialType = "N8N_API_KEY"
-	CredentialTypeN8NBasicAuth CredentialType = "N8N_BASIC_AUTH"
+	CredentialTypeN8NAPIKey    CredentialType = "N8N_API_KEY"    //nolint:gosec // credential type name, not a credential
+	CredentialTypeN8NBasicAuth CredentialType = "N8N_BASIC_AUTH" //nolint:gosec // credential type name, not a credential
 	CredentialTypeBearerToken  CredentialType = "BEARER_TOKEN"
 )
 
 // N8NWorkflowType represents the type of N8N workflow.
 type N8NWorkflowType string
 
+// N8NWorkflowType constants define the types of N8N workflows.
 const (
 	N8NWorkflowTypeChatAgent   N8NWorkflowType = "N8N_CHAT_AGENT_WORKFLOW"
 	N8NWorkflowTypeHumanInLoop N8NWorkflowType = "N8N_HUMAN_IN_THE_LOOP"
 )
 
 // ServiceConfigResponse represents the config response from platform service (without user data).
-// DEPRECATED: Use ApplicationConfigResponse instead.
+// Deprecated: Use ChatAgentConfigResponse instead.
 // This is kept for backwards compatibility.
 type ServiceConfigResponse struct {
-	DocVersion    string        `json:"docversion"`
-	Type          AgentType     `json:"type"`
-	TenantID      string        `json:"tenant_id"`
-	ApplicationID string        `json:"application_id"`
-	Settings      AgentSettings `json:"settings"`
+	DocVersion  string        `json:"docversion"`
+	Type        AgentType     `json:"type"`
+	TenantID    string        `json:"tenant_id"`
+	ChatAgentID string        `json:"chat_agent_id"`
+	Settings    AgentSettings `json:"settings"`
 }
 
-// ApplicationConfigResponse represents the config response from platform service.
-// This is the response from GET /tenants/{tenant_id}/applications/{application_id}/config
+// ChatAgentConfigResponse represents the config response from platform service.
+// This is the response from GET /tenants/{tenant_id}/chat-agents/{chat_agent_id}/config
 // and includes user information.
-type ApplicationConfigResponse struct {
-	DocVersion    string        `json:"docversion"`
-	Type          AgentType     `json:"type"`
-	TenantID      string        `json:"tenant_id"`
-	ApplicationID string        `json:"application_id"`
-	Settings      AgentSettings `json:"settings"`
-	User          *UserInfo     `json:"user,omitempty"`
+type ChatAgentConfigResponse struct {
+	DocVersion  string        `json:"docversion"`
+	Type        AgentType     `json:"type"`
+	TenantID    string        `json:"tenant_id"`
+	ChatAgentID string        `json:"chat_agent_id"`
+	Settings    AgentSettings `json:"settings"`
+	User        *UserInfo     `json:"user,omitempty"`
 }
 
-// AgentConfig represents the complete configuration for an agent application.
+// AgentConfig represents the complete configuration for a chat agent.
 // This includes user data and is used internally when user context is available.
 type AgentConfig struct {
 	DocVersion     string        `json:"docversion"`
 	Type           AgentType     `json:"type"`
 	TenantID       string        `json:"tenant_id"`
 	ConversationID string        `json:"conversation_id"`
-	ApplicationID  string        `json:"application_id"`
+	ChatAgentID    string        `json:"chat_agent_id"`
 	Settings       AgentSettings `json:"settings"`
 	User           *UserInfo     `json:"user,omitempty"`
 }
@@ -80,6 +84,23 @@ type AgentSettings struct {
 	AgentType       string `json:"agent_type,omitempty"`       // "AGENT" or "MULTI_AGENT"
 	ProjectEndpoint string `json:"project_endpoint,omitempty"` // Full endpoint URL
 	AgentName       string `json:"agent_name,omitempty"`       // Agent name to invoke
+
+	// ReACT Agent specific settings
+	ReActAgentID string            `json:"react_agent_id,omitempty"`
+	Tools        []ReActTool       `json:"tools,omitempty"`
+	SystemPrompt string            `json:"system_prompt,omitempty"`
+	AIModelIDs   []string          `json:"ai_model_ids,omitempty"`
+	AIModels     []ResolvedAIModel `json:"ai_models,omitempty"`
+}
+
+// ResolvedAIModel represents a fully resolved AI model with decrypted credentials
+// as returned by the platform service config endpoint.
+type ResolvedAIModel struct {
+	ID               string                 `json:"id"`
+	Provider         string                 `json:"provider"`
+	Config           map[string]interface{} `json:"config"`
+	CredentialSecret map[string]interface{} `json:"credential_secret"`
+	Priority         int                    `json:"priority"`
 }
 
 // Credentials represents authentication credentials.
@@ -91,6 +112,17 @@ type Credentials struct {
 	Type           CredentialType `json:"type"`
 	IsActive       bool           `json:"is_active"`
 	Secret         interface{}    `json:"secret"` // Can be string or object
+}
+
+// ReActTool represents a tool definition returned in the ReACT agent config.
+type ReActTool struct {
+	ID          string       `json:"id"`
+	Name        string       `json:"name"`
+	Description string       `json:"description"`
+	Type        string       `json:"type"` // "MCP_SERVER" or "OPENAPI_DEFINITION"
+	Config      interface{}  `json:"config"`
+	IsActive    bool         `json:"is_active"`
+	Credentials *Credentials `json:"credentials,omitempty"`
 }
 
 // BasicAuthSecret represents basic auth credentials.
@@ -119,8 +151,31 @@ type ConversationResponse struct {
 	ID                string `json:"id"`
 	Name              string `json:"name"`
 	TenantID          string `json:"tenant_id"`
-	ApplicationID     string `json:"application_id"`
+	ChatAgentID       string `json:"chat_agent_id"`
 	ExtConversationID string `json:"ext_conversation_id,omitempty"`
+}
+
+// AutonomousAgentConfigResponse represents the config response from platform service
+// for autonomous agents. This is the response from GET /tenants/{tenant_id}/autonomous-agents/{id}/config
+// and uses API key authentication (not Bearer token).
+type AutonomousAgentConfigResponse struct {
+	DocVersion        string                        `json:"docversion"`
+	Type              AgentType                     `json:"type"`
+	TenantID          string                        `json:"tenant_id"`
+	AutonomousAgentID string                        `json:"autonomous_agent_id"`
+	Settings          AutonomousAgentConfigSettings `json:"settings"`
+}
+
+// AutonomousAgentConfigSettings contains the autonomous agent-specific settings.
+type AutonomousAgentConfigSettings struct {
+	// API version for the autonomous agent config format
+	APIVersion string `json:"api_version"`
+
+	// N8N specific settings
+	N8NHost             string       `json:"n8n_host,omitempty"`
+	N8NWorkflowEndpoint string       `json:"n8n_workflow_endpoint,omitempty"`
+	WorkflowID          string       `json:"workflow_id,omitempty"`
+	APICredentials      *Credentials `json:"api_credentials,omitempty"`
 }
 
 // GetSecretAsString returns the secret as a string (for API keys).

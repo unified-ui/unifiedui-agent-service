@@ -43,8 +43,8 @@ type CreateTraceRequest struct {
 	// ID is optional; if not provided, one will be generated.
 	ID string `json:"id,omitempty"`
 
-	// Context fields - EITHER (applicationId + conversationId) OR autonomousAgentId
-	ApplicationID     string `json:"applicationId,omitempty"`
+	// Context fields - EITHER (chatAgentId + conversationId) OR autonomousAgentId
+	ChatAgentID       string `json:"chatAgentId,omitempty"`
 	ConversationID    string `json:"conversationId,omitempty"`
 	AutonomousAgentID string `json:"autonomousAgentId,omitempty"`
 
@@ -123,7 +123,7 @@ type TraceNodeResponse struct {
 type TraceResponse struct {
 	ID                string                 `json:"id"`
 	TenantID          string                 `json:"tenantId"`
-	ApplicationID     string                 `json:"applicationId,omitempty"`
+	ChatAgentID       string                 `json:"chatAgentId,omitempty"`
 	ConversationID    string                 `json:"conversationId,omitempty"`
 	AutonomousAgentID string                 `json:"autonomousAgentId,omitempty"`
 	ContextType       string                 `json:"contextType"`
@@ -141,11 +141,39 @@ type TraceResponse struct {
 // ListTracesResponse represents the response for listing traces.
 type ListTracesResponse struct {
 	Traces []*TraceResponse `json:"traces"`
+	Total  int64            `json:"total"`
 }
 
 // CreateTraceResponse represents the response for creating a trace.
 type CreateTraceResponse struct {
 	ID string `json:"id"`
+}
+
+// ImportTraceResponse represents the response for importing a trace.
+type ImportTraceResponse struct {
+	ID string `json:"id"`
+}
+
+// AutonomousAgentImportTraceRequest represents the request body for importing traces for an autonomous agent.
+// This is used with PUT /autonomous-agents/{agentId}/traces/import (upsert by executionId)
+type AutonomousAgentImportTraceRequest struct {
+	// Type is the agent type for the import (e.g., "N8N", "MICROSOFT_FOUNDRY").
+	// This determines which importer to use.
+	Type string `json:"type" binding:"required"`
+
+	// ExecutionID is the external execution/run identifier (e.g., N8N execution ID).
+	// Required for initial import.
+	ExecutionID string `json:"executionId" binding:"required"`
+
+	// SessionID is an optional session identifier for finding executions.
+	SessionID string `json:"sessionId,omitempty"`
+}
+
+// AutonomousAgentRefreshTraceRequest represents the request body for refreshing an existing trace.
+// This is used with PUT /autonomous-agents/{agentId}/traces/{traceId}/import/refresh
+// No body is required as the executionId is retrieved from the existing trace's referenceId.
+type AutonomousAgentRefreshTraceRequest struct {
+	// No fields needed - uses existing trace's referenceId as executionId
 }
 
 // --- Transformation Functions ---
@@ -191,8 +219,8 @@ func (r *TraceNodeRequest) ToTraceNode(createdBy string) models.TraceNode {
 	// Convert sub-nodes recursively
 	if len(r.Nodes) > 0 {
 		node.Nodes = make([]models.TraceNode, len(r.Nodes))
-		for i, subNode := range r.Nodes {
-			node.Nodes[i] = subNode.ToTraceNode(createdBy)
+		for i := range r.Nodes {
+			node.Nodes[i] = r.Nodes[i].ToTraceNode(createdBy)
 		}
 	}
 
@@ -239,8 +267,8 @@ func TraceNodeToResponse(node models.TraceNode) TraceNodeResponse {
 	// Convert sub-nodes recursively
 	if len(node.Nodes) > 0 {
 		resp.Nodes = make([]TraceNodeResponse, len(node.Nodes))
-		for i, subNode := range node.Nodes {
-			resp.Nodes[i] = TraceNodeToResponse(subNode)
+		for i := range node.Nodes {
+			resp.Nodes[i] = TraceNodeToResponse(node.Nodes[i])
 		}
 	}
 
@@ -256,7 +284,7 @@ func TraceToResponse(trace *models.Trace) *TraceResponse {
 	resp := &TraceResponse{
 		ID:                trace.ID,
 		TenantID:          trace.TenantID,
-		ApplicationID:     trace.ApplicationID,
+		ChatAgentID:       trace.ChatAgentID,
 		ConversationID:    trace.ConversationID,
 		AutonomousAgentID: trace.AutonomousAgentID,
 		ContextType:       string(trace.ContextType),
@@ -273,8 +301,8 @@ func TraceToResponse(trace *models.Trace) *TraceResponse {
 	// Convert nodes
 	if len(trace.Nodes) > 0 {
 		resp.Nodes = make([]TraceNodeResponse, len(trace.Nodes))
-		for i, node := range trace.Nodes {
-			resp.Nodes[i] = TraceNodeToResponse(node)
+		for i := range trace.Nodes {
+			resp.Nodes[i] = TraceNodeToResponse(trace.Nodes[i])
 		}
 	}
 
@@ -301,15 +329,8 @@ func ConvertNodesToModel(nodes []TraceNodeRequest, createdBy string) []models.Tr
 	}
 
 	result := make([]models.TraceNode, len(nodes))
-	for i, node := range nodes {
-		result[i] = node.ToTraceNode(createdBy)
+	for i := range nodes {
+		result[i] = nodes[i].ToTraceNode(createdBy)
 	}
 	return result
-}
-
-// --- Import DTOs ---
-
-// ImportTraceResponse represents the response for importing traces.
-type ImportTraceResponse struct {
-	ID string `json:"id"`
 }

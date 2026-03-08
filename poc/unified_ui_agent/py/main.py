@@ -16,7 +16,7 @@ async def main():
     # Setup
     messages = []
     config = load_config(CONFIG_PATH)
-    
+
     agent = ReACTAgent(config)
     await agent.initialize()
 

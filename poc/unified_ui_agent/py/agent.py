@@ -48,7 +48,7 @@ class ReACTAgent(BaseUnifiedUIAgent):
         self._config = config
         self.llm = None
         self.agent = None
-    
+
     async def initialize(self):
         """Async initialization of the agent."""
         await self._setup_agent(self._config)
@@ -86,7 +86,7 @@ class ReACTAgent(BaseUnifiedUIAgent):
             elif kind == "on_tool_end":
                 # print(f"Tool result: {event}")
                 yield {"type": "TOOL_END", "content": event["data"]["output"]}
-            
+
 
     async def _setup_agent(self, config: AgentConfig) -> None:
         """Setup the LangChain agent based on the configuration."""
@@ -99,7 +99,7 @@ class ReACTAgent(BaseUnifiedUIAgent):
             streaming=True,
             callbacks=[StreamingStdOutCallbackHandler()]
         )
-        
+
         # Load tools from config
         tools = await self._load_tools(config)
         self.agent = create_agent(self.llm, tools=tools)
@@ -107,7 +107,7 @@ class ReACTAgent(BaseUnifiedUIAgent):
     async def _load_tools(self, config: AgentConfig) -> list:
         """Load tools from configuration."""
         tools = []
-        
+
         for tool_config in config.settings.tools:
             if tool_config.type == "mcp_server":
                 if MCP_AVAILABLE:
@@ -116,7 +116,7 @@ class ReACTAgent(BaseUnifiedUIAgent):
                 else:
                     print(f"Skipping MCP tool {tool_config.name} - MCP not installed")
             # Add more tool types here as needed
-        
+
         return tools
 
     async def _load_mcp_tools(self, tool_config: ToolConfig) -> list[StructuredTool]:
@@ -124,19 +124,19 @@ class ReACTAgent(BaseUnifiedUIAgent):
         mcp_config = tool_config.mcp_config
         if isinstance(mcp_config, dict):
             mcp_config = MCPServerConfig(**mcp_config)
-        
+
         tools = []
         allowed_tools = tool_config.allowed_tools  # Optional filter list
-        
+
         try:
             # Start MCP server and get available tools
             mcp_tools_info = await self._get_mcp_tools_async(mcp_config, tool_config.name)
-            
+
             # Filter tools if allowed_tools is specified
             if allowed_tools:
                 mcp_tools_info = [t for t in mcp_tools_info if t['name'] in allowed_tools]
                 print(f"Filtered to {len(mcp_tools_info)} allowed tools: {allowed_tools}")
-            
+
             # Create LangChain tools from MCP tool definitions
             for tool_info in mcp_tools_info:
                 # Create a closure to capture the current tool info
@@ -144,13 +144,13 @@ class ReACTAgent(BaseUnifiedUIAgent):
                     async def tool_func(**kwargs) -> str:
                         """Execute MCP tool with given parameters."""
                         return await self._call_mcp_tool_async(mc, tn, ti['name'], kwargs)
-                    
+
                     # Make it synchronous for LangChain
                     def sync_tool_func(**kwargs) -> str:
                         return asyncio.run(tool_func(**kwargs))
-                    
+
                     return sync_tool_func
-                
+
                 # Create the structured tool
                 lc_tool = StructuredTool.from_function(
                     func=make_tool_func(tool_info, mcp_config, tool_config.name),
@@ -159,47 +159,47 @@ class ReACTAgent(BaseUnifiedUIAgent):
                     args_schema=tool_info.get('input_schema')
                 )
                 tools.append(lc_tool)
-            
+
             print(f"Loaded {len(tools)} MCP tools from {tool_config.name}")
-            
+
         except Exception as e:
             print(f"Error loading MCP tools from {tool_config.name}: {e}")
             import traceback
             traceback.print_exc()
-        
+
         return tools
-    
+
     async def _get_mcp_tools_async(self, mcp_config: MCPServerConfig, server_name: str) -> list:
         """Get available tools from remote MCP server via SSE."""
         tools_info = []
-        
+
         async with sse_client(mcp_config.url, headers=mcp_config.headers or {}) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
-                
+
                 # List available tools
                 tools_response = await session.list_tools()
-                
+
                 for tool in tools_response.tools:
                     tools_info.append({
                         'name': tool.name,
                         'description': tool.description or f"MCP tool: {tool.name}",
                         'input_schema': tool.inputSchema if hasattr(tool, 'inputSchema') else None
                     })
-        
+
         return tools_info
-    
+
     async def _call_mcp_tool_async(self, mcp_config: MCPServerConfig, server_name: str, tool_name: str, arguments: dict) -> str:
         """Call a remote MCP tool via SSE with the given arguments."""
         result = ""
-        
+
         async with sse_client(mcp_config.url, headers=mcp_config.headers or {}) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
-                
+
                 # Call the tool
                 response = await session.call_tool(tool_name, arguments=arguments)
-                
+
                 # Extract content from response
                 if hasattr(response, 'content') and response.content:
                     for content in response.content:
@@ -209,17 +209,17 @@ class ReACTAgent(BaseUnifiedUIAgent):
                             result += content['text']
                 else:
                     result = str(response)
-        
+
         return result
 
     def _convert_to_langchain_messages(self, messages: list[UnifiedUIMessage]) -> list:
         """Convert UnifiedUIMessage to LangChain message objects."""
         langchain_messages = []
-        
+
         # Add system instructions as first message
         if self._config.settings.instructions:
             langchain_messages.append(SystemMessage(content=self._config.settings.instructions))
-        
+
         for msg in messages:
             if msg.role == "user":
                 langchain_messages.append(HumanMessage(content=msg.content))

@@ -35,6 +35,43 @@ const (
 	StreamTypeError StreamMessageType = "ERROR"
 	// StreamTypeNewMessage indicates a new message starts in the stream (for Foundry multi-message responses).
 	StreamTypeNewMessage StreamMessageType = "STREAM_NEW_MESSAGE"
+	// StreamTypeMessageComplete indicates a complete message with all metadata (sent after STREAM_END).
+	StreamTypeMessageComplete StreamMessageType = "MESSAGE_COMPLETE"
+	// StreamTypeTitleGeneration indicates an AI-generated conversation title.
+	StreamTypeTitleGeneration StreamMessageType = "TITLE_GENERATION"
+
+	// ReACT Agent stream types
+
+	// StreamTypeReasoningStart indicates the start of a reasoning/thinking step.
+	StreamTypeReasoningStart StreamMessageType = "REASONING_START"
+	// StreamTypeReasoningStream indicates a reasoning content chunk.
+	StreamTypeReasoningStream StreamMessageType = "REASONING_STREAM"
+	// StreamTypeReasoningEnd indicates the end of a reasoning step.
+	StreamTypeReasoningEnd StreamMessageType = "REASONING_END"
+	// StreamTypeToolCallStart indicates the start of a tool invocation.
+	StreamTypeToolCallStart StreamMessageType = "TOOL_CALL_START"
+	// StreamTypeToolCallStream indicates a tool call content chunk.
+	StreamTypeToolCallStream StreamMessageType = "TOOL_CALL_STREAM"
+	// StreamTypeToolCallEnd indicates the end of a tool invocation.
+	StreamTypeToolCallEnd StreamMessageType = "TOOL_CALL_END"
+	// StreamTypePlanStart indicates the start of a planning step.
+	StreamTypePlanStart StreamMessageType = "PLAN_START"
+	// StreamTypePlanStream indicates a plan content chunk.
+	StreamTypePlanStream StreamMessageType = "PLAN_STREAM"
+	// StreamTypePlanComplete indicates planning is complete.
+	StreamTypePlanComplete StreamMessageType = "PLAN_COMPLETE"
+	// StreamTypeSubAgentStart indicates the start of a sub-agent delegation.
+	StreamTypeSubAgentStart StreamMessageType = "SUB_AGENT_START"
+	// StreamTypeSubAgentStream indicates a sub-agent content chunk.
+	StreamTypeSubAgentStream StreamMessageType = "SUB_AGENT_STREAM"
+	// StreamTypeSubAgentEnd indicates the end of a sub-agent delegation.
+	StreamTypeSubAgentEnd StreamMessageType = "SUB_AGENT_END"
+	// StreamTypeSynthesisStart indicates the start of a synthesis step.
+	StreamTypeSynthesisStart StreamMessageType = "SYNTHESIS_START"
+	// StreamTypeSynthesisStream indicates a synthesis content chunk.
+	StreamTypeSynthesisStream StreamMessageType = "SYNTHESIS_STREAM"
+	// StreamTypeTrace indicates a trace event from the ReACT agent.
+	StreamTypeTrace StreamMessageType = "TRACE"
 )
 
 // StreamMessage represents a unified stream message format.
@@ -80,7 +117,7 @@ func (w *Writer) WriteEvent(eventType EventType, data string) error {
 }
 
 // WriteEventWithID writes an SSE event with an ID.
-func (w *Writer) WriteEventWithID(eventType EventType, id string, data string) error {
+func (w *Writer) WriteEventWithID(eventType EventType, id, data string) error {
 	_, err := fmt.Fprintf(w.writer, "id: %s\nevent: %s\ndata: %s\n\n", id, eventType, data)
 	if err != nil {
 		return fmt.Errorf("failed to write event with id: %w", err)
@@ -130,6 +167,25 @@ func (w *Writer) WriteStreamEnd() error {
 	})
 }
 
+// WriteMessageComplete writes the MESSAGE_COMPLETE message with full message data.
+// This is sent after STREAM_END to provide the frontend with complete message metadata.
+func (w *Writer) WriteMessageComplete(message interface{}) error {
+	return w.WriteJSON(EventMessage, &StreamMessage{
+		Type: StreamTypeMessageComplete,
+		Config: map[string]interface{}{
+			"message": message,
+		},
+	})
+}
+
+// WriteTitleGeneration writes a TITLE_GENERATION message with the AI-generated title.
+func (w *Writer) WriteTitleGeneration(title string) error {
+	return w.WriteJSON(EventMessage, &StreamMessage{
+		Type:    StreamTypeTitleGeneration,
+		Content: title,
+	})
+}
+
 // WriteStreamError writes an error message in stream format.
 func (w *Writer) WriteStreamError(code, message, details string) error {
 	return w.WriteJSON(EventMessage, &StreamMessage{
@@ -139,6 +195,155 @@ func (w *Writer) WriteStreamError(code, message, details string) error {
 			"message": message,
 			"details": details,
 		},
+	})
+}
+
+// WriteReasoningStart writes a REASONING_START message.
+func (w *Writer) WriteReasoningStart() error {
+	return w.WriteJSON(EventMessage, &StreamMessage{
+		Type:   StreamTypeReasoningStart,
+		Config: map[string]interface{}{},
+	})
+}
+
+// WriteReasoningStream writes a REASONING_STREAM message with content.
+func (w *Writer) WriteReasoningStream(content string) error {
+	return w.WriteJSON(EventMessage, &StreamMessage{
+		Type:    StreamTypeReasoningStream,
+		Content: content,
+	})
+}
+
+// WriteReasoningEnd writes a REASONING_END message.
+func (w *Writer) WriteReasoningEnd() error {
+	return w.WriteJSON(EventMessage, &StreamMessage{
+		Type:   StreamTypeReasoningEnd,
+		Config: map[string]interface{}{},
+	})
+}
+
+// WriteToolCallStart writes a TOOL_CALL_START message with tool metadata.
+func (w *Writer) WriteToolCallStart(toolName string, config map[string]interface{}) error {
+	if config == nil {
+		config = map[string]interface{}{}
+	}
+	config["tool_name"] = toolName
+	return w.WriteJSON(EventMessage, &StreamMessage{
+		Type:   StreamTypeToolCallStart,
+		Config: config,
+	})
+}
+
+// WriteToolCallStream writes a TOOL_CALL_STREAM message with content.
+func (w *Writer) WriteToolCallStream(content string) error {
+	return w.WriteJSON(EventMessage, &StreamMessage{
+		Type:    StreamTypeToolCallStream,
+		Content: content,
+	})
+}
+
+// WriteToolCallEnd writes a TOOL_CALL_END message with optional result config.
+func (w *Writer) WriteToolCallEnd(config map[string]interface{}) error {
+	if config == nil {
+		config = map[string]interface{}{}
+	}
+	return w.WriteJSON(EventMessage, &StreamMessage{
+		Type:   StreamTypeToolCallEnd,
+		Config: config,
+	})
+}
+
+// WritePlanStart writes a PLAN_START message.
+func (w *Writer) WritePlanStart() error {
+	return w.WriteJSON(EventMessage, &StreamMessage{
+		Type:   StreamTypePlanStart,
+		Config: map[string]interface{}{},
+	})
+}
+
+// WritePlanStream writes a PLAN_STREAM message with content.
+func (w *Writer) WritePlanStream(content string) error {
+	return w.WriteJSON(EventMessage, &StreamMessage{
+		Type:    StreamTypePlanStream,
+		Content: content,
+	})
+}
+
+// WritePlanComplete writes a PLAN_COMPLETE message.
+func (w *Writer) WritePlanComplete(config map[string]interface{}) error {
+	if config == nil {
+		config = map[string]interface{}{}
+	}
+	return w.WriteJSON(EventMessage, &StreamMessage{
+		Type:   StreamTypePlanComplete,
+		Config: config,
+	})
+}
+
+// WriteSubAgentStart writes a SUB_AGENT_START message with agent name.
+func (w *Writer) WriteSubAgentStart(agentName string, config map[string]interface{}) error {
+	if config == nil {
+		config = map[string]interface{}{}
+	}
+	config["agent_name"] = agentName
+	return w.WriteJSON(EventMessage, &StreamMessage{
+		Type:   StreamTypeSubAgentStart,
+		Config: config,
+	})
+}
+
+// WriteSubAgentStream writes a SUB_AGENT_STREAM message with content.
+func (w *Writer) WriteSubAgentStream(content string) error {
+	return w.WriteJSON(EventMessage, &StreamMessage{
+		Type:    StreamTypeSubAgentStream,
+		Content: content,
+	})
+}
+
+// WriteSubAgentEnd writes a SUB_AGENT_END message.
+func (w *Writer) WriteSubAgentEnd(config map[string]interface{}) error {
+	if config == nil {
+		config = map[string]interface{}{}
+	}
+	return w.WriteJSON(EventMessage, &StreamMessage{
+		Type:   StreamTypeSubAgentEnd,
+		Config: config,
+	})
+}
+
+// WriteSynthesisStart writes a SYNTHESIS_START message.
+func (w *Writer) WriteSynthesisStart() error {
+	return w.WriteJSON(EventMessage, &StreamMessage{
+		Type:   StreamTypeSynthesisStart,
+		Config: map[string]interface{}{},
+	})
+}
+
+// WriteSynthesisStream writes a SYNTHESIS_STREAM message with content.
+func (w *Writer) WriteSynthesisStream(content string) error {
+	return w.WriteJSON(EventMessage, &StreamMessage{
+		Type:    StreamTypeSynthesisStream,
+		Content: content,
+	})
+}
+
+// WriteStreamTrace writes a TRACE message from the ReACT agent.
+func (w *Writer) WriteStreamTrace(config map[string]interface{}) error {
+	if config == nil {
+		config = map[string]interface{}{}
+	}
+	return w.WriteJSON(EventMessage, &StreamMessage{
+		Type:   StreamTypeTrace,
+		Config: config,
+	})
+}
+
+// WriteReActStreamMessage writes a generic ReACT stream message by type, content, and config.
+func (w *Writer) WriteReActStreamMessage(streamType StreamMessageType, content string, config map[string]interface{}) error {
+	return w.WriteJSON(EventMessage, &StreamMessage{
+		Type:    streamType,
+		Content: content,
+		Config:  config,
 	})
 }
 
@@ -176,7 +381,7 @@ type ErrorEvent struct {
 }
 
 // WriteError writes an error event.
-func (w *Writer) WriteError(code, message string, details string) error {
+func (w *Writer) WriteError(code, message, details string) error {
 	return w.WriteJSON(EventError, &ErrorEvent{
 		Code:    code,
 		Message: message,

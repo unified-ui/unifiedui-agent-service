@@ -12,7 +12,7 @@ const (
 	TestTenantID       = "tenant-test-123"
 	TestConversationID = "conv-test-456"
 	TestMessageID      = "msg-test-789"
-	TestApplicationID  = "app-test-abc"
+	TestChatAgentID    = "app-test-abc"
 	TestUserID         = "user-test-def"
 	TestTraceID        = "trace-test-xyz"
 )
@@ -25,7 +25,7 @@ func NewTestUserMessage() *models.Message {
 		Type:           models.MessageTypeUser,
 		TenantID:       TestTenantID,
 		ConversationID: TestConversationID,
-		ApplicationID:  TestApplicationID,
+		ChatAgentID:    TestChatAgentID,
 		UserID:         TestUserID,
 		Content:        "Test message content",
 		CreatedAt:      now,
@@ -41,7 +41,7 @@ func NewTestAssistantMessage() *models.Message {
 		Type:           models.MessageTypeAssistant,
 		TenantID:       TestTenantID,
 		ConversationID: TestConversationID,
-		ApplicationID:  TestApplicationID,
+		ChatAgentID:    TestChatAgentID,
 		UserMessageID:  TestMessageID,
 		Content:        "Test assistant response",
 		Status:         models.MessageStatusSuccess,
@@ -57,7 +57,7 @@ func NewTestTrace() *models.Trace {
 	return &models.Trace{
 		ID:             TestTraceID,
 		TenantID:       TestTenantID,
-		ApplicationID:  TestApplicationID,
+		ChatAgentID:    TestChatAgentID,
 		ConversationID: TestConversationID,
 		ContextType:    models.TraceContextConversation,
 		ReferenceID:    "workflow-execution-123",
@@ -89,7 +89,7 @@ func NewTestToolTrace() *models.Trace {
 	return &models.Trace{
 		ID:             TestTraceID + "-tool",
 		TenantID:       TestTenantID,
-		ApplicationID:  TestApplicationID,
+		ChatAgentID:    TestChatAgentID,
 		ConversationID: TestConversationID,
 		ContextType:    models.TraceContextConversation,
 		ReferenceID:    "workflow-execution-456",
@@ -126,6 +126,22 @@ func NewTestToolTrace() *models.Trace {
 	}
 }
 
+// NewTestReaction creates a test message reaction with default values.
+func NewTestReaction() *models.MessageReaction {
+	now := time.Now().UTC()
+	return &models.MessageReaction{
+		ID:             "reaction-test-001",
+		TenantID:       TestTenantID,
+		ConversationID: TestConversationID,
+		MessageID:      TestMessageID,
+		UserID:         TestUserID,
+		Reaction:       models.ReactionThumbsUp,
+		FeedbackText:   "",
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}
+}
+
 // timePtr returns a pointer to the given time.
 func timePtr(t time.Time) *time.Time {
 	return &t
@@ -137,7 +153,7 @@ func NewTestSession() *models.Session {
 		TenantID: TestTenantID,
 		UserID:   TestUserID,
 		Config: &models.SessionConfig{
-			AgentID:   TestApplicationID,
+			AgentID:   TestChatAgentID,
 			AgentType: "n8n",
 			AgentName: "Test Agent",
 			Endpoint:  "http://localhost:5678/webhook/test",

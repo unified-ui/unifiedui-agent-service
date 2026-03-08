@@ -27,6 +27,14 @@ type ListMessagesOptions struct {
 	OrderBy        SortOrder // Order by createdAt
 }
 
+// SearchMessagesOptions contains options for searching messages by content.
+type SearchMessagesOptions struct {
+	TenantID string
+	Query    string
+	Limit    int64
+	Skip     int64
+}
+
 // DeleteMessagesOptions contains options for deleting messages.
 type DeleteMessagesOptions struct {
 	MessageID      string // Delete single message by ID
@@ -53,6 +61,9 @@ type MessagesCollection interface {
 	// ListChatHistory retrieves chat history as entries for a conversation.
 	// Returns messages ordered by createdAt (configurable order).
 	ListChatHistory(ctx context.Context, opts *ListMessagesOptions) ([]models.ChatHistoryEntry, error)
+
+	// Search searches messages by content text using case-insensitive matching.
+	Search(ctx context.Context, opts *SearchMessagesOptions) ([]*models.Message, error)
 
 	// Update updates an existing message.
 	Update(ctx context.Context, message *models.Message) error

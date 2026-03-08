@@ -1,0 +1,9 @@
+[[rule]]
+include = [".air.toml"]
+keys = []
+
+[rule.schema]
+enabled = false
+
+[rule.formatting]
+reorder_keys = false

@@ -14,8 +14,13 @@ type MockVault struct {
 	mock.Mock
 }
 
+// BuildSecretURI builds a mock URI for the given key name.
+func (m *MockVault) BuildSecretURI(keyName string) string {
+	return "dotenv://" + keyName
+}
+
 // StoreSecret stores a secret in the vault.
-func (m *MockVault) StoreSecret(ctx context.Context, key string, value string, metadata map[string]string) (string, error) {
+func (m *MockVault) StoreSecret(ctx context.Context, key, value string, metadata map[string]string) (string, error) {
 	args := m.Called(ctx, key, value, metadata)
 	return args.String(0), args.Error(1)
 }
@@ -27,7 +32,7 @@ func (m *MockVault) GetSecret(ctx context.Context, uri string) (string, error) {
 }
 
 // UpdateSecret updates an existing secret.
-func (m *MockVault) UpdateSecret(ctx context.Context, uri string, value string, metadata map[string]string) (bool, error) {
+func (m *MockVault) UpdateSecret(ctx context.Context, uri, value string, metadata map[string]string) (bool, error) {
 	args := m.Called(ctx, uri, value, metadata)
 	return args.Bool(0), args.Error(1)
 }
@@ -68,8 +73,13 @@ func (m *MockVaultClient) GetVault() vault.Vault {
 	return m.vault
 }
 
+// BuildSecretURI builds a mock URI for the given key name.
+func (m *MockVaultClient) BuildSecretURI(keyName string) string {
+	return m.vault.BuildSecretURI(keyName)
+}
+
 // StoreSecret stores a secret in the vault.
-func (m *MockVaultClient) StoreSecret(ctx context.Context, key string, value string, metadata map[string]string) (string, error) {
+func (m *MockVaultClient) StoreSecret(ctx context.Context, key, value string, metadata map[string]string) (string, error) {
 	args := m.Called(ctx, key, value, metadata)
 	return args.String(0), args.Error(1)
 }
@@ -81,7 +91,7 @@ func (m *MockVaultClient) GetSecret(ctx context.Context, uri string, useCache bo
 }
 
 // UpdateSecret updates an existing secret.
-func (m *MockVaultClient) UpdateSecret(ctx context.Context, uri string, value string, metadata map[string]string) (bool, error) {
+func (m *MockVaultClient) UpdateSecret(ctx context.Context, uri, value string, metadata map[string]string) (bool, error) {
 	args := m.Called(ctx, uri, value, metadata)
 	return args.Bool(0), args.Error(1)
 }

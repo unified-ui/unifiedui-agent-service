@@ -14,18 +14,18 @@ func TestNewUserMessage(t *testing.T) {
 	tenantID := "tenant-123"
 	userID := "user-456"
 	conversationID := "conv-789"
-	applicationID := "app-1"
+	chatAgentID := "app-1"
 	content := "Hello, world!"
 	attachments := []string{"file1.png"}
 
 	// Act
-	msg := models.NewUserMessage(tenantID, conversationID, applicationID, userID, content, attachments, nil)
+	msg := models.NewUserMessage(tenantID, conversationID, chatAgentID, userID, content, attachments, nil)
 
 	// Assert
 	assert.Equal(t, tenantID, msg.TenantID)
 	assert.Equal(t, userID, msg.UserID)
 	assert.Equal(t, conversationID, msg.ConversationID)
-	assert.Equal(t, applicationID, msg.ApplicationID)
+	assert.Equal(t, chatAgentID, msg.ChatAgentID)
 	assert.Equal(t, content, msg.Content)
 	assert.Equal(t, models.MessageTypeUser, msg.Type)
 	assert.Equal(t, attachments, msg.Attachments)
@@ -38,18 +38,18 @@ func TestNewAssistantMessage(t *testing.T) {
 	tenantID := "tenant-123"
 	conversationID := "conv-789"
 	userMessageID := "user-msg-123"
-	applicationID := "app-1"
+	chatAgentID := "app-1"
 	content := ""
 	status := models.MessageStatusPending
 
 	// Act
-	msg := models.NewAssistantMessage(tenantID, conversationID, userMessageID, applicationID, content, status)
+	msg := models.NewAssistantMessage(tenantID, conversationID, userMessageID, chatAgentID, content, status)
 
 	// Assert
 	assert.Equal(t, tenantID, msg.TenantID)
 	assert.Equal(t, conversationID, msg.ConversationID)
 	assert.Equal(t, userMessageID, msg.UserMessageID)
-	assert.Equal(t, applicationID, msg.ApplicationID)
+	assert.Equal(t, chatAgentID, msg.ChatAgentID)
 	assert.Equal(t, models.MessageStatusPending, msg.Status)
 	assert.Equal(t, "", msg.Content)
 	assert.NotZero(t, msg.CreatedAt)

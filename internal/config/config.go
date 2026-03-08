@@ -12,12 +12,14 @@ import (
 
 // Config holds all configuration for the application.
 type Config struct {
-	Server   ServerConfig
-	Cache    CacheConfig
-	DocDB    DocDBConfig
-	Vault    VaultConfig
-	Platform PlatformConfig
-	Log      LogConfig
+	Server       ServerConfig
+	Cache        CacheConfig
+	DocDB        DocDBConfig
+	Vaults       VaultsConfig
+	Platform     PlatformConfig
+	ReactService ReactServiceConfig
+	AppVault     AppVaultConfig
+	Log          LogConfig
 }
 
 // ServerConfig holds server-related configuration.
@@ -34,12 +36,13 @@ func (c ServerConfig) Address() string {
 
 // CacheConfig holds cache-related configuration.
 type CacheConfig struct {
-	Type     string
-	Host     string
-	Port     string
-	Password string
-	DB       int
-	TTL      time.Duration
+	Type           string
+	Host           string
+	Port           string
+	Password       string
+	DB             int
+	TTL            time.Duration
+	ConfigCacheTTL time.Duration
 }
 
 // DocDBConfig holds document database configuration.
@@ -49,13 +52,38 @@ type DocDBConfig struct {
 	Database string
 }
 
-// VaultConfig holds vault configuration.
+// VaultConfig holds vault configuration for a specific vault purpose.
 type VaultConfig struct {
 	Type             string
 	AzureKeyVaultURL string
 	HashiCorpAddr    string
 	HashiCorpToken   string
+}
+
+// VaultsConfig holds configuration for all vault instances.
+type VaultsConfig struct {
+	VaultType        string
+	AppVaultType     string
+	SecretsVaultType string
+	App              VaultConfig
+	Secrets          VaultConfig
 	EncryptionKey    string
+}
+
+// ResolvedAppVaultType returns the effective vault type for the app vault.
+func (v VaultsConfig) ResolvedAppVaultType() string {
+	if v.AppVaultType != "" {
+		return v.AppVaultType
+	}
+	return v.VaultType
+}
+
+// ResolvedSecretsVaultType returns the effective vault type for the secrets vault.
+func (v VaultsConfig) ResolvedSecretsVaultType() string {
+	if v.SecretsVaultType != "" {
+		return v.SecretsVaultType
+	}
+	return v.VaultType
 }
 
 // PlatformConfig holds platform service configuration.
@@ -64,6 +92,19 @@ type PlatformConfig struct {
 	ConfigPath string
 	Timeout    time.Duration
 	ServiceKey string // X_AGENT_SERVICE_KEY for service-to-service authentication
+}
+
+// ReactServiceConfig holds ReACT agent service configuration.
+type ReactServiceConfig struct {
+	URL     string
+	Timeout time.Duration
+}
+
+// AppVaultConfig holds app vault key name configuration.
+type AppVaultConfig struct {
+	PlatformServiceKey   string // Key name in vault for validating incoming platform requests
+	AgentToPlatformKey   string // Key name in vault for outgoing requests to platform
+	AgentToReactAgentKey string // Key name in vault for outgoing requests to ReACT agent service
 }
 
 // LogConfig holds logging configuration.
@@ -84,30 +125,49 @@ func Load() (*Config, error) {
 			GinMode: getEnv("GIN_MODE", "debug"),
 		},
 		Cache: CacheConfig{
-			Type:     getEnv("CACHE_TYPE", "redis"),
-			Host:     getEnv("REDIS_HOST", "localhost"),
-			Port:     getEnv("REDIS_PORT", "6379"),
-			Password: getEnv("REDIS_PASSWORD", ""),
-			DB:       getEnvAsInt("REDIS_DB", 0),
-			TTL:      time.Duration(getEnvAsInt("CACHE_TTL_SECONDS", 180)) * time.Second,
+			Type:           getEnv("CACHE_TYPE", "redis"),
+			Host:           getEnv("REDIS_HOST", "localhost"),
+			Port:           getEnv("REDIS_PORT", "6379"),
+			Password:       getEnv("REDIS_PASSWORD", ""),
+			DB:             getEnvAsInt("REDIS_DB", 0),
+			TTL:            time.Duration(getEnvAsInt("CACHE_TTL_SECONDS", 180)) * time.Second,
+			ConfigCacheTTL: time.Duration(getEnvAsInt("CONFIG_CACHE_TTL_SECONDS", 300)) * time.Second,
 		},
 		DocDB: DocDBConfig{
 			Type:     getEnv("DOCDB_TYPE", "mongodb"),
 			URI:      getEnv("MONGODB_URI", "mongodb://localhost:27017"),
 			Database: getEnv("MONGODB_DATABASE", "unifiedui"),
 		},
-		Vault: VaultConfig{
-			Type:             getEnv("VAULT_TYPE", "dotenv"),
-			AzureKeyVaultURL: getEnv("AZURE_KEYVAULT_URL", ""),
-			HashiCorpAddr:    getEnv("HASHICORP_VAULT_ADDR", ""),
-			HashiCorpToken:   getEnv("HASHICORP_VAULT_TOKEN", ""),
-			EncryptionKey:    getEnv("SECRETS_ENCRYPTION_KEY", ""),
+		Vaults: VaultsConfig{
+			VaultType:        getEnv("VAULT_TYPE", "dotenv"),
+			AppVaultType:     getEnv("APP_VAULT_TYPE", ""),
+			SecretsVaultType: getEnv("SECRETS_VAULT_TYPE", ""),
+			App: VaultConfig{
+				AzureKeyVaultURL: getEnv("APP_AZURE_KEYVAULT_URL", ""),
+				HashiCorpAddr:    getEnv("APP_HASHICORP_VAULT_ADDR", ""),
+				HashiCorpToken:   getEnv("APP_HASHICORP_VAULT_TOKEN", ""),
+			},
+			Secrets: VaultConfig{
+				AzureKeyVaultURL: getEnv("SECRETS_AZURE_KEYVAULT_URL", ""),
+				HashiCorpAddr:    getEnv("SECRETS_HASHICORP_VAULT_ADDR", ""),
+				HashiCorpToken:   getEnv("SECRETS_HASHICORP_VAULT_TOKEN", ""),
+			},
+			EncryptionKey: getEnv("SECRETS_ENCRYPTION_KEY", ""),
 		},
 		Platform: PlatformConfig{
 			URL:        getEnv("PLATFORM_SERVICE_URL", "http://localhost:8081"),
 			ConfigPath: getEnv("PLATFORM_CONFIG_PATH", "poc/n8n/config.json"),
 			Timeout:    time.Duration(getEnvAsInt("PLATFORM_SERVICE_TIMEOUT_SECONDS", 30)) * time.Second,
 			ServiceKey: getEnv("X_AGENT_SERVICE_KEY", ""),
+		},
+		ReactService: ReactServiceConfig{
+			URL:     getEnv("REACT_SERVICE_URL", "http://localhost:8086"),
+			Timeout: time.Duration(getEnvAsInt("REACT_SERVICE_TIMEOUT_SECONDS", 300)) * time.Second,
+		},
+		AppVault: AppVaultConfig{
+			PlatformServiceKey:   getEnv("APP_VAULT_PLATFORM_SERVICE_KEY", "PLATFORM_TO_AGENT_SERVICE_KEY"),
+			AgentToPlatformKey:   getEnv("APP_VAULT_AGENT_TO_PLATFORM_KEY", "AGENT_TO_PLATFORM_SERVICE_KEY"),
+			AgentToReactAgentKey: getEnv("APP_VAULT_AGENT_TO_REACT_KEY", "AGENT_TO_REACT_SERVICE_KEY"),
 		},
 		Log: LogConfig{
 			Level:  getEnv("LOG_LEVEL", "info"),

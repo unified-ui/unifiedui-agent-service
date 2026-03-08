@@ -2,14 +2,14 @@
   "data": [
     {
       "type": "workflow_action",
-      "id": "wfa_eca4f45f4a3b0235002oOnUdUK68Hu46sYc2iMHD8WfybYIhTB",
+      "id": "wfa_c671246113e78fe7007UD5QuGdkBrj8uospJJcTJQcvSaPsacS",
       "created_by": {
         "agent": {
           "type": "agent_id",
           "name": "BasicWorkflow",
           "version": "2"
         },
-        "response_id": "wfresp_eca4f45f4a3b023500y594OTykQgjzwsBiwihQ2lgnwx2H4zqX"
+        "response_id": "wfresp_c671246113e78fe700OW9Wl3B4CcPqhTQebhsmIQPrOncO4YaH"
       },
       "kind": "EndConversation",
       "action_id": "action-1767634464332",
@@ -19,14 +19,14 @@
     },
     {
       "type": "workflow_action",
-      "id": "wfa_eca4f45f4a3b0235001EC9GIaic56fR3wG4xiPVQIMNu57ODjG",
+      "id": "wfa_c671246113e78fe700MAT0NNTM58tuHRAbng6SgJ7om6Ny2JFS",
       "created_by": {
         "agent": {
           "type": "agent_id",
           "name": "BasicWorkflow",
           "version": "2"
         },
-        "response_id": "wfresp_eca4f45f4a3b023500y594OTykQgjzwsBiwihQ2lgnwx2H4zqX"
+        "response_id": "wfresp_c671246113e78fe700OW9Wl3B4CcPqhTQebhsmIQPrOncO4YaH"
       },
       "kind": "SendActivity",
       "action_id": "action-1767634451682",
@@ -36,14 +36,14 @@
     },
     {
       "type": "message",
-      "id": "msg_eca4f45f4a3b023500RqJIJ2HikXBTby7ygIsOFWfUxCckxItp",
+      "id": "msg_c671246113e78fe700XPx5NXJrPlj3aEKF7I8nKqgpHMjycHHt",
       "created_by": {
         "agent": {
           "type": "agent_id",
           "name": "BasicWorkflow",
           "version": "2"
         },
-        "response_id": "wfresp_eca4f45f4a3b023500y594OTykQgjzwsBiwihQ2lgnwx2H4zqX"
+        "response_id": "wfresp_c671246113e78fe700OW9Wl3B4CcPqhTQebhsmIQPrOncO4YaH"
       },
       "status": "completed",
       "role": "assistant",
@@ -57,14 +57,14 @@
     },
     {
       "type": "workflow_action",
-      "id": "wfa_eca4f45f4a3b023500ygpEea674w2HcLI06d7ShEs444HvZhV1",
+      "id": "wfa_c671246113e78fe700rpz3UHsyKbAmJ2YMASx9A3j0kSVxlivO",
       "created_by": {
         "agent": {
           "type": "agent_id",
           "name": "BasicWorkflow",
           "version": "2"
         },
-        "response_id": "wfresp_eca4f45f4a3b023500y594OTykQgjzwsBiwihQ2lgnwx2H4zqX"
+        "response_id": "wfresp_c671246113e78fe700OW9Wl3B4CcPqhTQebhsmIQPrOncO4YaH"
       },
       "kind": "InvokeAzureAgent",
       "action_id": "action-1767634350800",
@@ -74,39 +74,39 @@
     },
     {
       "type": "message",
-      "id": "msg_eca4f45f4a3b023500Hg18ygAMbDsoZL98EGynMTTV37AwmB6X",
+      "id": "msg_c671246113e78fe7009W4aFLmbSXoUwYe46hkrOKex2SLSGusK",
       "status": "completed",
       "role": "assistant",
       "content": [
         {
           "type": "output_text",
-          "text": "Hi, Teddy! \ud83d\ude0a It\u2019s great to meet you. How can I help you today?",
+          "text": "Hello, Teddy! My name is ChatGPT. I\u2019m here to help you with any questions or tasks you have. How can I assist you today?",
           "annotations": []
         }
       ]
     },
     {
       "type": "message",
-      "id": "msg_eca4f45f4a3b023500A2ZJZAaM8KuYdq9v0Jy39UmR8vUcGk85",
+      "id": "msg_c671246113e78fe700eBheif6U4jYuXLEnXaASYdlhfHedKZ9x",
       "status": "completed",
       "role": "user",
       "content": [
         {
           "type": "input_text",
-          "text": "My name is Teddy :)"
+          "text": "My name is teddy. what is your name?"
         }
       ]
     },
     {
       "type": "message",
-      "id": "msg_eca4f45f4a3b023500w0B2JZRoIluuDiIsvp1QgMAqJ0Ov2TLN",
+      "id": "msg_c671246113e78fe7001hPdL2XbqDlJeuhfq3jdG6dPMTe8hcy3",
       "created_by": {
         "agent": {
           "type": "agent_id",
           "name": "BasicWorkflow",
           "version": "2"
         },
-        "response_id": "wfresp_eca4f45f4a3b023500Oj6uVtrlmfAWMx0Wofj0rTrrUsMqjRox"
+        "response_id": "wfresp_c671246113e78fe700wqCxyJPVYb6zEzZvDMVuDv0QEgv6WcHj"
       },
       "status": "completed",
       "role": "assistant",
@@ -120,14 +120,14 @@
     },
     {
       "type": "workflow_action",
-      "id": "wfa_eca4f45f4a3b023500m1Axbw11USk8r3dszwGe6w0UhaoBhTK2",
+      "id": "wfa_c671246113e78fe700sZgPyNeeaaBwWLgcU4mX6o2NAXG3ol4Z",
       "created_by": {
         "agent": {
           "type": "agent_id",
           "name": "BasicWorkflow",
           "version": "2"
         },
-        "response_id": "wfresp_eca4f45f4a3b023500Oj6uVtrlmfAWMx0Wofj0rTrrUsMqjRox"
+        "response_id": "wfresp_c671246113e78fe700wqCxyJPVYb6zEzZvDMVuDv0QEgv6WcHj"
       },
       "kind": "SendActivity",
       "action_id": "action-1767653509477",
@@ -137,14 +137,14 @@
     },
     {
       "type": "message",
-      "id": "msg_eca4f45f4a3b023500AyPQTxq7pLkwfAasKmi7KkB8EBuErpva",
+      "id": "msg_c671246113e78fe700UxfUIQulKHJst9tQkSNVJK3vQXqltAk9",
       "created_by": {
         "agent": {
           "type": "agent_id",
           "name": "BasicWorkflow",
           "version": "2"
         },
-        "response_id": "wfresp_eca4f45f4a3b023500Oj6uVtrlmfAWMx0Wofj0rTrrUsMqjRox"
+        "response_id": "wfresp_c671246113e78fe700wqCxyJPVYb6zEzZvDMVuDv0QEgv6WcHj"
       },
       "status": "completed",
       "role": "assistant",
@@ -158,7 +158,7 @@
     },
     {
       "type": "message",
-      "id": "msg_eca4f45f4a3b0235002PXPtstRrWW6z99VzaTXKAw7CpLolct4",
+      "id": "msg_c671246113e78fe700V0y1LDtA5WqBeNL9hykHa1lZ6RfOG9PR",
       "status": "completed",
       "role": "user",
       "content": [
@@ -167,140 +167,10 @@
           "text": "hi"
         }
       ]
-    },
-    {
-      "type": "workflow_action",
-      "id": "wfa_eca4f45f4a3b023500qUCYM8KejoML7xddUM8MuFrbD0qEHbLP",
-      "created_by": {
-        "agent": {
-          "type": "agent_id",
-          "name": "BasicWorkflow",
-          "version": "1"
-        },
-        "response_id": "wfresp_eca4f45f4a3b023500VZjwYccUiW1s1I0eMRLQKvRTjMHDUQ3R"
-      },
-      "kind": "EndConversation",
-      "action_id": "action-1767634464332",
-      "parent_action_id": "trigger_wf",
-      "previous_action_id": "action-1767634451682",
-      "status": "completed"
-    },
-    {
-      "type": "workflow_action",
-      "id": "wfa_eca4f45f4a3b023500gHNDb4DKHmu2mfUMEqRaGCSRQWlJtL8K",
-      "created_by": {
-        "agent": {
-          "type": "agent_id",
-          "name": "BasicWorkflow",
-          "version": "1"
-        },
-        "response_id": "wfresp_eca4f45f4a3b023500VZjwYccUiW1s1I0eMRLQKvRTjMHDUQ3R"
-      },
-      "kind": "SendActivity",
-      "action_id": "action-1767634451682",
-      "parent_action_id": "trigger_wf",
-      "previous_action_id": "action-1767634350800_Post",
-      "status": "completed"
-    },
-    {
-      "type": "message",
-      "id": "msg_eca4f45f4a3b0235006Dm0dfSWMzsZKJHb7RinBhStnWlTW0ZV",
-      "created_by": {
-        "agent": {
-          "type": "agent_id",
-          "name": "BasicWorkflow",
-          "version": "1"
-        },
-        "response_id": "wfresp_eca4f45f4a3b023500VZjwYccUiW1s1I0eMRLQKvRTjMHDUQ3R"
-      },
-      "status": "completed",
-      "role": "assistant",
-      "content": [
-        {
-          "type": "output_text",
-          "text": "Conversation is ending here.",
-          "annotations": []
-        }
-      ]
-    },
-    {
-      "type": "workflow_action",
-      "id": "wfa_eca4f45f4a3b023500HetP57Paj5S6Uls10R4k4v9pBT5U2sDQ",
-      "created_by": {
-        "agent": {
-          "type": "agent_id",
-          "name": "BasicWorkflow",
-          "version": "1"
-        },
-        "response_id": "wfresp_eca4f45f4a3b023500VZjwYccUiW1s1I0eMRLQKvRTjMHDUQ3R"
-      },
-      "kind": "InvokeAzureAgent",
-      "action_id": "action-1767634350800",
-      "parent_action_id": "trigger_wf",
-      "previous_action_id": "action-1767634216505_Post",
-      "status": "completed"
-    },
-    {
-      "type": "message",
-      "id": "msg_eca4f45f4a3b023500wtwyXRdK8C6pBhhELXthPrEoULFGiB2h",
-      "status": "completed",
-      "role": "assistant",
-      "content": [
-        {
-          "type": "output_text",
-          "text": "Hi Teddy! \ud83d\ude0a Nice to meet you. How can I help you today?",
-          "annotations": []
-        }
-      ]
-    },
-    {
-      "type": "message",
-      "id": "msg_eca4f45f4a3b023500hbTi7cSgrbtfwnp1mLFYXFENqznzlqkf",
-      "status": "completed",
-      "role": "user",
-      "content": [
-        {
-          "type": "input_text",
-          "text": "My name is Teddy :)"
-        }
-      ]
-    },
-    {
-      "type": "message",
-      "id": "msg_eca4f45f4a3b0235000OkSV6l0iUBGYwfoyfQTIPJo0CLDwvyc",
-      "created_by": {
-        "agent": {
-          "type": "agent_id",
-          "name": "BasicWorkflow",
-          "version": "1"
-        },
-        "response_id": "wfresp_eca4f45f4a3b023500dJFeQkhuEHPmytrIjUZM0nipuH4f1yjD"
-      },
-      "status": "completed",
-      "role": "assistant",
-      "content": [
-        {
-          "type": "output_text",
-          "text": "What is your name?",
-          "annotations": []
-        }
-      ]
-    },
-    {
-      "type": "message",
-      "id": "msg_eca4f45f4a3b023500AdWJgihDB6oES6fqusWypxrI3Yvi04M4",
-      "status": "completed",
-      "role": "user",
-      "content": [
-        {
-          "type": "input_text",
-          "text": "Hi"
-        }
-      ]
     }
   ],
-  "first_id": "wfa_eca4f45f4a3b0235002oOnUdUK68Hu46sYc2iMHD8WfybYIhTB",
-  "last_id": "msg_eca4f45f4a3b023500AdWJgihDB6oES6fqusWypxrI3Yvi04M4",
+  "first_id": "wfa_c671246113e78fe7007UD5QuGdkBrj8uospJJcTJQcvSaPsacS",
+  "last_id": "msg_c671246113e78fe700V0y1LDtA5WqBeNL9hykHa1lZ6RfOG9PR",
   "has_more": false,
   "object": "list"
 }

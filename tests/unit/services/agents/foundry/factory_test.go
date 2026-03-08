@@ -14,9 +14,9 @@ import (
 // TestNewFromConfig_Success tests successful factory creation from config.
 func TestNewFromConfig_Success(t *testing.T) {
 	config := &platform.AgentConfig{
-		Type:          platform.AgentTypeFoundry,
-		TenantID:      "tenant-123",
-		ApplicationID: "app-456",
+		Type:        platform.AgentTypeFoundry,
+		TenantID:    "tenant-123",
+		ChatAgentID: "app-456",
 		Settings: platform.AgentSettings{
 			APIVersion:      "2025-11-15-preview",
 			AgentType:       "AGENT",
@@ -28,7 +28,7 @@ func TestNewFromConfig_Success(t *testing.T) {
 	client, err := foundry.NewFromConfig(config, "test-api-token")
 	require.NoError(t, err)
 	require.NotNil(t, client)
-	defer client.Close()
+	client.Close()
 }
 
 // TestNewFromConfig_NilConfig tests error when config is nil.
@@ -42,9 +42,9 @@ func TestNewFromConfig_NilConfig(t *testing.T) {
 // TestNewFromConfig_MissingToken tests error when token is empty.
 func TestNewFromConfig_MissingToken(t *testing.T) {
 	config := &platform.AgentConfig{
-		Type:          platform.AgentTypeFoundry,
-		TenantID:      "tenant-123",
-		ApplicationID: "app-456",
+		Type:        platform.AgentTypeFoundry,
+		TenantID:    "tenant-123",
+		ChatAgentID: "app-456",
 		Settings: platform.AgentSettings{
 			ProjectEndpoint: "https://test.services.ai.azure.com/api/projects/test-project",
 			AgentName:       "TestAgent",
@@ -60,9 +60,9 @@ func TestNewFromConfig_MissingToken(t *testing.T) {
 // TestNewFromConfig_MissingProjectEndpoint tests error when project endpoint is missing.
 func TestNewFromConfig_MissingProjectEndpoint(t *testing.T) {
 	config := &platform.AgentConfig{
-		Type:          platform.AgentTypeFoundry,
-		TenantID:      "tenant-123",
-		ApplicationID: "app-456",
+		Type:        platform.AgentTypeFoundry,
+		TenantID:    "tenant-123",
+		ChatAgentID: "app-456",
 		Settings: platform.AgentSettings{
 			AgentName: "TestAgent",
 		},
@@ -77,9 +77,9 @@ func TestNewFromConfig_MissingProjectEndpoint(t *testing.T) {
 // TestNewFromConfig_MissingAgentName tests error when agent name is missing.
 func TestNewFromConfig_MissingAgentName(t *testing.T) {
 	config := &platform.AgentConfig{
-		Type:          platform.AgentTypeFoundry,
-		TenantID:      "tenant-123",
-		ApplicationID: "app-456",
+		Type:        platform.AgentTypeFoundry,
+		TenantID:    "tenant-123",
+		ChatAgentID: "app-456",
 		Settings: platform.AgentSettings{
 			ProjectEndpoint: "https://test.services.ai.azure.com/api/projects/test-project",
 		},
@@ -94,9 +94,9 @@ func TestNewFromConfig_MissingAgentName(t *testing.T) {
 // TestNewFromConfig_DefaultAPIVersion tests that API version defaults when not set.
 func TestNewFromConfig_DefaultAPIVersion(t *testing.T) {
 	config := &platform.AgentConfig{
-		Type:          platform.AgentTypeFoundry,
-		TenantID:      "tenant-123",
-		ApplicationID: "app-456",
+		Type:        platform.AgentTypeFoundry,
+		TenantID:    "tenant-123",
+		ChatAgentID: "app-456",
 		Settings: platform.AgentSettings{
 			ProjectEndpoint: "https://test.services.ai.azure.com/api/projects/test-project",
 			AgentName:       "TestAgent",
@@ -107,5 +107,5 @@ func TestNewFromConfig_DefaultAPIVersion(t *testing.T) {
 	client, err := foundry.NewFromConfig(config, "test-token")
 	require.NoError(t, err)
 	require.NotNil(t, client)
-	defer client.Close()
+	client.Close()
 }

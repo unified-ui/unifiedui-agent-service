@@ -15,16 +15,16 @@ type MockSessionService struct {
 }
 
 // GetSession retrieves a session from cache.
-func (m *MockSessionService) GetSession(ctx context.Context, tenantID, userID, conversationID string) (*session.SessionData, error) {
+func (m *MockSessionService) GetSession(ctx context.Context, tenantID, userID, conversationID string) (*session.Data, error) {
 	args := m.Called(ctx, tenantID, userID, conversationID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*session.SessionData), args.Error(1)
+	return args.Get(0).(*session.Data), args.Error(1)
 }
 
 // SetSession stores a session in cache.
-func (m *MockSessionService) SetSession(ctx context.Context, sessionData *session.SessionData) error {
+func (m *MockSessionService) SetSession(ctx context.Context, sessionData *session.Data) error {
 	args := m.Called(ctx, sessionData)
 	return args.Error(0)
 }

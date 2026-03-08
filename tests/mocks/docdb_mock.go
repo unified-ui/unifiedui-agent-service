@@ -46,7 +46,7 @@ func (m *MockCollection) Find(ctx context.Context, filter interface{}, opts *doc
 }
 
 // UpdateOne updates a single document.
-func (m *MockCollection) UpdateOne(ctx context.Context, filter interface{}, update interface{}) (*docdb.UpdateResult, error) {
+func (m *MockCollection) UpdateOne(ctx context.Context, filter, update interface{}) (*docdb.UpdateResult, error) {
 	args := m.Called(ctx, filter, update)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -55,7 +55,7 @@ func (m *MockCollection) UpdateOne(ctx context.Context, filter interface{}, upda
 }
 
 // UpdateMany updates multiple documents.
-func (m *MockCollection) UpdateMany(ctx context.Context, filter interface{}, update interface{}) (*docdb.UpdateResult, error) {
+func (m *MockCollection) UpdateMany(ctx context.Context, filter, update interface{}) (*docdb.UpdateResult, error) {
 	args := m.Called(ctx, filter, update)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -112,6 +112,7 @@ type MockDocDBClient struct {
 	mock.Mock
 	messagesCollection    *MockMessagesCollection
 	messagesRawCollection *MockCollection
+	reactionsCollection   *MockReactionsCollection
 	tracesCollection      *MockTracesCollection
 	tracesRawCollection   *MockCollection
 	database              *MockDatabase
@@ -122,6 +123,7 @@ func NewMockDocDBClient() *MockDocDBClient {
 	return &MockDocDBClient{
 		messagesCollection:    &MockMessagesCollection{},
 		messagesRawCollection: &MockCollection{},
+		reactionsCollection:   &MockReactionsCollection{},
 		tracesCollection:      &MockTracesCollection{},
 		tracesRawCollection:   &MockCollection{},
 		database:              &MockDatabase{},
@@ -141,6 +143,11 @@ func (m *MockDocDBClient) Messages() docdb.MessagesCollection {
 // MessagesRaw returns the raw messages collection.
 func (m *MockDocDBClient) MessagesRaw() docdb.Collection {
 	return m.messagesRawCollection
+}
+
+// Reactions returns the typed reactions collection.
+func (m *MockDocDBClient) Reactions() docdb.ReactionsCollection {
+	return m.reactionsCollection
 }
 
 // Traces returns the typed traces collection.
@@ -186,6 +193,11 @@ func (m *MockDocDBClient) GetTracesRawCollection() *MockCollection {
 	return m.tracesRawCollection
 }
 
+// GetReactionsCollection returns the mock reactions collection for setup.
+func (m *MockDocDBClient) GetReactionsCollection() *MockReactionsCollection {
+	return m.reactionsCollection
+}
+
 // MockTracesCollection is a mock implementation of docdb.TracesCollection.
 type MockTracesCollection struct {
 	mock.Mock
@@ -209,6 +221,15 @@ func (m *MockTracesCollection) Get(ctx context.Context, id string) (*models.Trac
 // GetByConversation gets a trace by conversation ID.
 func (m *MockTracesCollection) GetByConversation(ctx context.Context, tenantID, conversationID string) (*models.Trace, error) {
 	args := m.Called(ctx, tenantID, conversationID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.Trace), args.Error(1)
+}
+
+// GetByReferenceID gets a trace by its external reference ID.
+func (m *MockTracesCollection) GetByReferenceID(ctx context.Context, tenantID, referenceID string) (*models.Trace, error) {
+	args := m.Called(ctx, tenantID, referenceID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -249,6 +270,12 @@ func (m *MockTracesCollection) List(ctx context.Context, opts *docdb.ListTracesO
 		return nil, args.Error(1)
 	}
 	return args.Get(0).([]*models.Trace), args.Error(1)
+}
+
+// Count counts traces matching the filter options.
+func (m *MockTracesCollection) Count(ctx context.Context, opts *docdb.ListTracesOptions) (int64, error) {
+	args := m.Called(ctx, opts)
+	return args.Get(0).(int64), args.Error(1)
 }
 
 // Update updates a trace.
@@ -340,6 +367,15 @@ func (m *MockMessagesCollection) ListChatHistory(ctx context.Context, opts *docd
 	return args.Get(0).([]models.ChatHistoryEntry), args.Error(1)
 }
 
+// Search searches messages by content.
+func (m *MockMessagesCollection) Search(ctx context.Context, opts *docdb.SearchMessagesOptions) ([]*models.Message, error) {
+	args := m.Called(ctx, opts)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*models.Message), args.Error(1)
+}
+
 // Update updates a message.
 func (m *MockMessagesCollection) Update(ctx context.Context, message *models.Message) error {
 	args := m.Called(ctx, message)
@@ -412,6 +448,53 @@ func (m *MockCursor) Err() error {
 
 // Close closes the cursor.
 func (m *MockCursor) Close(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
+}
+
+// MockReactionsCollection is a mock implementation of docdb.ReactionsCollection.
+type MockReactionsCollection struct {
+	mock.Mock
+}
+
+// Upsert creates or updates a reaction.
+func (m *MockReactionsCollection) Upsert(ctx context.Context, reaction *models.MessageReaction) error {
+	args := m.Called(ctx, reaction)
+	return args.Error(0)
+}
+
+// Get retrieves a reaction.
+func (m *MockReactionsCollection) Get(ctx context.Context, opts *docdb.UpsertReactionOptions) (*models.MessageReaction, error) {
+	args := m.Called(ctx, opts)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.MessageReaction), args.Error(1)
+}
+
+// ListByMessage retrieves all reactions for a message.
+func (m *MockReactionsCollection) ListByMessage(ctx context.Context, opts *docdb.ListReactionsOptions) ([]*models.MessageReaction, error) {
+	args := m.Called(ctx, opts)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*models.MessageReaction), args.Error(1)
+}
+
+// Delete removes a reaction.
+func (m *MockReactionsCollection) Delete(ctx context.Context, opts *docdb.DeleteReactionOptions) error {
+	args := m.Called(ctx, opts)
+	return args.Error(0)
+}
+
+// DeleteByConversation removes all reactions in a conversation.
+func (m *MockReactionsCollection) DeleteByConversation(ctx context.Context, tenantID, conversationID string) error {
+	args := m.Called(ctx, tenantID, conversationID)
+	return args.Error(0)
+}
+
+// EnsureIndexes creates indexes.
+func (m *MockReactionsCollection) EnsureIndexes(ctx context.Context) error {
 	args := m.Called(ctx)
 	return args.Error(0)
 }

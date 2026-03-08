@@ -5,17 +5,30 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/unifiedui/agent-service/internal/config"
+	"github.com/unifiedui/agent-service/internal/domain/models"
+	"github.com/unifiedui/agent-service/internal/pkg/contextformat"
 	"github.com/unifiedui/agent-service/internal/services/agents/foundry"
 	"github.com/unifiedui/agent-service/internal/services/agents/n8n"
+	"github.com/unifiedui/agent-service/internal/services/agents/react"
 	"github.com/unifiedui/agent-service/internal/services/platform"
 )
 
 // Factory creates agent clients based on configuration.
-type Factory struct{}
+type Factory struct {
+	reactFactory *react.Factory
+}
 
 // NewFactory creates a new agent factory.
 func NewFactory() *Factory {
 	return &Factory{}
+}
+
+// NewFactoryWithReact creates a new agent factory with ReACT service support.
+func NewFactoryWithReact(reactCfg config.ReactServiceConfig, serviceKey string) *Factory {
+	return &Factory{
+		reactFactory: react.NewFactory(reactCfg, serviceKey),
+	}
 }
 
 // CreateClients creates the appropriate agent clients based on the configuration.
@@ -29,6 +42,8 @@ func (f *Factory) CreateClients(config *platform.AgentConfig) (*AgentClients, er
 		return f.createN8NClients(config)
 	case platform.AgentTypeFoundry:
 		return nil, fmt.Errorf("foundry requires API token - use CreateFoundryClients instead")
+	case platform.AgentTypeReactAgent:
+		return f.createReActClients(config)
 	case platform.AgentTypeCopilot:
 		return nil, fmt.Errorf("copilot agent type not yet implemented")
 	case platform.AgentTypeCustom:
@@ -55,9 +70,12 @@ func (f *Factory) CreateFoundryClients(config *platform.AgentConfig, apiToken st
 	}
 
 	return &AgentClients{
-		WorkflowClient: &foundryWorkflowAdapter{workflowClient},
-		APIClient:      nil, // Foundry doesn't have a separate API client
-		Config:         config,
+		WorkflowClient: &foundryWorkflowAdapter{
+			client:        workflowClient,
+			fileConverter: foundry.NewFileConverter(),
+		},
+		APIClient: nil, // Foundry doesn't have a separate API client
+		Config:    config,
 	}, nil
 }
 
@@ -75,28 +93,63 @@ func (f *Factory) createN8NClients(config *platform.AgentConfig) (*AgentClients,
 	apiClient, err := n8nFactory.CreateAPIClient(config)
 	if err != nil {
 		// Clean up workflow client if API client creation fails
-		workflowClient.Close()
+		_ = workflowClient.Close()
 		return nil, fmt.Errorf("failed to create N8N API client: %w", err)
 	}
 
 	return &AgentClients{
-		WorkflowClient: &n8nWorkflowAdapter{workflowClient},
-		APIClient:      &n8nAPIAdapter{apiClient},
-		Config:         config,
+		WorkflowClient: &n8nWorkflowAdapter{
+			client:        workflowClient,
+			fileConverter: n8n.NewFileConverter(),
+		},
+		APIClient: &n8nAPIAdapter{apiClient},
+		Config:    config,
 	}, nil
 }
 
 // n8nWorkflowAdapter adapts n8n.ChatWorkflowClient to agents.WorkflowClient interface.
 type n8nWorkflowAdapter struct {
-	client *n8n.ChatWorkflowClient
+	client        *n8n.ChatWorkflowClient
+	fileConverter *n8n.FileConverter
+}
+
+// toN8NFileInputs converts agents.FileInput to n8n.FileInput.
+func toN8NFileInputs(files []FileInput) []n8n.FileInput {
+	result := make([]n8n.FileInput, len(files))
+	for i, f := range files {
+		result[i] = n8n.FileInput{
+			Type:     f.Type,
+			ImageURL: f.ImageURL,
+			FileData: f.FileData,
+			Filename: f.Filename,
+			MimeType: f.MimeType,
+			Detail:   f.Detail,
+		}
+	}
+	return result
 }
 
 func (a *n8nWorkflowAdapter) Invoke(ctx context.Context, req *InvokeRequest) (*InvokeResponse, error) {
+	// Prepend context data to message if present
+	message := contextformat.PrependContextToMessage(req.ContextData, req.Message)
+
+	// Convert files if present
+	var input interface{}
+	if len(req.Files) > 0 {
+		n8nFiles := toN8NFileInputs(req.Files)
+		converted, err := a.fileConverter.ConvertFiles(message, n8nFiles)
+		if err != nil {
+			return nil, err
+		}
+		input = converted
+	}
+
 	n8nReq := &n8n.InvokeRequest{
 		ConversationID: req.ConversationID,
-		Message:        req.Message,
+		Message:        message,
 		SessionID:      req.SessionID,
 		ChatHistory:    req.ChatHistory,
+		Input:          input,
 	}
 
 	resp, err := a.client.Invoke(ctx, n8nReq)
@@ -113,11 +166,26 @@ func (a *n8nWorkflowAdapter) Invoke(ctx context.Context, req *InvokeRequest) (*I
 }
 
 func (a *n8nWorkflowAdapter) InvokeStream(ctx context.Context, req *InvokeRequest) (<-chan *StreamChunk, error) {
+	// Prepend context data to message if present
+	message := contextformat.PrependContextToMessage(req.ContextData, req.Message)
+
+	// Convert files if present
+	var input interface{}
+	if len(req.Files) > 0 {
+		n8nFiles := toN8NFileInputs(req.Files)
+		converted, err := a.fileConverter.ConvertFiles(message, n8nFiles)
+		if err != nil {
+			return nil, err
+		}
+		input = converted
+	}
+
 	n8nReq := &n8n.InvokeRequest{
 		ConversationID: req.ConversationID,
-		Message:        req.Message,
+		Message:        message,
 		SessionID:      req.SessionID,
 		ChatHistory:    req.ChatHistory,
+		Input:          input,
 	}
 
 	n8nCh, err := a.client.InvokeStream(ctx, n8nReq)
@@ -137,11 +205,26 @@ func (a *n8nWorkflowAdapter) InvokeStream(ctx context.Context, req *InvokeReques
 }
 
 func (a *n8nWorkflowAdapter) InvokeStreamReader(ctx context.Context, req *InvokeRequest) (StreamReader, error) {
+	// Prepend context data to message if present
+	message := contextformat.PrependContextToMessage(req.ContextData, req.Message)
+
+	// Convert files if present
+	var input interface{}
+	if len(req.Files) > 0 {
+		n8nFiles := toN8NFileInputs(req.Files)
+		converted, err := a.fileConverter.ConvertFiles(message, n8nFiles)
+		if err != nil {
+			return nil, err
+		}
+		input = converted
+	}
+
 	n8nReq := &n8n.InvokeRequest{
 		ConversationID: req.ConversationID,
-		Message:        req.Message,
+		Message:        message,
 		SessionID:      req.SessionID,
 		ChatHistory:    req.ChatHistory,
+		Input:          input,
 	}
 
 	reader, err := a.client.InvokeStreamReader(ctx, n8nReq)
@@ -230,13 +313,45 @@ func (a *n8nAPIAdapter) Close() error {
 
 // foundryWorkflowAdapter adapts foundry.WorkflowClient to agents.WorkflowClient interface.
 type foundryWorkflowAdapter struct {
-	client *foundry.WorkflowClient
+	client        *foundry.WorkflowClient
+	fileConverter *foundry.FileConverter
+}
+
+// toFoundryFileInputs converts agents.FileInput to foundry.FileInput.
+func toFoundryFileInputs(files []FileInput) []foundry.FileInput {
+	result := make([]foundry.FileInput, len(files))
+	for i, f := range files {
+		result[i] = foundry.FileInput{
+			Type:     f.Type,
+			ImageURL: f.ImageURL,
+			FileData: f.FileData,
+			Filename: f.Filename,
+			MimeType: f.MimeType,
+			Detail:   f.Detail,
+		}
+	}
+	return result
 }
 
 func (a *foundryWorkflowAdapter) Invoke(ctx context.Context, req *InvokeRequest) (*InvokeResponse, error) {
+	// Prepend context data to message if present
+	message := contextformat.PrependContextToMessage(req.ContextData, req.Message)
+
+	// Convert files if present
+	var input interface{}
+	if len(req.Files) > 0 {
+		foundryFiles := toFoundryFileInputs(req.Files)
+		converted, err := a.fileConverter.ConvertFiles(message, foundryFiles)
+		if err != nil {
+			return nil, err
+		}
+		input = converted
+	}
+
 	foundryReq := &foundry.InvokeRequest{
 		ExtConversationID: req.ConversationID,
-		Message:           req.Message,
+		Message:           message,
+		Input:             input,
 	}
 
 	resp, err := a.client.Invoke(ctx, foundryReq)
@@ -253,9 +368,24 @@ func (a *foundryWorkflowAdapter) Invoke(ctx context.Context, req *InvokeRequest)
 }
 
 func (a *foundryWorkflowAdapter) InvokeStream(ctx context.Context, req *InvokeRequest) (<-chan *StreamChunk, error) {
+	// Prepend context data to message if present
+	message := contextformat.PrependContextToMessage(req.ContextData, req.Message)
+
+	// Convert files if present
+	var input interface{}
+	if len(req.Files) > 0 {
+		foundryFiles := toFoundryFileInputs(req.Files)
+		converted, err := a.fileConverter.ConvertFiles(message, foundryFiles)
+		if err != nil {
+			return nil, err
+		}
+		input = converted
+	}
+
 	foundryReq := &foundry.InvokeRequest{
 		ExtConversationID: req.ConversationID,
-		Message:           req.Message,
+		Message:           message,
+		Input:             input,
 	}
 
 	foundryCh, err := a.client.InvokeStream(ctx, foundryReq)
@@ -275,9 +405,24 @@ func (a *foundryWorkflowAdapter) InvokeStream(ctx context.Context, req *InvokeRe
 }
 
 func (a *foundryWorkflowAdapter) InvokeStreamReader(ctx context.Context, req *InvokeRequest) (StreamReader, error) {
+	// Prepend context data to message if present
+	message := contextformat.PrependContextToMessage(req.ContextData, req.Message)
+
+	// Convert files if present
+	var input interface{}
+	if len(req.Files) > 0 {
+		foundryFiles := toFoundryFileInputs(req.Files)
+		converted, err := a.fileConverter.ConvertFiles(message, foundryFiles)
+		if err != nil {
+			return nil, err
+		}
+		input = converted
+	}
+
 	foundryReq := &foundry.InvokeRequest{
 		ExtConversationID: req.ConversationID,
-		Message:           req.Message,
+		Message:           message,
+		Input:             input,
 	}
 
 	reader, err := a.client.InvokeStreamReader(ctx, foundryReq)
@@ -317,5 +462,190 @@ func convertFoundryChunk(foundryChunk *foundry.StreamChunk) *StreamChunk {
 		ExecutionID: foundryChunk.ExecutionID,
 		Metadata:    foundryChunk.Metadata,
 		Error:       foundryChunk.Error,
+	}
+}
+
+// createReActClients creates ReACT agent clients.
+func (f *Factory) createReActClients(config *platform.AgentConfig) (*AgentClients, error) {
+	if f.reactFactory == nil {
+		return nil, fmt.Errorf("ReACT service not configured - use NewFactoryWithReact")
+	}
+
+	workflowClient, err := f.reactFactory.CreateWorkflowClient(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create ReACT workflow client: %w", err)
+	}
+
+	return &AgentClients{
+		WorkflowClient: &reactWorkflowAdapter{
+			client: workflowClient,
+			config: config,
+		},
+		APIClient: nil,
+		Config:    config,
+	}, nil
+}
+
+// reactWorkflowAdapter adapts react.WorkflowClient to agents.WorkflowClient interface.
+type reactWorkflowAdapter struct {
+	client *react.WorkflowClient
+	config *platform.AgentConfig
+}
+
+func (a *reactWorkflowAdapter) Invoke(ctx context.Context, req *InvokeRequest) (*InvokeResponse, error) {
+	reactReq := a.buildReActRequest(req)
+
+	content, err := a.client.Invoke(ctx, reactReq)
+	if err != nil {
+		return nil, err
+	}
+
+	return &InvokeResponse{
+		Content: content,
+	}, nil
+}
+
+func (a *reactWorkflowAdapter) InvokeStream(ctx context.Context, req *InvokeRequest) (<-chan *StreamChunk, error) {
+	reader, err := a.InvokeStreamReader(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	ch := make(chan *StreamChunk, 100)
+	go func() {
+		defer close(ch)
+		for {
+			chunk, readErr := reader.Read()
+			if readErr != nil {
+				_ = reader.Close()
+				return
+			}
+			ch <- chunk
+		}
+	}()
+
+	return ch, nil
+}
+
+func (a *reactWorkflowAdapter) InvokeStreamReader(ctx context.Context, req *InvokeRequest) (StreamReader, error) {
+	reactReq := a.buildReActRequest(req)
+
+	reader, err := a.client.InvokeStreamReader(ctx, reactReq)
+	if err != nil {
+		return nil, err
+	}
+
+	return &reactStreamReaderAdapter{reader: reader}, nil
+}
+
+func (a *reactWorkflowAdapter) Close() error {
+	return a.client.Close()
+}
+
+// buildReActRequest converts the generic InvokeRequest + AgentConfig into a react.InvokeRequest.
+func (a *reactWorkflowAdapter) buildReActRequest(req *InvokeRequest) *react.InvokeRequest {
+	message := contextformat.PrependContextToMessage(req.ContextData, req.Message)
+
+	aiModels := make([]react.AIModelConfig, 0)
+	tools := make([]react.ToolDefinition, 0)
+
+	if a.config != nil {
+		for _, m := range a.config.Settings.AIModels {
+			am := react.AIModelConfig{
+				Provider: m.Provider,
+			}
+			if v, ok := m.Config["model_name"]; ok {
+				am.ModelName, _ = v.(string)
+			}
+			if v, ok := m.Config["base_url"]; ok {
+				am.BaseURL, _ = v.(string)
+			}
+			if v, ok := m.Config["endpoint"]; ok {
+				am.Endpoint, _ = v.(string)
+			}
+			if v, ok := m.Config["api_version"]; ok {
+				am.APIVersion, _ = v.(string)
+			}
+			if v, ok := m.Config["deployment_name"]; ok {
+				am.DeploymentName, _ = v.(string)
+			}
+			if v, ok := m.Config["organization"]; ok {
+				am.Organization, _ = v.(string)
+			}
+			if m.CredentialSecret != nil {
+				if apiKey, ok := m.CredentialSecret["api_key"]; ok {
+					am.APIKey, _ = apiKey.(string)
+				}
+			}
+			aiModels = append(aiModels, am)
+		}
+	}
+
+	if a.config != nil && a.config.Settings.Tools != nil {
+		for _, t := range a.config.Settings.Tools {
+			td := react.ToolDefinition{
+				ID:          t.ID,
+				Name:        t.Name,
+				Description: t.Description,
+				Type:        t.Type,
+				Config:      t.Config,
+				IsActive:    t.IsActive,
+			}
+			if t.Credentials != nil {
+				td.Credential = &react.ToolCredential{
+					ID:     t.Credentials.ID,
+					Type:   string(t.Credentials.Type),
+					Secret: t.Credentials.GetSecretAsString(),
+				}
+			}
+			tools = append(tools, td)
+		}
+	}
+
+	history := req.ChatHistory
+	if history == nil {
+		history = make([]models.ChatHistoryEntry, 0)
+	}
+
+	return &react.InvokeRequest{
+		TenantID:       a.config.TenantID,
+		ChatAgentID:    a.config.ChatAgentID,
+		ConversationID: req.ConversationID,
+		Message:        message,
+		History:        history,
+		AgentConfig: react.AgentConfigPayload{
+			ReactAgentID:      a.config.Settings.ReActAgentID,
+			SystemPrompt:      a.config.Settings.SystemPrompt,
+			AIModels:          aiModels,
+			Tools:             tools,
+			MultiAgentEnabled: false,
+		},
+	}
+}
+
+// reactStreamReaderAdapter adapts react.StreamReader to agents.StreamReader.
+type reactStreamReaderAdapter struct {
+	reader react.StreamReader
+}
+
+func (a *reactStreamReaderAdapter) Read() (*StreamChunk, error) {
+	chunk, err := a.reader.Read()
+	if err != nil {
+		return nil, err
+	}
+	return convertReActChunk(chunk), nil
+}
+
+func (a *reactStreamReaderAdapter) Close() error {
+	return a.reader.Close()
+}
+
+// convertReActChunk converts react.StreamChunk to agents.StreamChunk.
+func convertReActChunk(reactChunk *react.StreamChunk) *StreamChunk {
+	return &StreamChunk{
+		Type:    ChunkType(reactChunk.Type),
+		Content: reactChunk.Content,
+		Config:  reactChunk.Config,
+		Error:   reactChunk.Error,
 	}
 }

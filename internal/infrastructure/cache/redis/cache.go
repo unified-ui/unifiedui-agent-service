@@ -3,6 +3,7 @@ package redis
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -49,7 +50,7 @@ func NewCache(cfg Config) (*Cache, error) {
 // Get retrieves a value from Redis by key.
 func (c *Cache) Get(ctx context.Context, key string) ([]byte, error) {
 	val, err := c.client.Get(ctx, key).Bytes()
-	if err == redis.Nil {
+	if errors.Is(err, redis.Nil) {
 		return nil, nil // Key not found
 	}
 	if err != nil {

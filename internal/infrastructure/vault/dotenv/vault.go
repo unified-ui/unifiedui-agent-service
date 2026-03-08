@@ -24,9 +24,14 @@ func NewVault() *Vault {
 	}
 }
 
+// BuildSecretURI builds a dotenv URI for the given key name.
+func (v *Vault) BuildSecretURI(keyName string) string {
+	return fmt.Sprintf("dotenv://%s", keyName)
+}
+
 // StoreSecret stores a secret in memory.
 // Returns a URI in the format "dotenv://{key}".
-func (v *Vault) StoreSecret(ctx context.Context, key string, value string, metadata map[string]string) (string, error) {
+func (v *Vault) StoreSecret(ctx context.Context, key, value string, metadata map[string]string) (string, error) {
 	v.mu.Lock()
 	defer v.mu.Unlock()
 
@@ -55,7 +60,7 @@ func (v *Vault) GetSecret(ctx context.Context, uri string) (string, error) {
 }
 
 // UpdateSecret updates a secret in memory.
-func (v *Vault) UpdateSecret(ctx context.Context, uri string, value string, metadata map[string]string) (bool, error) {
+func (v *Vault) UpdateSecret(ctx context.Context, uri, value string, metadata map[string]string) (bool, error) {
 	key := strings.TrimPrefix(uri, "dotenv://")
 
 	v.mu.Lock()

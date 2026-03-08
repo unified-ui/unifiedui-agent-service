@@ -30,11 +30,11 @@ def check_auth(request: Request) -> bool:
 @mcp.tool()
 def add(a: float, b: float) -> float:
     """Add two numbers together.
-    
+
     Args:
         a: First number
         b: Second number
-    
+
     Returns:
         The sum of a and b
     """
@@ -44,11 +44,11 @@ def add(a: float, b: float) -> float:
 @mcp.tool()
 def subtract(a: float, b: float) -> float:
     """Subtract the second number from the first.
-    
+
     Args:
         a: First number (minuend)
         b: Second number (subtrahend)
-    
+
     Returns:
         The difference (a - b)
     """
@@ -58,11 +58,11 @@ def subtract(a: float, b: float) -> float:
 @mcp.tool()
 def multiply(a: float, b: float) -> float:
     """Multiply two numbers together.
-    
+
     Args:
         a: First number
         b: Second number
-    
+
     Returns:
         The product of a and b
     """
@@ -72,14 +72,14 @@ def multiply(a: float, b: float) -> float:
 @mcp.tool()
 def divide(a: float, b: float) -> float:
     """Divide the first number by the second.
-    
+
     Args:
         a: Numerator (dividend)
         b: Denominator (divisor)
-    
+
     Returns:
         The quotient (a / b)
-    
+
     Raises:
         ValueError: If b is zero
     """
@@ -90,11 +90,11 @@ def divide(a: float, b: float) -> float:
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     print("Starting Calculator MCP Server on http://localhost:8000")
     print(f"SSE endpoint: http://localhost:8000/sse")
     print(f"Auth Token: {VALID_TOKEN}")
     print("\nAvailable tools: add, subtract, multiply, divide")
-    
+
     # Run with SSE transport
     mcp.run(transport="sse", host="0.0.0.0", port=8000)

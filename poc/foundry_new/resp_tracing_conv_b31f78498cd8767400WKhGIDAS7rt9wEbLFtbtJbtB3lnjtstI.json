@@ -1,0 +1,108 @@
+{
+  "data": [
+    {
+      "type": "message",
+      "id": "msg_b31f78498cd876740069ac4c898e208190a61cd19b95db6e58",
+      "created_by": {
+        "agent": {
+          "type": "agent_id",
+          "name": "StarWarsAgent",
+          "version": "2"
+        },
+        "response_id": "resp_b31f78498cd876740069ac4c86ef94819096c45bff60afd3bb"
+      },
+      "partition_key": "b31f78498cd8767400",
+      "status": "completed",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "Hier sind einige der bekanntesten Planeten aus dem Star Wars Universum:\n\n1. **Tatooine** – Ein Wüstenplanet, Heimat von Luke Skywalker und Anakin Skywalker.\n2. **Alderaan** – Ein friedlicher, grüner Planet, der im ersten Film zerstört wurde.\n3. **Yavin IV** – Ein Dschungelmond, auf dem die Rebellen-Basis in Episode IV versteckt war.\n4. **Hoth** – Ein eisiger, unwirtlicher Planet, bekannt für die Schlacht aus \"Das Imperium schlägt zurück\".\n5. **Dagobah** – Ein sumpfiger Planet, auf dem Meister Yoda im Exil lebte.\n6. **Bespin** – Ein Gasriese mit der berühmten Wolkenstadt (Cloud City).\n7. **Endor** – Der bewaldete Mond, bekannt durch die Ewoks und das Finale der Originaltrilogie.\n8. **Naboo** – Ein schöner Planet mit Seen und grünen Hügeln, Heimat von Padmé Amidala und Palpatine.\n9. **Coruscant** – Die riesige Stadt-Metropole, Zentrum der Galaktischen Republik.",
+          "annotations": [],
+          "logprobs": []
+        }
+      ]
+    },
+    {
+      "type": "remote_function_call_output",
+      "id": "fco_b31f78498cd876740069ac4c88bff08190a706155c17a78729",
+      "created_by": {
+        "response_id": "resp_b31f78498cd876740069ac4c86ef94819096c45bff60afd3bb"
+      },
+      "partition_key": "b31f78498cd8767400",
+      "status": "completed",
+      "call_id": "call_b31f78498cd876740069ac4c8835ac8190b7459964ada30aed",
+      "output": "{\"count\":60,\"next\":\"https://swapi.dev/api/planets/?page=2\",\"previous\":null,\"results\":[{\"name\":\"Tatooine\"},{\"name\":\"Alderaan\"},{\"name\":\"Yavin IV\"},{\"name\":\"Hoth\"},{\"name\":\"Dagobah\"},{\"name\":\"Bespin\"},{\"name\":\"Endor\"},{\"name\":\"Naboo\"},{\"name\":\"Coruscant\"},{\"name\":\"Kamino\"}]}"
+    },
+    {
+      "type": "remote_function_call",
+      "id": "fc_b31f78498cd876740069ac4c8835ac8190b7459964ada30aed",
+      "created_by": {
+        "agent": {
+          "type": "agent_id",
+          "name": "StarWarsAgent",
+          "version": "2"
+        },
+        "response_id": "resp_b31f78498cd876740069ac4c86ef94819096c45bff60afd3bb"
+      },
+      "partition_key": "b31f78498cd8767400",
+      "status": "completed",
+      "name": "StarWarsAPI_listPlanets",
+      "call_id": "call_b31f78498cd876740069ac4c8835ac8190b7459964ada30aed",
+      "arguments": {}
+    },
+    {
+      "type": "message",
+      "id": "msg_b31f78498cd876740069ac4c870dc48190aed89865699ca0cb",
+      "partition_key": "b31f78498cd8767400",
+      "status": "completed",
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "welche planeten gibts so?"
+        }
+      ]
+    },
+    {
+      "type": "message",
+      "id": "msg_b31f78498cd876740069ac4c7cfc7881908dd0e52fc3eb6997",
+      "created_by": {
+        "agent": {
+          "type": "agent_id",
+          "name": "StarWarsAgent",
+          "version": "2"
+        },
+        "response_id": "resp_b31f78498cd876740069ac4c7b90f08190bc9d1dd68b1e33e6"
+      },
+      "partition_key": "b31f78498cd8767400",
+      "status": "completed",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "Hello there! How can I help you with your Star Wars questions today?",
+          "annotations": [],
+          "logprobs": []
+        }
+      ]
+    },
+    {
+      "type": "message",
+      "id": "msg_b31f78498cd876740069ac4c7bab5481909555da8cf0773ee7",
+      "partition_key": "b31f78498cd8767400",
+      "status": "completed",
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "hey"
+        }
+      ]
+    }
+  ],
+  "first_id": "msg_b31f78498cd876740069ac4c898e208190a61cd19b95db6e58",
+  "last_id": "msg_b31f78498cd876740069ac4c7bab5481909555da8cf0773ee7",
+  "has_more": false,
+  "object": "list"
+}

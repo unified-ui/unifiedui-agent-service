@@ -3,6 +3,7 @@ package mongodb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -51,9 +52,9 @@ func (c *TracesCollection) Create(ctx context.Context, trace *models.Trace) erro
 // Get retrieves a trace by ID.
 func (c *TracesCollection) Get(ctx context.Context, id string) (*models.Trace, error) {
 	var trace models.Trace
-	err := c.collection.FindOne(ctx, bson.M{"_id": id}).Decode(&trace)
+	err := c.collection.FindOne(ctx, bson.M{"_id": sanitizeValue(id)}).Decode(&trace)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
+		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to get trace: %w", err)
@@ -64,15 +65,15 @@ func (c *TracesCollection) Get(ctx context.Context, id string) (*models.Trace, e
 // GetByConversation retrieves a trace by conversation ID (for internal use like conflict check).
 func (c *TracesCollection) GetByConversation(ctx context.Context, tenantID, conversationID string) (*models.Trace, error) {
 	filter := bson.M{
-		"tenantId":       tenantID,
-		"conversationId": conversationID,
+		"tenantId":       sanitizeValue(tenantID),
+		"conversationId": sanitizeValue(conversationID),
 		"contextType":    models.TraceContextConversation,
 	}
 
 	var trace models.Trace
 	err := c.collection.FindOne(ctx, filter).Decode(&trace)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
+		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to get trace by conversation: %w", err)
@@ -80,11 +81,30 @@ func (c *TracesCollection) GetByConversation(ctx context.Context, tenantID, conv
 	return &trace, nil
 }
 
+// GetByReferenceID retrieves a trace by its external reference ID.
+// Used for upsert operations when importing traces.
+func (c *TracesCollection) GetByReferenceID(ctx context.Context, tenantID, referenceID string) (*models.Trace, error) {
+	filter := bson.M{
+		"tenantId":    sanitizeValue(tenantID),
+		"referenceId": sanitizeValue(referenceID),
+	}
+
+	var trace models.Trace
+	err := c.collection.FindOne(ctx, filter).Decode(&trace)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get trace by reference ID: %w", err)
+	}
+	return &trace, nil
+}
+
 // ListByConversation retrieves traces for a conversation as a list.
 func (c *TracesCollection) ListByConversation(ctx context.Context, tenantID, conversationID string) ([]*models.Trace, error) {
 	filter := bson.M{
-		"tenantId":       tenantID,
-		"conversationId": conversationID,
+		"tenantId":       sanitizeValue(tenantID),
+		"conversationId": sanitizeValue(conversationID),
 		"contextType":    models.TraceContextConversation,
 	}
 
@@ -94,7 +114,7 @@ func (c *TracesCollection) ListByConversation(ctx context.Context, tenantID, con
 	if err != nil {
 		return nil, fmt.Errorf("failed to list traces by conversation: %w", err)
 	}
-	defer cursor.Close(ctx)
+	defer func() { _ = cursor.Close(ctx) }()
 
 	var traces []*models.Trace
 	if err := cursor.All(ctx, &traces); err != nil {
@@ -107,8 +127,8 @@ func (c *TracesCollection) ListByConversation(ctx context.Context, tenantID, con
 // GetByAutonomousAgent retrieves the most recent trace for an autonomous agent.
 func (c *TracesCollection) GetByAutonomousAgent(ctx context.Context, tenantID, autonomousAgentID string) (*models.Trace, error) {
 	filter := bson.M{
-		"tenantId":          tenantID,
-		"autonomousAgentId": autonomousAgentID,
+		"tenantId":          sanitizeValue(tenantID),
+		"autonomousAgentId": sanitizeValue(autonomousAgentID),
 		"contextType":       models.TraceContextAutonomousAgent,
 	}
 
@@ -117,7 +137,7 @@ func (c *TracesCollection) GetByAutonomousAgent(ctx context.Context, tenantID, a
 	var trace models.Trace
 	err := c.collection.FindOne(ctx, filter, findOpts).Decode(&trace)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
+		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to get trace by autonomous agent: %w", err)
@@ -129,8 +149,8 @@ func (c *TracesCollection) GetByAutonomousAgent(ctx context.Context, tenantID, a
 // ListByAutonomousAgent retrieves traces for an autonomous agent as a list.
 func (c *TracesCollection) ListByAutonomousAgent(ctx context.Context, tenantID, autonomousAgentID string) ([]*models.Trace, error) {
 	filter := bson.M{
-		"tenantId":          tenantID,
-		"autonomousAgentId": autonomousAgentID,
+		"tenantId":          sanitizeValue(tenantID),
+		"autonomousAgentId": sanitizeValue(autonomousAgentID),
 		"contextType":       models.TraceContextAutonomousAgent,
 	}
 
@@ -140,7 +160,7 @@ func (c *TracesCollection) ListByAutonomousAgent(ctx context.Context, tenantID, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to list traces by autonomous agent: %w", err)
 	}
-	defer cursor.Close(ctx)
+	defer func() { _ = cursor.Close(ctx) }()
 
 	var traces []*models.Trace
 	if err := cursor.All(ctx, &traces); err != nil {
@@ -159,7 +179,7 @@ func (c *TracesCollection) List(ctx context.Context, opts *docdb.ListTracesOptio
 	if err != nil {
 		return nil, fmt.Errorf("failed to list traces: %w", err)
 	}
-	defer cursor.Close(ctx)
+	defer func() { _ = cursor.Close(ctx) }()
 
 	var traces []*models.Trace
 	if err := cursor.All(ctx, &traces); err != nil {
@@ -169,11 +189,23 @@ func (c *TracesCollection) List(ctx context.Context, opts *docdb.ListTracesOptio
 	return traces, nil
 }
 
+// Count returns the total number of traces matching the filter options.
+func (c *TracesCollection) Count(ctx context.Context, opts *docdb.ListTracesOptions) (int64, error) {
+	filter := c.buildFilter(opts)
+
+	count, err := c.collection.CountDocuments(ctx, filter)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count traces: %w", err)
+	}
+
+	return count, nil
+}
+
 // Update replaces an existing trace completely.
 func (c *TracesCollection) Update(ctx context.Context, trace *models.Trace) error {
 	trace.UpdatedAt = time.Now().UTC()
 
-	result, err := c.collection.ReplaceOne(ctx, bson.M{"_id": trace.ID}, trace)
+	result, err := c.collection.ReplaceOne(ctx, bson.M{"_id": sanitizeValue(trace.ID)}, trace)
 	if err != nil {
 		return fmt.Errorf("failed to update trace: %w", err)
 	}
@@ -198,7 +230,7 @@ func (c *TracesCollection) AddNodes(ctx context.Context, id string, nodes []mode
 		},
 	}
 
-	result, err := c.collection.UpdateOne(ctx, bson.M{"_id": id}, update)
+	result, err := c.collection.UpdateOne(ctx, bson.M{"_id": sanitizeValue(id)}, update)
 	if err != nil {
 		return fmt.Errorf("failed to add nodes to trace: %w", err)
 	}
@@ -223,7 +255,7 @@ func (c *TracesCollection) AddLogs(ctx context.Context, id string, logs []string
 		},
 	}
 
-	result, err := c.collection.UpdateOne(ctx, bson.M{"_id": id}, update)
+	result, err := c.collection.UpdateOne(ctx, bson.M{"_id": sanitizeValue(id)}, update)
 	if err != nil {
 		return fmt.Errorf("failed to add logs to trace: %w", err)
 	}
@@ -237,7 +269,7 @@ func (c *TracesCollection) AddLogs(ctx context.Context, id string, logs []string
 
 // Delete removes a trace by ID.
 func (c *TracesCollection) Delete(ctx context.Context, id string) error {
-	result, err := c.collection.DeleteOne(ctx, bson.M{"_id": id})
+	result, err := c.collection.DeleteOne(ctx, bson.M{"_id": sanitizeValue(id)})
 	if err != nil {
 		return fmt.Errorf("failed to delete trace: %w", err)
 	}
@@ -252,8 +284,8 @@ func (c *TracesCollection) Delete(ctx context.Context, id string) error {
 // DeleteByConversation removes the trace for a conversation.
 func (c *TracesCollection) DeleteByConversation(ctx context.Context, tenantID, conversationID string) error {
 	filter := bson.M{
-		"tenantId":       tenantID,
-		"conversationId": conversationID,
+		"tenantId":       sanitizeValue(tenantID),
+		"conversationId": sanitizeValue(conversationID),
 		"contextType":    models.TraceContextConversation,
 	}
 
@@ -268,8 +300,8 @@ func (c *TracesCollection) DeleteByConversation(ctx context.Context, tenantID, c
 // DeleteByAutonomousAgent removes the trace for an autonomous agent.
 func (c *TracesCollection) DeleteByAutonomousAgent(ctx context.Context, tenantID, autonomousAgentID string) error {
 	filter := bson.M{
-		"tenantId":          tenantID,
-		"autonomousAgentId": autonomousAgentID,
+		"tenantId":          sanitizeValue(tenantID),
+		"autonomousAgentId": sanitizeValue(autonomousAgentID),
 		"contextType":       models.TraceContextAutonomousAgent,
 	}
 
@@ -299,14 +331,14 @@ func (c *TracesCollection) EnsureIndexes(ctx context.Context) error {
 			},
 			Options: options.Index().SetName("idx_tenant_conversation").SetSparse(true),
 		},
-		// Application + Conversation compound index
+		// Chat Agent + Conversation compound index
 		{
 			Keys: bson.D{
 				{Key: "tenantId", Value: 1},
-				{Key: "applicationId", Value: 1},
+				{Key: "chatAgentId", Value: 1},
 				{Key: "conversationId", Value: 1},
 			},
-			Options: options.Index().SetName("idx_tenant_app_conversation").SetSparse(true),
+			Options: options.Index().SetName("idx_tenant_chat_agent_conversation").SetSparse(true),
 		},
 		// Autonomous agent context index (unique per tenant+agent)
 		{
@@ -350,19 +382,31 @@ func (c *TracesCollection) buildFilter(opts *docdb.ListTracesOptions) bson.M {
 	}
 
 	if opts.TenantID != "" {
-		filter["tenantId"] = opts.TenantID
+		filter["tenantId"] = sanitizeValue(opts.TenantID)
 	}
-	if opts.ApplicationID != "" {
-		filter["applicationId"] = opts.ApplicationID
+	if opts.ChatAgentID != "" {
+		filter["chatAgentId"] = sanitizeValue(opts.ChatAgentID)
 	}
 	if opts.ConversationID != "" {
-		filter["conversationId"] = opts.ConversationID
+		filter["conversationId"] = sanitizeValue(opts.ConversationID)
 	}
 	if opts.AutonomousAgentID != "" {
-		filter["autonomousAgentId"] = opts.AutonomousAgentID
+		filter["autonomousAgentId"] = sanitizeValue(opts.AutonomousAgentID)
 	}
 	if opts.ContextType != "" {
-		filter["contextType"] = opts.ContextType
+		filter["contextType"] = sanitizeValue(string(opts.ContextType))
+	}
+
+	// Date range filtering
+	if opts.CreatedAfter != nil || opts.CreatedBefore != nil {
+		dateFilter := bson.M{}
+		if opts.CreatedAfter != nil {
+			dateFilter["$gte"] = *opts.CreatedAfter
+		}
+		if opts.CreatedBefore != nil {
+			dateFilter["$lte"] = *opts.CreatedBefore
+		}
+		filter["createdAt"] = dateFilter
 	}
 
 	return filter
@@ -383,12 +427,26 @@ func (c *TracesCollection) buildFindOptions(opts *docdb.ListTracesOptions) *opti
 		findOpts.SetSkip(opts.Skip)
 	}
 
-	// Default to descending order by createdAt
+	// Determine sort field
+	sortField := "createdAt"
+	if opts.SortBy == docdb.SortFieldUpdatedAt {
+		sortField = "updatedAt"
+	}
+
+	// Default to descending order
 	sortOrder := -1
 	if opts.OrderBy == docdb.SortOrderAsc {
 		sortOrder = 1
 	}
-	findOpts.SetSort(bson.D{{Key: "createdAt", Value: sortOrder}})
+	findOpts.SetSort(bson.D{{Key: sortField, Value: sortOrder}})
+
+	// Projection: exclude nodes and logs when expand=false
+	if !opts.Expand {
+		findOpts.SetProjection(bson.M{
+			"nodes": 0,
+			"logs":  0,
+		})
+	}
 
 	return findOpts
 }

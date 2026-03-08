@@ -1,0 +1,29 @@
+# Development Dockerfile for unified-ui Agent Service
+# Uses Air for hot reload
+
+FROM golang:1.26-alpine
+
+WORKDIR /app
+
+# Install Air for hot reload and dependencies
+RUN apk add --no-cache git ca-certificates tzdata curl && \
+    go install github.com/air-verse/air@latest
+
+# Copy go mod files first for layer caching
+COPY go.mod go.sum ./
+
+# Download dependencies
+RUN go mod download
+
+# Source code will be mounted as volume for hot reload
+# No COPY of source code - we mount it instead
+
+# Expose the API port
+EXPOSE 8085
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8085/api/health || exit 1
+
+# Run with Air for hot reload
+CMD ["air", "-c", ".air.toml"]
