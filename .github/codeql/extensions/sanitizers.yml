@@ -1,0 +1,20 @@
+extensions:
+  - addsTo:
+      pack: codeql/go-all
+      extensible: neutralModel
+    data:
+      # sanitizeValue validates MongoDB query values against a strict allowlist regex.
+      # It rejects any input not matching ^[A-Za-z0-9:._@+\-]{1,512}$ and returns
+      # an empty string for invalid input. This prevents NoSQL injection.
+      - ["github.com/unifiedui/agent-service/internal/infrastructure/docdb/mongodb", "", "sanitizeValue", "", "summary", "manual"]
+      - ["github.com/unifiedui/agent-service/internal/infrastructure/docdb/mongodb", "", "sanitizeRegex", "", "summary", "manual"]
+
+      # validateHTTPURL validates URLs, ensuring they use http/https scheme and have
+      # a valid host. This prevents SSRF by rejecting non-HTTP schemes and hostless URLs.
+      - ["github.com/unifiedui/agent-service/internal/services/traceimport/foundry", "", "validateHTTPURL", "", "summary", "manual"]
+      - ["github.com/unifiedui/agent-service/internal/services/traceimport/n8n", "", "validateHTTPURL", "", "summary", "manual"]
+
+      # validateIdentifier validates path segment identifiers against a strict
+      # alphanumeric allowlist regex. This prevents SSRF path manipulation.
+      - ["github.com/unifiedui/agent-service/internal/services/traceimport/foundry", "", "validateIdentifier", "", "summary", "manual"]
+      - ["github.com/unifiedui/agent-service/internal/services/traceimport/n8n", "", "validateIdentifier", "", "summary", "manual"]

@@ -173,13 +173,13 @@ func (f *TraceImporter) fetchConversationItems(ctx context.Context, config *Conf
 		return nil, fmt.Errorf("invalid project endpoint: %w", err)
 	}
 
-	u, err := url.Parse(baseURL + "/openai/conversations/" + url.PathEscape(config.FoundryConversationID) + "/items")
+	u, err := url.Parse(baseURL + "/openai/conversations/" + url.PathEscape(validateIdentifier(config.FoundryConversationID)) + "/items")
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct request URL: %w", err)
 	}
 
 	q := u.Query()
-	q.Set("api-version", config.APIVersion)
+	q.Set("api-version", validateIdentifier(config.APIVersion))
 	u.RawQuery = q.Encode()
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), http.NoBody)

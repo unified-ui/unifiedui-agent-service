@@ -197,7 +197,7 @@ func (n *TraceImporter) fetchExecution(ctx context.Context, config *Config) (*Ex
 		return nil, fmt.Errorf("invalid base URL: %w", err)
 	}
 
-	u, err := url.Parse(baseURL + "/api/v1/executions/" + url.PathEscape(config.ExecutionID))
+	u, err := url.Parse(baseURL + "/api/v1/executions/" + url.PathEscape(validateIdentifier(config.ExecutionID)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct request URL: %w", err)
 	}
@@ -261,7 +261,7 @@ func (n *TraceImporter) findExecutionBySessionID(ctx context.Context, config *Co
 	q.Set("limit", "100")
 	q.Set("includeData", "true")
 	if config.WorkflowID != "" {
-		q.Set("workflowId", config.WorkflowID)
+		q.Set("workflowId", validateIdentifier(config.WorkflowID))
 	}
 	u.RawQuery = q.Encode()
 
