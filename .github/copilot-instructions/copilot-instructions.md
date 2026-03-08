@@ -22,6 +22,7 @@ Read the relevant instruction file **before** working in that area.
 | [api-routes.instructions.md](./api-routes.instructions.md) | Adding or modifying API routes, middleware groups, URL conventions |
 | [handlers.instructions.md](./handlers.instructions.md) | Implementing handler methods, Swagger annotations, error handling |
 | [infrastructure.instructions.md](./infrastructure.instructions.md) | Working with cache, vault, docdb, SSE, session, platform client |
+| [security.instructions.md](./security.instructions.md) | **ALWAYS read** — NoSQL injection, SSRF, path param validation, secrets |
 | [testing.instructions.md](./testing.instructions.md) | Writing tests, running tests, understanding mock/fixture patterns |
 | [github-pipelines.instructions.md](./github-pipelines.instructions.md) | Working with CI/CD workflows, adding pipelines, coverage thresholds |
 | [instruction-management.instructions.md](./instruction-management.instructions.md) | After completing work — decides if/how to update docs |

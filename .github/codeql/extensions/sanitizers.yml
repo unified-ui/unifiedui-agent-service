@@ -1,20 +1,26 @@
 extensions:
   - addsTo:
       pack: codeql/go-all
-      extensible: neutralModel
+      extensible: summaryModel
     data:
-      # sanitizeValue validates MongoDB query values against a strict allowlist regex.
-      # It rejects any input not matching ^[A-Za-z0-9:._@+\-]{1,512}$ and returns
-      # an empty string for invalid input. This prevents NoSQL injection.
-      - ["github.com/unifiedui/agent-service/internal/infrastructure/docdb/mongodb", "", "sanitizeValue", "", "summary", "manual"]
-      - ["github.com/unifiedui/agent-service/internal/infrastructure/docdb/mongodb", "", "sanitizeRegex", "", "summary", "manual"]
+      # sanitizeValue: validates input against strict regex ^[A-Za-z0-9:._@+\-]{1,512}$.
+      # Rejects invalid input (returns ""). Taint does NOT flow to ReturnValue.
+      - ["github.com/unifiedui/agent-service/internal/infrastructure/docdb/mongodb", "", "sanitizeValue", "", "Argument[0]", "Argument[0]", "value", "manual"]
 
-      # validateHTTPURL validates URLs, ensuring they use http/https scheme and have
-      # a valid host. This prevents SSRF by rejecting non-HTTP schemes and hostless URLs.
-      - ["github.com/unifiedui/agent-service/internal/services/traceimport/foundry", "", "validateHTTPURL", "", "summary", "manual"]
-      - ["github.com/unifiedui/agent-service/internal/services/traceimport/n8n", "", "validateHTTPURL", "", "summary", "manual"]
+      # sanitizeRegex: escapes regex meta-characters via regexp.QuoteMeta.
+      # Output is safe for use in MongoDB $regex. Taint does NOT flow to ReturnValue.
+      - ["github.com/unifiedui/agent-service/internal/infrastructure/docdb/mongodb", "", "sanitizeRegex", "", "Argument[0]", "Argument[0]", "value", "manual"]
 
-      # validateIdentifier validates path segment identifiers against a strict
-      # alphanumeric allowlist regex. This prevents SSRF path manipulation.
-      - ["github.com/unifiedui/agent-service/internal/services/traceimport/foundry", "", "validateIdentifier", "", "summary", "manual"]
-      - ["github.com/unifiedui/agent-service/internal/services/traceimport/n8n", "", "validateIdentifier", "", "summary", "manual"]
+      # validateHTTPURL: validates URL scheme (http/https only) and host presence.
+      # Rejects non-HTTP schemes and hostless URLs. Taint does NOT flow to ReturnValue.
+      - ["github.com/unifiedui/agent-service/internal/services/traceimport/foundry", "", "validateHTTPURL", "", "Argument[0]", "Argument[0]", "value", "manual"]
+      - ["github.com/unifiedui/agent-service/internal/services/traceimport/n8n", "", "validateHTTPURL", "", "Argument[0]", "Argument[0]", "value", "manual"]
+
+      # validateIdentifier: validates identifiers against regex ^[A-Za-z0-9_\-.:]{1,512}$.
+      # Rejects invalid input (returns ""). Taint does NOT flow to ReturnValue.
+      - ["github.com/unifiedui/agent-service/internal/services/traceimport/foundry", "", "validateIdentifier", "", "Argument[0]", "Argument[0]", "value", "manual"]
+      - ["github.com/unifiedui/agent-service/internal/services/traceimport/n8n", "", "validateIdentifier", "", "Argument[0]", "Argument[0]", "value", "manual"]
+
+      # SanitizePathParam: validates path parameters against regex ^[A-Za-z0-9_\-]+$.
+      # Extracts c.Param(key) and validates before returning. Taint does NOT flow to ReturnValue.
+      - ["github.com/unifiedui/agent-service/internal/api/middleware", "", "SanitizePathParam", "", "Argument[0]", "Argument[0]", "value", "manual"]
