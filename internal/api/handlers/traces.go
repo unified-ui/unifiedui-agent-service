@@ -56,7 +56,7 @@ func (h *TracesHandler) GetImportService() *traceimport.ImportService {
 // @Router /api/v1/agent-service/tenants/{tenantId}/traces [post]
 func (h *TracesHandler) CreateTrace(c *gin.Context) {
 	ctx := c.Request.Context()
-	tenantID := c.Param("tenantId")
+	tenantID := middleware.SanitizePathParam(c, "tenantId")
 
 	var req dto.CreateTraceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -212,8 +212,8 @@ func (h *TracesHandler) CreateTrace(c *gin.Context) {
 // @Router /api/v1/agent-service/tenants/{tenantId}/traces/{traceId}/nodes [post]
 func (h *TracesHandler) AddNodes(c *gin.Context) {
 	ctx := c.Request.Context()
-	tenantID := c.Param("tenantId")
-	traceID := c.Param("traceId")
+	tenantID := middleware.SanitizePathParam(c, "tenantId")
+	traceID := middleware.SanitizePathParam(c, "traceId")
 
 	var req dto.AddNodesRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -266,8 +266,8 @@ func (h *TracesHandler) AddNodes(c *gin.Context) {
 // @Router /api/v1/agent-service/tenants/{tenantId}/traces/{traceId}/logs [post]
 func (h *TracesHandler) AddLogs(c *gin.Context) {
 	ctx := c.Request.Context()
-	tenantID := c.Param("tenantId")
-	traceID := c.Param("traceId")
+	tenantID := middleware.SanitizePathParam(c, "tenantId")
+	traceID := middleware.SanitizePathParam(c, "traceId")
 
 	var req dto.AddLogsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -308,8 +308,8 @@ func (h *TracesHandler) AddLogs(c *gin.Context) {
 // @Router /api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/traces [get]
 func (h *TracesHandler) GetConversationTraces(c *gin.Context) {
 	ctx := c.Request.Context()
-	tenantID := c.Param("tenantId")
-	conversationID := c.Param("conversationId")
+	tenantID := middleware.SanitizePathParam(c, "tenantId")
+	conversationID := middleware.SanitizePathParam(c, "conversationId")
 
 	traces, err := h.docDBClient.Traces().ListByConversation(ctx, tenantID, conversationID)
 	if err != nil {
@@ -340,8 +340,8 @@ func (h *TracesHandler) GetConversationTraces(c *gin.Context) {
 // @Router /api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/traces [put]
 func (h *TracesHandler) RefreshConversationTrace(c *gin.Context) {
 	ctx := c.Request.Context()
-	tenantID := c.Param("tenantId")
-	conversationID := c.Param("conversationId")
+	tenantID := middleware.SanitizePathParam(c, "tenantId")
+	conversationID := middleware.SanitizePathParam(c, "conversationId")
 	authToken := middleware.GetToken(c)
 
 	var req dto.RefreshTraceRequest
@@ -409,8 +409,8 @@ func (h *TracesHandler) RefreshConversationTrace(c *gin.Context) {
 // @Router /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/traces [get]
 func (h *TracesHandler) GetAutonomousAgentTraces(c *gin.Context) {
 	ctx := c.Request.Context()
-	tenantID := c.Param("tenantId")
-	agentID := c.Param("agentId")
+	tenantID := middleware.SanitizePathParam(c, "tenantId")
+	agentID := middleware.SanitizePathParam(c, "agentId")
 
 	opts, err := h.parseListTracesQueryParams(c)
 	if err != nil {
@@ -457,8 +457,8 @@ func (h *TracesHandler) GetAutonomousAgentTraces(c *gin.Context) {
 // @Router /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/traces [put]
 func (h *TracesHandler) RefreshAutonomousAgentTrace(c *gin.Context) {
 	ctx := c.Request.Context()
-	tenantID := c.Param("tenantId")
-	agentID := c.Param("agentId")
+	tenantID := middleware.SanitizePathParam(c, "tenantId")
+	agentID := middleware.SanitizePathParam(c, "agentId")
 	authToken := middleware.GetToken(c)
 
 	var req dto.RefreshTraceRequest
@@ -526,7 +526,7 @@ func (h *TracesHandler) RefreshAutonomousAgentTrace(c *gin.Context) {
 // @Router /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/traces [get]
 func (h *TracesHandler) ListAutonomousAgentTraces(c *gin.Context) {
 	ctx := c.Request.Context()
-	tenantID := c.Param("tenantId")
+	tenantID := middleware.SanitizePathParam(c, "tenantId")
 
 	opts, err := h.parseListTracesQueryParams(c)
 	if err != nil {
@@ -575,8 +575,8 @@ func (h *TracesHandler) ListAutonomousAgentTraces(c *gin.Context) {
 // @Router /api/v1/agent-service/tenants/{tenantId}/traces/{traceId} [get]
 func (h *TracesHandler) GetTrace(c *gin.Context) {
 	ctx := c.Request.Context()
-	tenantID := c.Param("tenantId")
-	traceID := c.Param("traceId")
+	tenantID := middleware.SanitizePathParam(c, "tenantId")
+	traceID := middleware.SanitizePathParam(c, "traceId")
 
 	trace, err := h.docDBClient.Traces().Get(ctx, traceID)
 	if err != nil {
@@ -607,8 +607,8 @@ func (h *TracesHandler) GetTrace(c *gin.Context) {
 // @Router /api/v1/agent-service/tenants/{tenantId}/traces/{traceId} [delete]
 func (h *TracesHandler) DeleteTrace(c *gin.Context) {
 	ctx := c.Request.Context()
-	tenantID := c.Param("tenantId")
-	traceID := c.Param("traceId")
+	tenantID := middleware.SanitizePathParam(c, "tenantId")
+	traceID := middleware.SanitizePathParam(c, "traceId")
 
 	trace, err := h.docDBClient.Traces().Get(ctx, traceID)
 	if err != nil {

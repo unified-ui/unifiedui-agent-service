@@ -74,8 +74,8 @@ type ListReactionsResponse struct {
 func (h *ReactionsHandler) UpsertReaction(c *gin.Context) {
 	ctx := c.Request.Context()
 	tenantCtx := middleware.GetTenantContext(c)
-	conversationID := c.Param("conversationId")
-	messageID := c.Param("messageId")
+	conversationID := middleware.SanitizePathParam(c, "conversationId")
+	messageID := middleware.SanitizePathParam(c, "messageId")
 
 	var req UpsertReactionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -139,7 +139,7 @@ func (h *ReactionsHandler) UpsertReaction(c *gin.Context) {
 func (h *ReactionsHandler) DeleteReaction(c *gin.Context) {
 	ctx := c.Request.Context()
 	tenantCtx := middleware.GetTenantContext(c)
-	messageID := c.Param("messageId")
+	messageID := middleware.SanitizePathParam(c, "messageId")
 
 	userID, err := h.getUserID(ctx, middleware.GetToken(c))
 	if err != nil {
@@ -178,8 +178,8 @@ func (h *ReactionsHandler) DeleteReaction(c *gin.Context) {
 func (h *ReactionsHandler) GetReactions(c *gin.Context) {
 	ctx := c.Request.Context()
 	tenantCtx := middleware.GetTenantContext(c)
-	conversationID := c.Param("conversationId")
-	messageID := c.Param("messageId")
+	conversationID := middleware.SanitizePathParam(c, "conversationId")
+	messageID := middleware.SanitizePathParam(c, "messageId")
 
 	opts := &docdb.ListReactionsOptions{
 		TenantID:       tenantCtx.TenantID,

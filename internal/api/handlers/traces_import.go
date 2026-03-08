@@ -33,8 +33,8 @@ import (
 // @Router /api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/traces/import/refresh [put]
 func (h *TracesHandler) ImportConversationTrace(c *gin.Context) {
 	ctx := c.Request.Context()
-	tenantID := c.Param("tenantId")
-	conversationID := c.Param("conversationId")
+	tenantID := middleware.SanitizePathParam(c, "tenantId")
+	conversationID := middleware.SanitizePathParam(c, "conversationId")
 	authToken := middleware.GetToken(c)
 
 	conversation, err := h.platformClient.GetConversation(ctx, tenantID, conversationID, authToken)
@@ -191,8 +191,8 @@ func (h *TracesHandler) buildN8NConfig(
 // @Router /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/traces/import [put]
 func (h *TracesHandler) ImportAutonomousAgentTrace(c *gin.Context) {
 	ctx := c.Request.Context()
-	tenantID := c.Param("tenantId")
-	agentID := c.Param("agentId")
+	tenantID := middleware.SanitizePathParam(c, "tenantId")
+	agentID := middleware.SanitizePathParam(c, "agentId")
 	authToken := middleware.GetToken(c)
 	apiKey := middleware.GetAutonomousAgentAPIKey(c)
 
@@ -331,9 +331,9 @@ func (h *TracesHandler) ImportAutonomousAgentTrace(c *gin.Context) {
 // @Router /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/traces/{traceId}/import/refresh [put]
 func (h *TracesHandler) RefreshAutonomousAgentImportTrace(c *gin.Context) {
 	ctx := c.Request.Context()
-	tenantID := c.Param("tenantId")
-	agentID := c.Param("agentId")
-	traceID := c.Param("traceId")
+	tenantID := middleware.SanitizePathParam(c, "tenantId")
+	agentID := middleware.SanitizePathParam(c, "agentId")
+	traceID := middleware.SanitizePathParam(c, "traceId")
 	authToken := middleware.GetToken(c)
 	apiKey := middleware.GetAutonomousAgentAPIKey(c)
 

@@ -148,7 +148,7 @@ func (c *MessagesCollection) Search(ctx context.Context, opts *docdb.SearchMessa
 func (c *MessagesCollection) Update(ctx context.Context, message *models.Message) error {
 	message.UpdatedAt = time.Now().UTC()
 
-	result, err := c.collection.ReplaceOne(ctx, bson.M{"_id": message.ID}, message)
+	result, err := c.collection.ReplaceOne(ctx, bson.M{"_id": sanitizeValue(message.ID)}, message)
 	if err != nil {
 		return fmt.Errorf("failed to update message: %w", err)
 	}

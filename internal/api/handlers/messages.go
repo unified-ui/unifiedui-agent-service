@@ -224,7 +224,7 @@ func (h *MessagesHandler) toMessageResponse(msg *models.Message) MessageResponse
 func (h *MessagesHandler) DeleteMessage(c *gin.Context) {
 	ctx := c.Request.Context()
 	tenantCtx := middleware.GetTenantContext(c)
-	messageID := c.Param("messageId")
+	messageID := middleware.SanitizePathParam(c, "messageId")
 
 	message, err := h.docDBClient.Messages().Get(ctx, messageID)
 	if err != nil {
@@ -284,7 +284,7 @@ func (h *MessagesHandler) DeleteMessage(c *gin.Context) {
 func (h *MessagesHandler) EditMessage(c *gin.Context) {
 	ctx := c.Request.Context()
 	tenantCtx := middleware.GetTenantContext(c)
-	messageID := c.Param("messageId")
+	messageID := middleware.SanitizePathParam(c, "messageId")
 
 	var req EditMessageRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

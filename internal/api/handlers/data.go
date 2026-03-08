@@ -37,8 +37,8 @@ func NewDataHandler(docDBClient docdb.Client) *DataHandler {
 // @Router /api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/data [delete]
 func (h *DataHandler) DeleteConversationData(c *gin.Context) {
 	ctx := c.Request.Context()
-	tenantID := c.Param("tenantId")
-	conversationID := c.Param("conversationId")
+	tenantID := middleware.SanitizePathParam(c, "tenantId")
+	conversationID := middleware.SanitizePathParam(c, "conversationId")
 
 	if tenantID == "" || conversationID == "" {
 		middleware.HandleError(c, errors.NewValidationError(
@@ -84,8 +84,8 @@ func (h *DataHandler) DeleteConversationData(c *gin.Context) {
 // @Router /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/data [delete]
 func (h *DataHandler) DeleteAutonomousAgentData(c *gin.Context) {
 	ctx := c.Request.Context()
-	tenantID := c.Param("tenantId")
-	agentID := c.Param("agentId")
+	tenantID := middleware.SanitizePathParam(c, "tenantId")
+	agentID := middleware.SanitizePathParam(c, "agentId")
 
 	if tenantID == "" || agentID == "" {
 		middleware.HandleError(c, errors.NewValidationError(

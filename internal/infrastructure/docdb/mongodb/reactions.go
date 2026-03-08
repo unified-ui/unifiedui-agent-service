@@ -129,8 +129,8 @@ func (c *ReactionsCollection) Delete(ctx context.Context, opts *docdb.DeleteReac
 // DeleteByConversation removes all reactions in a conversation.
 func (c *ReactionsCollection) DeleteByConversation(ctx context.Context, tenantID, conversationID string) error {
 	filter := bson.M{
-		"tenantId":       tenantID,
-		"conversationId": conversationID,
+		"tenantId":       sanitizeValue(tenantID),
+		"conversationId": sanitizeValue(conversationID),
 	}
 
 	_, err := c.collection.DeleteMany(ctx, filter)
