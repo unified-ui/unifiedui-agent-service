@@ -61,7 +61,7 @@ func (c *WorkflowClient) InvokeStreamReader(ctx context.Context, req *InvokeRequ
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		respBody, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("ReACT service returned status %d: %s", resp.StatusCode, string(respBody))
 	}
@@ -78,7 +78,7 @@ func (c *WorkflowClient) Invoke(ctx context.Context, req *InvokeRequest) (string
 	if err != nil {
 		return "", err
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	var fullContent strings.Builder
 

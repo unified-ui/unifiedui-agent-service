@@ -61,7 +61,7 @@ Die Microsoft Foundry Responses API (`POST /openai/responses`) unterstützt **na
 
 ### 2.2 N8N Chat Trigger
 
-Der N8N "Chat Trigger" Node hat **keine native File-Upload-Unterstützung**. Der Standard-Request enthält nur `chatInput` und `sessionId`. 
+Der N8N "Chat Trigger" Node hat **keine native File-Upload-Unterstützung**. Der Standard-Request enthält nur `chatInput` und `sessionId`.
 
 #### Aktueller N8N Request (ohne Files)
 
@@ -164,19 +164,19 @@ Das Frontend sendet einen **einheitlichen Request**, unabhängig vom Agent-Typ:
 type FileAttachment struct {
     // Type: "image", "file", "audio"
     Type     string `json:"type" binding:"required,oneof=image file audio"`
-    
+
     // Für Bilder: URL oder Base64 Data-URL
     ImageURL string `json:"imageUrl,omitempty"`
-    
+
     // Für Dateien/Audio: Base64-encoded Inhalt
     FileData string `json:"fileData,omitempty"`
-    
+
     // Dateiname (empfohlen)
     Filename string `json:"filename,omitempty"`
-    
+
     // MIME-Type (empfohlen)
     MimeType string `json:"mimeType,omitempty"`
-    
+
     // Für Bilder: Detail-Level (low, high, auto)
     Detail string `json:"detail,omitempty"`
 }
@@ -224,7 +224,7 @@ type InvokeRequest struct {
 type FileConverter interface {
     // SupportsFiles returns true if the agent type supports file attachments
     SupportsFiles() bool
-    
+
     // ConvertFiles converts FileInput slice to agent-specific payload structure
     // Returns the modified payload that should be sent to the agent
     ConvertFiles(message string, files []FileInput) (interface{}, error)
@@ -247,12 +247,12 @@ func (c *FoundryFileConverter) ConvertFiles(message string, files []FileInput) (
         // Return simple string for backward compatibility
         return message, nil
     }
-    
+
     // Build multimodal content array
     content := []FoundryInputContent{
         {Type: "input_text", Text: message},
     }
-    
+
     for _, file := range files {
         switch file.Type {
         case "image":
@@ -275,7 +275,7 @@ func (c *FoundryFileConverter) ConvertFiles(message string, files []FileInput) (
             })
         }
     }
-    
+
     return []FoundryInputMessage{
         {Role: "user", Content: content},
     }, nil
@@ -300,7 +300,7 @@ func (c *N8NFileConverter) ConvertFiles(message string, files []FileInput) (inte
             ChatInput: message,
         }, nil
     }
-    
+
     // Extended N8N request with files
     n8nFiles := make([]N8NFileAttachment, 0, len(files))
     for _, file := range files {
@@ -311,7 +311,7 @@ func (c *N8NFileConverter) ConvertFiles(message string, files []FileInput) (inte
             MimeType: file.MimeType,
         })
     }
-    
+
     return &ChatRequestWithFiles{
         ChatInput: message,
         Files:     n8nFiles,
@@ -463,7 +463,7 @@ func (c *WorkflowClient) InvokeStreamReader(ctx context.Context, req *InvokeRequ
         content := []FoundryInputContent{
             {Type: "input_text", Text: req.Message},
         }
-        
+
         for _, file := range req.Files {
             switch file.Type {
             case "image":
@@ -567,7 +567,7 @@ func (c *ChatWorkflowClient) buildRequestPayload(req *InvokeRequest) interface{}
             Files:     files,
         }
     }
-    
+
     // Standard request without files
     return &ChatRequest{
         ChatInput: req.Message,
@@ -752,7 +752,7 @@ func validateBase64Size(data string, maxBytes int) error {
     if idx := strings.Index(data, ","); idx != -1 {
         base64Data = data[idx+1:]
     }
-    
+
     decoded, err := base64.StdEncoding.DecodeString(base64Data)
     if err != nil {
         return errors.New("invalid base64 encoding")
@@ -813,7 +813,7 @@ export interface SendMessageRequest {
 export async function fileToAttachment(file: File): Promise<FileAttachment> {
   const data = await fileToBase64(file);
   const type = getFileType(file.type);
-  
+
   return {
     type,
     [type === 'image' ? 'imageUrl' : 'fileData']: data,

@@ -232,17 +232,18 @@ func (h *MessagesHandler) handleStreamingResponse(
 
 	startTime := time.Now()
 
-	if agentConfig.Type == platform.AgentTypeFoundry {
+	switch agentConfig.Type {
+	case platform.AgentTypeFoundry:
 		h.handleFoundryStreaming(ctx, writer, streamReader, tenantCtx, agentConfig, userMessage, assistantMessage, startTime)
 		h.updateSessionCacheConfigOnly(ctx, tenantCtx, agentConfig, userMessage.ConversationID)
 
 		if h.importService != nil && extConversationID != "" && foundryAPIKey != "" {
 			h.enqueueFoundryTraceImport(tenantCtx, agentConfig, userMessage, extConversationID, foundryAPIKey)
 		}
-	} else if agentConfig.Type == platform.AgentTypeReactAgent {
+	case platform.AgentTypeReactAgent:
 		h.handleReActStreaming(ctx, writer, streamReader, tenantCtx, agentConfig, userMessage, assistantMessage, startTime)
 		h.updateSessionCache(ctx, tenantCtx, agentConfig, userMessage, assistantMessage)
-	} else {
+	default:
 		executionID := h.handleDefaultStreaming(ctx, writer, streamReader, tenantCtx, agentConfig, userMessage, assistantMessage, startTime)
 		h.updateSessionCache(ctx, tenantCtx, agentConfig, userMessage, assistantMessage)
 

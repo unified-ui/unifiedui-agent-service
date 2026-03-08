@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -166,15 +168,21 @@ func (f *TraceImporter) Import(ctx context.Context, req *traceimport.ImportReque
 
 // fetchConversationItems fetches conversation items from Microsoft Foundry.
 func (f *TraceImporter) fetchConversationItems(ctx context.Context, config *Config) (*ConversationItemsResponse, error) {
-	// Build URL: {PROJECT_ENDPOINT}/openai/conversations/{FOUNDRY_CONV_ID}/items?api-version={VERSION}
-	url := fmt.Sprintf("%s/openai/conversations/%s/items?api-version=%s",
-		config.ProjectEndpoint,
-		config.FoundryConversationID,
-		config.APIVersion,
-	)
+	baseURL, err := validateHTTPURL(config.ProjectEndpoint)
+	if err != nil {
+		return nil, fmt.Errorf("invalid project endpoint: %w", err)
+	}
 
-	// Create request
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
+	u, err := url.Parse(baseURL + "/openai/conversations/" + url.PathEscape(config.FoundryConversationID) + "/items")
+	if err != nil {
+		return nil, fmt.Errorf("failed to construct request URL: %w", err)
+	}
+
+	q := u.Query()
+	q.Set("api-version", config.APIVersion)
+	u.RawQuery = q.Encode()
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -213,4 +221,18 @@ func (f *TraceImporter) fetchConversationItems(ctx context.Context, config *Conf
 // GetTransformer returns the transformer for testing purposes.
 func (f *TraceImporter) GetTransformer() *Transformer {
 	return f.transformer
+}
+
+func validateHTTPURL(rawURL string) (string, error) {
+	parsed, err := url.Parse(strings.TrimRight(rawURL, "/"))
+	if err != nil {
+		return "", fmt.Errorf("invalid URL: %w", err)
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return "", fmt.Errorf("unsupported URL scheme: %s", parsed.Scheme)
+	}
+	if parsed.Host == "" {
+		return "", fmt.Errorf("URL missing host")
+	}
+	return parsed.String(), nil
 }

@@ -35,9 +35,9 @@ func NewReactionsCollection(db *mongo.Database) *ReactionsCollection {
 // Upsert creates or updates a reaction (one per user per message).
 func (c *ReactionsCollection) Upsert(ctx context.Context, reaction *models.MessageReaction) error {
 	filter := bson.M{
-		"tenantId":  reaction.TenantID,
-		"messageId": reaction.MessageID,
-		"userId":    reaction.UserID,
+		"tenantId":  sanitizeValue(reaction.TenantID),
+		"messageId": sanitizeValue(reaction.MessageID),
+		"userId":    sanitizeValue(reaction.UserID),
 	}
 
 	now := time.Now().UTC()
@@ -69,9 +69,9 @@ func (c *ReactionsCollection) Upsert(ctx context.Context, reaction *models.Messa
 // Get retrieves a reaction by tenant, message, and user.
 func (c *ReactionsCollection) Get(ctx context.Context, opts *docdb.UpsertReactionOptions) (*models.MessageReaction, error) {
 	filter := bson.M{
-		"tenantId":  opts.TenantID,
-		"messageId": opts.MessageID,
-		"userId":    opts.UserID,
+		"tenantId":  sanitizeValue(opts.TenantID),
+		"messageId": sanitizeValue(opts.MessageID),
+		"userId":    sanitizeValue(opts.UserID),
 	}
 
 	var reaction models.MessageReaction
@@ -89,9 +89,9 @@ func (c *ReactionsCollection) Get(ctx context.Context, opts *docdb.UpsertReactio
 // ListByMessage retrieves all reactions for a message.
 func (c *ReactionsCollection) ListByMessage(ctx context.Context, opts *docdb.ListReactionsOptions) ([]*models.MessageReaction, error) {
 	filter := bson.M{
-		"tenantId":       opts.TenantID,
-		"conversationId": opts.ConversationID,
-		"messageId":      opts.MessageID,
+		"tenantId":       sanitizeValue(opts.TenantID),
+		"conversationId": sanitizeValue(opts.ConversationID),
+		"messageId":      sanitizeValue(opts.MessageID),
 	}
 
 	findOpts := options.Find().SetSort(bson.D{{Key: "createdAt", Value: 1}})
@@ -113,9 +113,9 @@ func (c *ReactionsCollection) ListByMessage(ctx context.Context, opts *docdb.Lis
 // Delete removes a user's reaction from a message.
 func (c *ReactionsCollection) Delete(ctx context.Context, opts *docdb.DeleteReactionOptions) error {
 	filter := bson.M{
-		"tenantId":  opts.TenantID,
-		"messageId": opts.MessageID,
-		"userId":    opts.UserID,
+		"tenantId":  sanitizeValue(opts.TenantID),
+		"messageId": sanitizeValue(opts.MessageID),
+		"userId":    sanitizeValue(opts.UserID),
 	}
 
 	_, err := c.collection.DeleteOne(ctx, filter)

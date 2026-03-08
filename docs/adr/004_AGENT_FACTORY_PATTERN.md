@@ -31,7 +31,7 @@ Implement an **Agent Factory** that produces backend-specific clients implementi
 type WorkflowClient interface {
     // SendMessage streams an agent response
     SendMessage(ctx context.Context, req *SendMessageRequest) (<-chan StreamEvent, error)
-    
+
     // SupportsStreaming returns whether the backend supports SSE
     SupportsStreaming() bool
 }
