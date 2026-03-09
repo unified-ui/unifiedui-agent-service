@@ -311,12 +311,12 @@ func TestStreamReader_ParseWorkflowAction(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		if chunk.Type == foundry.ChunkTypeMetadata {
-			if chunk.Metadata != nil {
-				if chunk.Metadata["type"] == "workflow_action" {
+		if chunk.Type == foundry.ChunkTypeToolCallStart {
+			if chunk.Config != nil {
+				if chunk.Config["call_type"] == "workflow_action" {
 					hasWorkflowAction = true
-					assert.Equal(t, "Question", chunk.Metadata["kind"])
-					assert.Equal(t, "action-1", chunk.Metadata["action_id"])
+					assert.Equal(t, "Question", chunk.Config["tool_name"])
+					assert.Equal(t, "action-1", chunk.Config["action_id"])
 				}
 			}
 		}

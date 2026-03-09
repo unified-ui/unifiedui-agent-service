@@ -353,6 +353,8 @@ func (h *MessagesHandler) handleFoundryStreaming(
 	startTime time.Time,
 ) {
 	var currentContent string
+	var traces []models.StatusTrace
+	firstMessage := currentMessage
 	allMessages := []*models.Message{currentMessage}
 
 	saveCurrentAndStartNew := func() {
@@ -387,6 +389,7 @@ func (h *MessagesHandler) handleFoundryStreaming(
 		case <-ctx.Done():
 			_ = streamReader.Close()
 			_ = writer.WriteStreamEnd()
+			firstMessage.StatusTraces = traces
 			h.saveCanceledAssistantMessage(currentMessage, currentContent, agentConfig, startTime)
 			return
 		default:
@@ -399,11 +402,13 @@ func (h *MessagesHandler) handleFoundryStreaming(
 		if err != nil {
 			if ctx.Err() != nil {
 				_ = streamReader.Close()
+				firstMessage.StatusTraces = traces
 				h.saveCanceledAssistantMessage(currentMessage, currentContent, agentConfig, startTime)
 				return
 			}
 			errorMsg := "Stream error: " + err.Error()
 			_ = writer.WriteStreamError("STREAM_ERROR", errorMsg, err.Error())
+			firstMessage.StatusTraces = traces
 			h.saveFailedAssistantMessage(ctx, currentMessage, errorMsg)
 			_ = writer.WriteStreamEnd()
 			_ = writer.WriteMessageComplete(currentMessage)
@@ -416,10 +421,30 @@ func (h *MessagesHandler) handleFoundryStreaming(
 			_ = writer.WriteTextStream(chunk.Content)
 
 		case agents.ChunkTypeNewMessage:
+			firstMessage.StatusTraces = traces
 			saveCurrentAndStartNew()
 			if chunk.Metadata != nil {
 				currentMessage.Metadata = h.extractFoundryMetadata(chunk.Metadata)
 			}
+
+		case agents.ChunkTypeToolCallStart:
+			toolName := extractConfigString(chunk.Config, "tool_name")
+			traces = appendStatusTrace(traces, "tool_call_start", toolName, chunk.Config)
+			_ = writer.WriteToolCallStart(toolName, chunk.Config)
+		case agents.ChunkTypeToolCallStream:
+			traces = appendToLastTrace(traces, chunk.Content)
+			_ = writer.WriteToolCallStream(chunk.Content)
+		case agents.ChunkTypeToolCallEnd:
+			traces = appendStatusTrace(traces, "tool_call_end", extractConfigString(chunk.Config, "tool_name"), chunk.Config)
+			_ = writer.WriteToolCallEnd(chunk.Config)
+
+		case agents.ChunkTypeSubAgentStart:
+			agentName := extractConfigString(chunk.Config, "agent_name")
+			traces = appendStatusTrace(traces, "sub_agent_start", agentName, chunk.Config)
+			_ = writer.WriteSubAgentStart(agentName, chunk.Config)
+		case agents.ChunkTypeSubAgentEnd:
+			traces = appendStatusTrace(traces, "sub_agent_end", "", chunk.Config)
+			_ = writer.WriteSubAgentEnd(chunk.Config)
 
 		case agents.ChunkTypeMetadata:
 			if currentMessage.Metadata == nil {
@@ -445,6 +470,7 @@ func (h *MessagesHandler) handleFoundryStreaming(
 				errorMsg := chunk.Error.Error()
 				_ = writer.WriteStreamError("CHUNK_ERROR", errorMsg, errorMsg)
 				_ = writer.WriteStreamEnd()
+				firstMessage.StatusTraces = traces
 				h.saveFailedAssistantMessage(ctx, currentMessage, errorMsg)
 				_ = writer.WriteMessageComplete(currentMessage)
 				return
@@ -454,6 +480,7 @@ func (h *MessagesHandler) handleFoundryStreaming(
 
 	_ = writer.WriteStreamEnd()
 
+	firstMessage.StatusTraces = traces
 	currentMessage.SetSuccess(currentContent)
 	savedMsg := h.saveAssistantMessageWithMetadata(ctx, currentMessage, agentConfig, startTime)
 	if savedMsg != nil {
@@ -472,6 +499,7 @@ func (h *MessagesHandler) handleReActStreaming(
 	startTime time.Time,
 ) {
 	var fullContent string
+	var traces []models.StatusTrace
 
 	_ = writer.WriteStreamStart(assistantMessage.ID, userMessage.ConversationID)
 
@@ -480,6 +508,7 @@ func (h *MessagesHandler) handleReActStreaming(
 		case <-ctx.Done():
 			_ = streamReader.Close()
 			_ = writer.WriteStreamEnd()
+			assistantMessage.StatusTraces = traces
 			h.saveCanceledAssistantMessage(assistantMessage, fullContent, agentConfig, startTime)
 			return
 		default:
@@ -492,11 +521,13 @@ func (h *MessagesHandler) handleReActStreaming(
 		if err != nil {
 			if ctx.Err() != nil {
 				_ = streamReader.Close()
+				assistantMessage.StatusTraces = traces
 				h.saveCanceledAssistantMessage(assistantMessage, fullContent, agentConfig, startTime)
 				return
 			}
 			errorMsg := "Stream error: " + err.Error()
 			_ = writer.WriteStreamError("STREAM_ERROR", errorMsg, err.Error())
+			assistantMessage.StatusTraces = traces
 			h.saveFailedAssistantMessage(ctx, assistantMessage, errorMsg)
 			_ = writer.WriteStreamEnd()
 			_ = writer.WriteMessageComplete(assistantMessage)
@@ -509,53 +540,53 @@ func (h *MessagesHandler) handleReActStreaming(
 			_ = writer.WriteTextStream(chunk.Content)
 
 		case agents.ChunkTypeReasoningStart:
+			traces = appendStatusTrace(traces, "reasoning_start", "", chunk.Config)
 			_ = writer.WriteReasoningStart()
 		case agents.ChunkTypeReasoningStream:
+			traces = appendToLastTrace(traces, chunk.Content)
 			_ = writer.WriteReasoningStream(chunk.Content)
 		case agents.ChunkTypeReasoningEnd:
+			traces = appendStatusTrace(traces, "reasoning_end", "", nil)
 			_ = writer.WriteReasoningEnd()
 
 		case agents.ChunkTypeToolCallStart:
-			toolName := ""
-			if chunk.Config != nil {
-				if tn, ok := chunk.Config["tool_name"]; ok {
-					if s, ok := tn.(string); ok {
-						toolName = s
-					}
-				}
-			}
+			toolName := extractConfigString(chunk.Config, "tool_name")
+			traces = appendStatusTrace(traces, "tool_call_start", toolName, chunk.Config)
 			_ = writer.WriteToolCallStart(toolName, chunk.Config)
 		case agents.ChunkTypeToolCallStream:
+			traces = appendToLastTrace(traces, chunk.Content)
 			_ = writer.WriteToolCallStream(chunk.Content)
 		case agents.ChunkTypeToolCallEnd:
+			traces = appendStatusTrace(traces, "tool_call_end", extractConfigString(chunk.Config, "tool_name"), chunk.Config)
 			_ = writer.WriteToolCallEnd(chunk.Config)
 
 		case agents.ChunkTypePlanStart:
+			traces = appendStatusTrace(traces, "plan_start", "", nil)
 			_ = writer.WritePlanStart()
 		case agents.ChunkTypePlanStream:
+			traces = appendToLastTrace(traces, chunk.Content)
 			_ = writer.WritePlanStream(chunk.Content)
 		case agents.ChunkTypePlanComplete:
+			traces = appendStatusTrace(traces, "plan_end", "", chunk.Config)
 			_ = writer.WritePlanComplete(chunk.Config)
 
 		case agents.ChunkTypeSubAgentStart:
-			agentName := ""
-			if chunk.Config != nil {
-				if an, ok := chunk.Config["agent_name"]; ok {
-					if s, ok := an.(string); ok {
-						agentName = s
-					}
-				}
-			}
+			agentName := extractConfigString(chunk.Config, "agent_name")
+			traces = appendStatusTrace(traces, "sub_agent_start", agentName, chunk.Config)
 			_ = writer.WriteSubAgentStart(agentName, chunk.Config)
 		case agents.ChunkTypeSubAgentStream:
+			traces = appendToLastTrace(traces, chunk.Content)
 			_ = writer.WriteSubAgentStream(chunk.Content)
 		case agents.ChunkTypeSubAgentEnd:
+			traces = appendStatusTrace(traces, "sub_agent_end", "", chunk.Config)
 			_ = writer.WriteSubAgentEnd(chunk.Config)
 
 		case agents.ChunkTypeSynthesisStart:
+			traces = appendStatusTrace(traces, "synthesis_start", "", nil)
 			_ = writer.WriteSynthesisStart()
 		case agents.ChunkTypeSynthesisStream:
 			fullContent += chunk.Content
+			traces = appendToLastTrace(traces, chunk.Content)
 			_ = writer.WriteSynthesisStream(chunk.Content)
 
 		case agents.ChunkTypeTrace:
@@ -566,6 +597,7 @@ func (h *MessagesHandler) handleReActStreaming(
 				errorMsg := chunk.Error.Error()
 				_ = writer.WriteStreamError("CHUNK_ERROR", errorMsg, errorMsg)
 				_ = writer.WriteStreamEnd()
+				assistantMessage.StatusTraces = traces
 				h.saveFailedAssistantMessage(ctx, assistantMessage, errorMsg)
 				_ = writer.WriteMessageComplete(assistantMessage)
 				return
@@ -577,6 +609,7 @@ func (h *MessagesHandler) handleReActStreaming(
 
 	latencyMs := time.Since(startTime).Milliseconds()
 
+	assistantMessage.StatusTraces = traces
 	assistantMessage.SetSuccess(fullContent)
 	if assistantMessage.Metadata == nil {
 		assistantMessage.Metadata = &models.AssistantMetadata{}
@@ -654,4 +687,42 @@ func convertFilesToAttachmentMetadata(files []FileAttachment) []models.Attachmen
 		}
 	}
 	return result
+}
+
+// extractConfigString extracts a string value from a config map by key.
+func extractConfigString(config map[string]interface{}, key string) string {
+	if config == nil {
+		return ""
+	}
+	v, ok := config[key]
+	if !ok {
+		return ""
+	}
+	s, ok := v.(string)
+	if !ok {
+		return ""
+	}
+	return s
+}
+
+// appendStatusTrace appends a new StatusTrace entry with the given type, name, and config data.
+func appendStatusTrace(traces []models.StatusTrace, traceType, name string, config map[string]interface{}) []models.StatusTrace {
+	trace := models.StatusTrace{
+		Type:      traceType,
+		Name:      name,
+		Timestamp: time.Now().UTC(),
+	}
+	if len(config) > 0 {
+		trace.Data = config
+	}
+	return append(traces, trace)
+}
+
+// appendToLastTrace appends content to the last StatusTrace entry's Content field.
+func appendToLastTrace(traces []models.StatusTrace, content string) []models.StatusTrace {
+	if len(traces) == 0 {
+		return traces
+	}
+	traces[len(traces)-1].Content += content
+	return traces
 }

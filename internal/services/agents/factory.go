@@ -461,6 +461,7 @@ func convertFoundryChunk(foundryChunk *foundry.StreamChunk) *StreamChunk {
 		Content:     foundryChunk.Content,
 		ExecutionID: foundryChunk.ExecutionID,
 		Metadata:    foundryChunk.Metadata,
+		Config:      foundryChunk.Config,
 		Error:       foundryChunk.Error,
 	}
 }

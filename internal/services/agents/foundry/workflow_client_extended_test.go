@@ -1054,18 +1054,19 @@ func TestStreamReader_ProcessEvent_WorkflowAction(t *testing.T) {
 	ch, err := client.InvokeStream(context.Background(), req)
 	require.NoError(t, err)
 
-	var metadataChunks []*StreamChunk
+	var toolCallChunks []*StreamChunk
 	for chunk := range ch {
-		if chunk.Type == ChunkTypeMetadata {
-			metadataChunks = append(metadataChunks, chunk)
+		if chunk.Type == ChunkTypeToolCallStart {
+			toolCallChunks = append(toolCallChunks, chunk)
 		}
 	}
 
-	// Should have workflow action metadata
-	require.NotEmpty(t, metadataChunks)
-	actionChunk := metadataChunks[0]
-	assert.Equal(t, "workflow_action", actionChunk.Metadata["type"])
-	assert.Equal(t, "action-1", actionChunk.Metadata["id"])
+	// Should have workflow action as tool call
+	require.NotEmpty(t, toolCallChunks)
+	actionChunk := toolCallChunks[0]
+	assert.Equal(t, "tool_call", actionChunk.Config["tool_name"])
+	assert.Equal(t, "workflow_action", actionChunk.Config["call_type"])
+	assert.Equal(t, "act-123", actionChunk.Config["action_id"])
 }
 
 func TestStreamReader_ProcessEvent_MessageDone(t *testing.T) {

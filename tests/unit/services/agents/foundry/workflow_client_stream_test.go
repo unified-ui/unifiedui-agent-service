@@ -168,8 +168,9 @@ func TestWorkflowClient_InvokeStreamReader_WorkflowAction(t *testing.T) {
 
 	chunk, err := reader.Read()
 	require.NoError(t, err)
-	assert.Equal(t, foundry.ChunkTypeMetadata, chunk.Type)
-	assert.Equal(t, "workflow_action", chunk.Metadata["type"])
+	assert.Equal(t, foundry.ChunkTypeToolCallStart, chunk.Type)
+	assert.Equal(t, "InvokeAgent", chunk.Config["tool_name"])
+	assert.Equal(t, "workflow_action", chunk.Config["call_type"])
 }
 
 func TestWorkflowClient_InvokeStreamReader_MessageDone(t *testing.T) {

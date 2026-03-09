@@ -265,6 +265,16 @@ func (r *foundryStreamReader) Read() (*StreamChunk, error) {
 	return nil, io.EOF
 }
 
+// isToolCall checks if the item type matches the *_call pattern (e.g. openapi_call, mcp_call).
+func isToolCall(itemType string) bool {
+	return strings.HasSuffix(itemType, "_call")
+}
+
+// isToolCallOutput checks if the item type matches the *_call_output pattern.
+func isToolCallOutput(itemType string) bool {
+	return strings.HasSuffix(itemType, "_call_output")
+}
+
 // processEvent processes a Foundry SSE event and returns a StreamChunk if applicable.
 func (r *foundryStreamReader) processEvent(event *Event) *StreamChunk {
 	r.lastEvent = event
@@ -280,125 +290,231 @@ func (r *foundryStreamReader) processEvent(event *Event) *StreamChunk {
 		}
 
 	case EventOutputItemAdded:
-		// New output item added - check if it's a new message
 		if event.Item != nil {
-			// Check if this is a new message (different from last)
-			if event.Item.Type == "message" && event.Item.ID != r.lastMessageID {
-				// If we had a previous message, signal new message
-				if r.lastMessageID != "" {
-					r.lastMessageID = event.Item.ID
-					return &StreamChunk{
-						Type:    ChunkTypeNewMessage,
-						Content: "",
-						Metadata: map[string]interface{}{
-							"message_id": event.Item.ID,
-							"role":       event.Item.Role,
-						},
-					}
-				}
-				r.lastMessageID = event.Item.ID
-			}
-
-			// Handle workflow actions
-			if event.Item.Type == "workflow_action" {
-				return &StreamChunk{
-					Type: ChunkTypeMetadata,
-					Metadata: map[string]interface{}{
-						"type":               "workflow_action",
-						"id":                 event.Item.ID,
-						"kind":               event.Item.Kind,
-						"action_id":          event.Item.ActionID,
-						"parent_action_id":   event.Item.ParentActionID,
-						"previous_action_id": event.Item.PreviousActionID,
-						"status":             event.Item.Status,
-					},
-				}
-			}
+			return r.handleOutputItemAdded(event)
 		}
 
 	case EventOutputItemDone:
-		// Output item completed
-		if event.Item != nil && event.Item.Type == "message" {
-			// Extract agent info
-			agentName := ""
-			responseID := ""
-			if event.Item.CreatedBy != nil {
-				if event.Item.CreatedBy.Agent != nil {
-					agentName = event.Item.CreatedBy.Agent.Name
-				}
-				responseID = event.Item.CreatedBy.ResponseID
-			}
-
-			// Build full content from content parts
-			var content string
-			for _, part := range event.Item.Content {
-				if part.Type == "output_text" {
-					content += part.Text
-				}
-			}
-
-			// Store message info
-			msgInfo := &MessageInfo{
-				ID:         event.Item.ID,
-				Role:       event.Item.Role,
-				Content:    content,
-				AgentName:  agentName,
-				ResponseID: responseID,
-				Status:     event.Item.Status,
-				CreatedAt:  time.Now(),
-				Metadata: map[string]interface{}{
-					"output_index": event.OutputIndex,
-				},
-			}
-			r.messages = append(r.messages, msgInfo)
-
-			return &StreamChunk{
-				Type: ChunkTypeMetadata,
-				Metadata: map[string]interface{}{
-					"type":        "message_done",
-					"message_id":  event.Item.ID,
-					"role":        event.Item.Role,
-					"status":      event.Item.Status,
-					"agent_name":  agentName,
-					"response_id": responseID,
-				},
-			}
+		if event.Item != nil {
+			return r.handleOutputItemDone(event)
 		}
 
 	case EventResponseCompleted:
 		// Response completed - send final metadata
 		if event.Response != nil {
-			metadata := map[string]interface{}{
-				"type":        "response_completed",
-				"response_id": event.Response.ID,
-				"status":      event.Response.Status,
-			}
-
-			if event.Response.Usage != nil {
-				metadata["usage"] = map[string]interface{}{
-					"input_tokens":  event.Response.Usage.InputTokens,
-					"output_tokens": event.Response.Usage.OutputTokens,
-					"total_tokens":  event.Response.Usage.TotalTokens,
-				}
-			}
-
-			if event.Response.Agent != nil {
-				metadata["agent_name"] = event.Response.Agent.Name
-			}
-
-			if event.Response.Conversation != nil {
-				metadata["conversation_id"] = event.Response.Conversation.ID
-			}
-
-			return &StreamChunk{
-				Type:        ChunkTypeDone,
-				ExecutionID: event.Response.ID,
-				Metadata:    metadata,
-			}
+			return r.handleResponseCompleted(event)
 		}
 	}
 
 	return nil
+}
+
+// handleOutputItemAdded processes output_item.added events.
+func (r *foundryStreamReader) handleOutputItemAdded(event *Event) *StreamChunk {
+	item := event.Item
+
+	// Generic *_call_output: skip on added (wait for done)
+	if isToolCallOutput(item.Type) {
+		return nil
+	}
+
+	// Generic *_call: emit tool_call_start
+	if isToolCall(item.Type) {
+		return &StreamChunk{
+			Type: ChunkTypeToolCallStart,
+			Config: map[string]interface{}{
+				"tool_call_id": item.CallID,
+				"tool_name":    item.Name,
+				"call_type":    item.Type,
+			},
+		}
+	}
+
+	// Workflow actions
+	if item.Type == "workflow_action" {
+		return r.handleWorkflowActionAdded(item)
+	}
+
+	// New message
+	if item.Type == "message" && item.ID != r.lastMessageID {
+		if r.lastMessageID != "" {
+			r.lastMessageID = item.ID
+			return &StreamChunk{
+				Type:    ChunkTypeNewMessage,
+				Content: "",
+				Metadata: map[string]interface{}{
+					"message_id": item.ID,
+					"role":       item.Role,
+				},
+			}
+		}
+		r.lastMessageID = item.ID
+	}
+
+	return nil
+}
+
+// handleWorkflowActionAdded processes workflow_action items on added.
+func (r *foundryStreamReader) handleWorkflowActionAdded(item *OutputItem) *StreamChunk {
+	switch item.Kind {
+	case "InvokeAzureAgent":
+		agentName := ""
+		if item.CreatedBy != nil && item.CreatedBy.Agent != nil {
+			agentName = item.CreatedBy.Agent.Name
+		}
+		return &StreamChunk{
+			Type: ChunkTypeSubAgentStart,
+			Config: map[string]interface{}{
+				"agent_name": agentName,
+				"action_id":  item.ActionID,
+			},
+		}
+	case "EndConversation":
+		return nil
+	default:
+		return &StreamChunk{
+			Type: ChunkTypeToolCallStart,
+			Config: map[string]interface{}{
+				"tool_name": item.Kind,
+				"call_type": "workflow_action",
+				"action_id": item.ActionID,
+			},
+		}
+	}
+}
+
+// handleOutputItemDone processes output_item.done events.
+func (r *foundryStreamReader) handleOutputItemDone(event *Event) *StreamChunk {
+	item := event.Item
+
+	// Generic *_call_output done: emit tool_call_end with result
+	if isToolCallOutput(item.Type) {
+		callType := strings.TrimSuffix(item.Type, "_output")
+		return &StreamChunk{
+			Type: ChunkTypeToolCallEnd,
+			Config: map[string]interface{}{
+				"tool_call_id": item.CallID,
+				"tool_name":    item.Name,
+				"tool_result":  item.Output,
+				"call_type":    callType,
+			},
+		}
+	}
+
+	// Generic *_call done: emit tool_call_stream with arguments
+	if isToolCall(item.Type) {
+		return &StreamChunk{
+			Type:    ChunkTypeToolCallStream,
+			Content: item.Arguments,
+		}
+	}
+
+	// Workflow action done
+	if item.Type == "workflow_action" {
+		return r.handleWorkflowActionDone(item)
+	}
+
+	// Message done
+	if item.Type == "message" {
+		return r.handleMessageDone(event)
+	}
+
+	return nil
+}
+
+// handleWorkflowActionDone processes workflow_action items on done.
+func (r *foundryStreamReader) handleWorkflowActionDone(item *OutputItem) *StreamChunk {
+	switch item.Kind {
+	case "InvokeAzureAgent":
+		return &StreamChunk{
+			Type:   ChunkTypeSubAgentEnd,
+			Config: map[string]interface{}{},
+		}
+	case "EndConversation":
+		return nil
+	default:
+		return &StreamChunk{
+			Type:   ChunkTypeToolCallEnd,
+			Config: map[string]interface{}{},
+		}
+	}
+}
+
+// handleMessageDone processes message items on done.
+func (r *foundryStreamReader) handleMessageDone(event *Event) *StreamChunk {
+	item := event.Item
+	agentName := ""
+	responseID := ""
+	if item.CreatedBy != nil {
+		if item.CreatedBy.Agent != nil {
+			agentName = item.CreatedBy.Agent.Name
+		}
+		responseID = item.CreatedBy.ResponseID
+	}
+
+	var content string
+	for _, part := range item.Content {
+		if part.Type == "output_text" {
+			content += part.Text
+		}
+	}
+
+	msgInfo := &MessageInfo{
+		ID:         item.ID,
+		Role:       item.Role,
+		Content:    content,
+		AgentName:  agentName,
+		ResponseID: responseID,
+		Status:     item.Status,
+		CreatedAt:  time.Now(),
+		Metadata: map[string]interface{}{
+			"output_index": event.OutputIndex,
+		},
+	}
+	r.messages = append(r.messages, msgInfo)
+
+	return &StreamChunk{
+		Type: ChunkTypeMetadata,
+		Metadata: map[string]interface{}{
+			"type":        "message_done",
+			"message_id":  item.ID,
+			"role":        item.Role,
+			"status":      item.Status,
+			"agent_name":  agentName,
+			"response_id": responseID,
+		},
+	}
+}
+
+// handleResponseCompleted processes response.completed events.
+func (r *foundryStreamReader) handleResponseCompleted(event *Event) *StreamChunk {
+	metadata := map[string]interface{}{
+		"type":        "response_completed",
+		"response_id": event.Response.ID,
+		"status":      event.Response.Status,
+	}
+
+	if event.Response.Usage != nil {
+		metadata["usage"] = map[string]interface{}{
+			"input_tokens":  event.Response.Usage.InputTokens,
+			"output_tokens": event.Response.Usage.OutputTokens,
+			"total_tokens":  event.Response.Usage.TotalTokens,
+		}
+	}
+
+	if event.Response.Agent != nil {
+		metadata["agent_name"] = event.Response.Agent.Name
+	}
+
+	if event.Response.Conversation != nil {
+		metadata["conversation_id"] = event.Response.Conversation.ID
+	}
+
+	return &StreamChunk{
+		Type:        ChunkTypeDone,
+		ExecutionID: event.Response.ID,
+		Metadata:    metadata,
+	}
 }
 
 // GetMessages returns all parsed messages from the stream.
