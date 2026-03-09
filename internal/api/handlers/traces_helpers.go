@@ -143,6 +143,9 @@ func (h *TracesHandler) resolveUserIDFromAPIKey(ctx context.Context, tenantID, a
 		if strings.HasPrefix(errStr, "unauthorized") {
 			return errors.NewUnauthorizedError("invalid API key")
 		}
+		if strings.HasPrefix(errStr, "forbidden") {
+			return errors.NewForbiddenError("invalid API key")
+		}
 		if strings.HasPrefix(errStr, "not_found") {
 			return errors.NewNotFoundError("autonomous agent", agentID)
 		}
