@@ -11,6 +11,7 @@ const (
 	AgentTypeReactAgent AgentType = "REACT_AGENT"
 	AgentTypeCopilot    AgentType = "COPILOT"
 	AgentTypeCustom     AgentType = "CUSTOM"
+	AgentTypeRestAPI    AgentType = "REST_API"
 )
 
 // CredentialType represents the type of credentials.
@@ -91,6 +92,14 @@ type AgentSettings struct {
 	SystemPrompt string            `json:"system_prompt,omitempty"`
 	AIModelIDs   []string          `json:"ai_model_ids,omitempty"`
 	AIModels     []ResolvedAIModel `json:"ai_models,omitempty"`
+
+	// REST API specific settings
+	AuthType                   string       `json:"auth_type,omitempty"`
+	InvokeEndpoint             string       `json:"invoke_endpoint,omitempty"`
+	CreateConversationEndpoint string       `json:"create_conversation_endpoint,omitempty"`
+	Credential                 *Credentials `json:"credential,omitempty"`
+	AccessToken                string       `json:"access_token,omitempty"`
+	APIKeyHeaderName           string       `json:"api_key_header_name,omitempty"`
 }
 
 // ResolvedAIModel represents a fully resolved AI model with decrypted credentials

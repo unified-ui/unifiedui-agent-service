@@ -72,23 +72,14 @@ func (h *MessagesHandler) SendMessage(c *gin.Context) {
 			return
 		}
 
-		if useCache {
-			cachedConfig, cacheErr := h.configCache.Get(ctx, tenantCtx.TenantID, tenantCtx.UserID, req.ChatAgentID)
-			if cacheErr == nil && cachedConfig != nil {
-				agentConfig = cachedConfig
-			}
+		agentConfig, err = h.platformClient.GetAgentConfig(ctx, tenantCtx.TenantID, req.ChatAgentID, conversationID, authToken, useCache)
+		if err != nil {
+			middleware.HandleError(c, errors.NewInternalError("failed to get agent configuration", err))
+			return
 		}
 
-		if agentConfig == nil {
-			agentConfig, err = h.platformClient.GetAgentConfig(ctx, tenantCtx.TenantID, req.ChatAgentID, conversationID, authToken, useCache)
-			if err != nil {
-				middleware.HandleError(c, errors.NewInternalError("failed to get agent configuration", err))
-				return
-			}
-
-			if useCache {
-				_ = h.configCache.Set(ctx, tenantCtx.TenantID, tenantCtx.UserID, req.ChatAgentID, agentConfig)
-			}
+		if useCache {
+			_ = h.configCache.Set(ctx, tenantCtx.TenantID, tenantCtx.UserID, req.ChatAgentID, agentConfig)
 		}
 
 		if agentConfig.Settings.UseUnifiedChatHistory && agentConfig.Type != platform.AgentTypeFoundry {
@@ -148,6 +139,9 @@ func (h *MessagesHandler) SendMessage(c *gin.Context) {
 			return
 		}
 		agentClients, createErr = h.agentFactory.CreateFoundryClients(agentConfig, foundryAPIKey)
+	} else if agentConfig.Type == platform.AgentTypeRestAPI {
+		authToken := middleware.GetToken(c)
+		agentClients, createErr = h.agentFactory.CreateRestAPIClients(agentConfig, authToken)
 	} else {
 		agentClients, createErr = h.agentFactory.CreateClients(agentConfig)
 	}
@@ -170,6 +164,19 @@ func (h *MessagesHandler) SendMessage(c *gin.Context) {
 
 	foundryAPIKey := c.GetHeader("X-Microsoft-Foundry-API-Key")
 	authToken := middleware.GetToken(c)
+
+	extConversationID := req.ExtConversationID
+	if agentConfig.Type == platform.AgentTypeRestAPI && extConversationID == "" {
+		if creator, ok := agentClients.WorkflowClient.(agents.ConversationCreator); ok {
+			extID, convErr := creator.CreateConversation(ctx)
+			if convErr != nil {
+				log.Warn().Err(convErr).Msg("failed to create external conversation, proceeding without it")
+			} else {
+				extConversationID = extID
+			}
+		}
+	}
+
 	isFirstMessage := len(chatHistory) == 0
 	if agentConfig.Type == platform.AgentTypeFoundry {
 		count, err := h.docDBClient.Messages().CountByConversation(ctx, tenantCtx.TenantID, conversationID)
@@ -178,7 +185,7 @@ func (h *MessagesHandler) SendMessage(c *gin.Context) {
 		}
 	}
 	files := convertFilesToFileInputs(req.Message.Files)
-	h.handleStreamingResponse(c, tenantCtx, agentClients, agentConfig, userMessage, assistantMessage, chatHistory, req.ExtConversationID, foundryAPIKey, req.InvokeConfig.ContextData, authToken, isFirstMessage, files)
+	h.handleStreamingResponse(c, tenantCtx, agentClients, agentConfig, userMessage, assistantMessage, chatHistory, extConversationID, foundryAPIKey, req.InvokeConfig.ContextData, authToken, isFirstMessage, files)
 }
 
 func (h *MessagesHandler) handleStreamingResponse(
@@ -205,7 +212,7 @@ func (h *MessagesHandler) handleStreamingResponse(
 	}
 
 	conversationIDForInvoke := userMessage.ConversationID
-	if agentConfig.Type == platform.AgentTypeFoundry {
+	if agentConfig.Type == platform.AgentTypeFoundry || agentConfig.Type == platform.AgentTypeRestAPI {
 		conversationIDForInvoke = extConversationID
 	}
 
@@ -240,7 +247,7 @@ func (h *MessagesHandler) handleStreamingResponse(
 		if h.importService != nil && extConversationID != "" && foundryAPIKey != "" {
 			h.enqueueFoundryTraceImport(tenantCtx, agentConfig, userMessage, extConversationID, foundryAPIKey)
 		}
-	case platform.AgentTypeReactAgent:
+	case platform.AgentTypeReactAgent, platform.AgentTypeRestAPI:
 		h.handleReActStreaming(ctx, writer, streamReader, tenantCtx, agentConfig, userMessage, assistantMessage, startTime)
 		h.updateSessionCache(ctx, tenantCtx, agentConfig, userMessage, assistantMessage)
 	default:
