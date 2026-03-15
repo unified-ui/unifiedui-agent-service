@@ -10,14 +10,15 @@ import (
 
 // Config holds the dependencies for setting up routes.
 type Config struct {
-	HealthHandler    *handlers.HealthHandler
-	MessagesHandler  *handlers.MessagesHandler
-	ReactionsHandler *handlers.ReactionsHandler
-	TracesHandler    *handlers.TracesHandler
-	DataHandler      *handlers.DataHandler
-	AIHandler        *handlers.AIHandler
-	AuthMiddleware   *middleware.AuthMiddleware
-	ServiceKeyMw     *middleware.ServiceKeyMiddleware
+	HealthHandler      *handlers.HealthHandler
+	MessagesHandler    *handlers.MessagesHandler
+	ReactionsHandler   *handlers.ReactionsHandler
+	TracesHandler      *handlers.TracesHandler
+	DataHandler        *handlers.DataHandler
+	AIHandler          *handlers.AIHandler
+	ConnectionsHandler *handlers.ConnectionsHandler
+	AuthMiddleware     *middleware.AuthMiddleware
+	ServiceKeyMw       *middleware.ServiceKeyMiddleware
 }
 
 // Setup configures all routes on the Gin engine.
@@ -67,6 +68,10 @@ func Setup(r *gin.Engine, cfg *Config) {
 		aiRoutes.POST("/trace-chat", cfg.AIHandler.TraceChat)
 		aiRoutes.POST("/test-model", cfg.AIHandler.TestModel)
 		aiRoutes.GET("/capabilities", cfg.AIHandler.GetCapabilities)
+	}
+
+	if cfg.ConnectionsHandler != nil {
+		tenants.POST("/connections/test", cfg.ConnectionsHandler.TestConnection)
 	}
 
 	agents := tenants.Group("/autonomous-agents/:agentId")

@@ -53,6 +53,7 @@ import (
 	"github.com/unifiedui/agent-service/internal/services/agents"
 	"github.com/unifiedui/agent-service/internal/services/ai"
 	"github.com/unifiedui/agent-service/internal/services/configcache"
+	"github.com/unifiedui/agent-service/internal/services/connections"
 	"github.com/unifiedui/agent-service/internal/services/platform"
 	"github.com/unifiedui/agent-service/internal/services/session"
 	"github.com/unifiedui/agent-service/internal/services/traceimport"
@@ -304,16 +305,20 @@ func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb
 	reactionsHandler := handlers.NewReactionsHandler(docDBClient, platformClient)
 	dataHandler := handlers.NewDataHandler(docDBClient)
 
+	connectionService := connections.NewService()
+	connectionsHandler := handlers.NewConnectionsHandler(connectionService, platformClient)
+
 	// Setup routes
 	routesCfg := &routes.Config{
-		HealthHandler:    healthHandler,
-		MessagesHandler:  messagesHandler,
-		TracesHandler:    tracesHandler,
-		ReactionsHandler: reactionsHandler,
-		DataHandler:      dataHandler,
-		AIHandler:        aiHandler,
-		AuthMiddleware:   authMw,
-		ServiceKeyMw:     serviceKeyMw,
+		HealthHandler:      healthHandler,
+		MessagesHandler:    messagesHandler,
+		TracesHandler:      tracesHandler,
+		ReactionsHandler:   reactionsHandler,
+		DataHandler:        dataHandler,
+		AIHandler:          aiHandler,
+		ConnectionsHandler: connectionsHandler,
+		AuthMiddleware:     authMw,
+		ServiceKeyMw:       serviceKeyMw,
 	}
 
 	routes.SetupWithMiddleware(router, routesCfg, loggingMw, errorMw)

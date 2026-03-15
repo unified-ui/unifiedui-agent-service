@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved CI workflow naming consistency
 
 ### Fixed
-- N/A
+- Workflow runs listing now supports cursor-based pagination — `ListExecutions` accepts and forwards a `cursor` parameter to n8n, and `nextCursor` is returned in the API response via `ListWorkflowRunsResponse`
 
 ---
 

@@ -136,7 +136,8 @@ func (c *WorkflowClient) CreateConversation(ctx context.Context) (string, error)
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		return "", fmt.Errorf("unexpected status code creating conversation: %d", resp.StatusCode)
+		errBody, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return "", fmt.Errorf("conversation creation failed with status %d — %s", resp.StatusCode, strings.TrimSpace(string(errBody)))
 	}
 
 	var respBody CreateConversationResponse
@@ -197,8 +198,9 @@ func (c *WorkflowClient) InvokeStreamReader(
 	}
 
 	if resp.StatusCode != http.StatusOK {
+		errBody, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		_ = resp.Body.Close()
-		return nil, fmt.Errorf("unexpected status code from agent: %d", resp.StatusCode)
+		return nil, fmt.Errorf("unexpected status code from agent: %d — %s", resp.StatusCode, strings.TrimSpace(string(errBody)))
 	}
 
 	return &StreamReader{

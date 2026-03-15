@@ -557,6 +557,7 @@ func (h *TracesHandler) getExecutionIDFromTrace(trace *models.Trace) string {
 // @Param tenantId path string true "Tenant ID"
 // @Param agentId path string true "Autonomous Agent ID"
 // @Param limit query int false "Maximum number of runs to return (default: 50, max: 100)"
+// @Param cursor query string false "Pagination cursor from previous response"
 // @Success 200 {object} dto.ListWorkflowRunsResponse
 // @Failure 400 {object} dto.ErrorResponse "Bad request - unsupported agent type"
 // @Failure 401 {object} dto.ErrorResponse "Unauthorized"
@@ -570,6 +571,7 @@ func (h *TracesHandler) ListWorkflowRuns(c *gin.Context) {
 	tenantID := middleware.SanitizePathParam(c, "tenantId")
 	agentID := middleware.SanitizePathParam(c, "agentId")
 	authToken := middleware.GetToken(c)
+	cursor := c.Query("cursor")
 
 	agentConfig, err := h.platformClient.GetAutonomousAgentConfigWithBearer(ctx, tenantID, agentID, authToken)
 	if err != nil {
@@ -614,16 +616,17 @@ func (h *TracesHandler) ListWorkflowRuns(c *gin.Context) {
 		return
 	}
 
-	runs, err := h.importService.ListExecutions(ctx, agentConfig.Type, backendConfig, limit)
+	result, err := h.importService.ListExecutions(ctx, agentConfig.Type, backendConfig, limit, cursor)
 	if err != nil {
 		middleware.HandleError(c, errors.NewInternalError("failed to list workflow runs", err))
 		return
 	}
 
 	response := dto.ListWorkflowRunsResponse{
-		Runs: make([]dto.WorkflowRunResponse, 0, len(runs)),
+		Runs:       make([]dto.WorkflowRunResponse, 0, len(result.Runs)),
+		NextCursor: result.NextCursor,
 	}
-	for _, run := range runs {
+	for _, run := range result.Runs {
 		response.Runs = append(response.Runs, dto.WorkflowRunResponse{
 			ID:        run.ID,
 			Status:    run.Status,

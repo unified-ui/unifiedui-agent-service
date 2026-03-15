@@ -324,20 +324,20 @@ func (n *TraceImporter) GetTransformer() *Transformer {
 }
 
 // ListExecutions lists recent workflow executions from the N8N API.
-func (n *TraceImporter) ListExecutions(ctx context.Context, backendConfig map[string]interface{}, limit int) ([]traceimport.WorkflowRun, error) {
+func (n *TraceImporter) ListExecutions(ctx context.Context, backendConfig map[string]interface{}, limit int, cursor string) (traceimport.WorkflowRunListResult, error) {
 	config, ok := ExtractListConfig(backendConfig)
 	if !ok {
-		return nil, fmt.Errorf("invalid or missing N8N configuration for listing executions")
+		return traceimport.WorkflowRunListResult{}, fmt.Errorf("invalid or missing N8N configuration for listing executions")
 	}
 
 	baseURL, err := validateHTTPURL(config.BaseURL)
 	if err != nil {
-		return nil, fmt.Errorf("invalid base URL: %w", err)
+		return traceimport.WorkflowRunListResult{}, fmt.Errorf("invalid base URL: %w", err)
 	}
 
 	u, err := url.Parse(baseURL + "/api/v1/executions")
 	if err != nil {
-		return nil, fmt.Errorf("failed to construct request URL: %w", err)
+		return traceimport.WorkflowRunListResult{}, fmt.Errorf("failed to construct request URL: %w", err)
 	}
 
 	if limit <= 0 || limit > 100 {
@@ -349,11 +349,14 @@ func (n *TraceImporter) ListExecutions(ctx context.Context, backendConfig map[st
 	if config.WorkflowID != "" {
 		q.Set("workflowId", validateIdentifier(config.WorkflowID))
 	}
+	if cursor != "" {
+		q.Set("cursor", cursor)
+	}
 	u.RawQuery = q.Encode()
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), http.NoBody)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return traceimport.WorkflowRunListResult{}, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
@@ -362,22 +365,22 @@ func (n *TraceImporter) ListExecutions(ctx context.Context, backendConfig map[st
 
 	resp, err := n.httpClient.Do(httpReq)
 	if err != nil {
-		return nil, fmt.Errorf("failed to call N8N API: %w", err)
+		return traceimport.WorkflowRunListResult{}, fmt.Errorf("failed to call N8N API: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return traceimport.WorkflowRunListResult{}, fmt.Errorf("failed to read response body: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("N8N API returned status %d: %s", resp.StatusCode, string(body))
+		return traceimport.WorkflowRunListResult{}, fmt.Errorf("N8N API returned status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var execList ExecutionsListResponse
 	if err := json.Unmarshal(body, &execList); err != nil {
-		return nil, fmt.Errorf("failed to parse N8N response: %w", err)
+		return traceimport.WorkflowRunListResult{}, fmt.Errorf("failed to parse N8N response: %w", err)
 	}
 
 	runs := make([]traceimport.WorkflowRun, 0, len(execList.Data))
@@ -392,7 +395,10 @@ func (n *TraceImporter) ListExecutions(ctx context.Context, backendConfig map[st
 		})
 	}
 
-	return runs, nil
+	return traceimport.WorkflowRunListResult{
+		Runs:       runs,
+		NextCursor: execList.NextCursor,
+	}, nil
 }
 
 func validateHTTPURL(rawURL string) (string, error) {

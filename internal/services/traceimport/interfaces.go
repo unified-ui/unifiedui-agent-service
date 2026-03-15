@@ -19,10 +19,16 @@ type TraceImporter interface {
 	Import(ctx context.Context, req *ImportRequest) (string, error)
 }
 
+// WorkflowRunListResult holds the result of listing workflow runs, including a cursor for pagination.
+type WorkflowRunListResult struct {
+	Runs       []WorkflowRun
+	NextCursor string
+}
+
 // WorkflowRunListable defines the interface for importers that can list workflow runs.
 type WorkflowRunListable interface {
 	// ListExecutions lists recent workflow executions from the external system.
-	ListExecutions(ctx context.Context, config map[string]interface{}, limit int) ([]WorkflowRun, error)
+	ListExecutions(ctx context.Context, config map[string]interface{}, limit int, cursor string) (WorkflowRunListResult, error)
 }
 
 // WorkflowRun represents a single workflow execution from an external system.

@@ -187,7 +187,8 @@ type WorkflowRunResponse struct {
 
 // ListWorkflowRunsResponse represents the response for listing workflow runs.
 type ListWorkflowRunsResponse struct {
-	Runs []WorkflowRunResponse `json:"runs"`
+	Runs       []WorkflowRunResponse `json:"runs"`
+	NextCursor string                `json:"nextCursor,omitempty"`
 }
 
 // --- Transformation Functions ---

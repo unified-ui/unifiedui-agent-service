@@ -205,3 +205,29 @@ func (c *Credentials) GetSecretAsBasicAuth() *BasicAuthSecret {
 	}
 	return nil
 }
+
+// EntraIDAppRegistrationSecret represents Entra ID app registration credentials.
+type EntraIDAppRegistrationSecret struct {
+	TenantID     string `json:"tenant_id"`
+	ClientID     string `json:"client_id"`
+	ClientSecret string `json:"client_secret"`
+}
+
+// GetSecretAsEntraIDAppReg returns the secret as EntraIDAppRegistrationSecret.
+func (c *Credentials) GetSecretAsEntraIDAppReg() *EntraIDAppRegistrationSecret {
+	m, ok := c.Secret.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	tID, _ := m["tenant_id"].(string)
+	cID, _ := m["client_id"].(string)
+	cSecret, _ := m["client_secret"].(string)
+	if tID == "" || cID == "" || cSecret == "" {
+		return nil
+	}
+	return &EntraIDAppRegistrationSecret{
+		TenantID:     tID,
+		ClientID:     cID,
+		ClientSecret: cSecret,
+	}
+}
