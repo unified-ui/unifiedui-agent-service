@@ -72,6 +72,7 @@ func Setup(r *gin.Engine, cfg *Config) {
 	agents := tenants.Group("/autonomous-agents/:agentId")
 	agents.GET("/traces", cfg.TracesHandler.GetAutonomousAgentTraces)
 	agents.PUT("/traces", cfg.TracesHandler.RefreshAutonomousAgentTrace)
+	agents.GET("/workflow-runs", cfg.TracesHandler.ListWorkflowRuns)
 
 	agentImport := v1.Group("/tenants/:tenantId")
 	agentImport.Use(cfg.AuthMiddleware.AuthenticateFlexible())

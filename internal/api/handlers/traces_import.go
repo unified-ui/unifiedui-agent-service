@@ -548,3 +548,121 @@ func (h *TracesHandler) getExecutionIDFromTrace(trace *models.Trace) string {
 
 	return trace.ReferenceID
 }
+
+// ListWorkflowRuns handles GET /tenants/{tenantId}/autonomous-agents/{agentId}/workflow-runs
+// @Summary List workflow runs for an autonomous agent
+// @Description Lists recent workflow executions from the external system (e.g., N8N) for an autonomous agent
+// @Tags Traces
+// @Produce json
+// @Param tenantId path string true "Tenant ID"
+// @Param agentId path string true "Autonomous Agent ID"
+// @Param limit query int false "Maximum number of runs to return (default: 50, max: 100)"
+// @Success 200 {object} dto.ListWorkflowRunsResponse
+// @Failure 400 {object} dto.ErrorResponse "Bad request - unsupported agent type"
+// @Failure 401 {object} dto.ErrorResponse "Unauthorized"
+// @Failure 403 {object} dto.ErrorResponse "Forbidden"
+// @Failure 404 {object} dto.ErrorResponse "Autonomous agent not found"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/workflow-runs [get]
+func (h *TracesHandler) ListWorkflowRuns(c *gin.Context) {
+	ctx := c.Request.Context()
+	tenantID := middleware.SanitizePathParam(c, "tenantId")
+	agentID := middleware.SanitizePathParam(c, "agentId")
+	authToken := middleware.GetToken(c)
+
+	agentConfig, err := h.platformClient.GetAutonomousAgentConfigWithBearer(ctx, tenantID, agentID, authToken)
+	if err != nil {
+		errStr := err.Error()
+		if strings.HasPrefix(errStr, "unauthorized") {
+			middleware.HandleError(c, errors.NewUnauthorizedError("unauthorized access to autonomous agent"))
+			return
+		}
+		if strings.HasPrefix(errStr, "forbidden") {
+			middleware.HandleError(c, errors.NewForbiddenError("no permission on autonomous agent"))
+			return
+		}
+		if strings.HasPrefix(errStr, "not_found") {
+			middleware.HandleError(c, errors.NewNotFoundError("autonomous agent", agentID))
+			return
+		}
+		middleware.HandleError(c, errors.NewInternalError("failed to get autonomous agent config", err))
+		return
+	}
+
+	if !h.importService.HasImporter(agentConfig.Type) {
+		middleware.HandleError(c, errors.NewValidationError(
+			"unsupported agent type for listing workflow runs",
+			string(agentConfig.Type),
+		))
+		return
+	}
+
+	limit := 50
+	if limitStr := c.Query("limit"); limitStr != "" {
+		if parsed, parseErr := fmt.Sscanf(limitStr, "%d", &limit); parseErr != nil || parsed != 1 {
+			limit = 50
+		}
+		if limit <= 0 || limit > 100 {
+			limit = 50
+		}
+	}
+
+	backendConfig, err := h.buildListWorkflowRunsConfig(agentConfig)
+	if err != nil {
+		middleware.HandleError(c, err)
+		return
+	}
+
+	runs, err := h.importService.ListExecutions(ctx, agentConfig.Type, backendConfig, limit)
+	if err != nil {
+		middleware.HandleError(c, errors.NewInternalError("failed to list workflow runs", err))
+		return
+	}
+
+	response := dto.ListWorkflowRunsResponse{
+		Runs: make([]dto.WorkflowRunResponse, 0, len(runs)),
+	}
+	for _, run := range runs {
+		response.Runs = append(response.Runs, dto.WorkflowRunResponse{
+			ID:        run.ID,
+			Status:    run.Status,
+			StartedAt: run.StartedAt,
+			StoppedAt: run.StoppedAt,
+			Mode:      run.Mode,
+		})
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
+func (h *TracesHandler) buildListWorkflowRunsConfig(
+	agentConfig *platform.AutonomousAgentConfigResponse,
+) (map[string]interface{}, error) {
+	settings := agentConfig.Settings
+
+	if settings.N8NHost == "" {
+		return nil, errors.NewValidationError(
+			"autonomous agent configuration missing N8N host",
+			"",
+		)
+	}
+
+	apiKey := ""
+	if settings.APICredentials != nil {
+		apiKey = settings.APICredentials.GetSecretAsString()
+	}
+
+	if apiKey == "" {
+		return nil, errors.NewValidationError(
+			"autonomous agent configuration missing API credentials",
+			"",
+		)
+	}
+
+	return map[string]interface{}{
+		"base_url":    settings.N8NHost,
+		"workflow_id": settings.WorkflowID,
+		"api_key":     apiKey,
+	}, nil
+}

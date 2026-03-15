@@ -19,6 +19,22 @@ type TraceImporter interface {
 	Import(ctx context.Context, req *ImportRequest) (string, error)
 }
 
+// WorkflowRunListable defines the interface for importers that can list workflow runs.
+type WorkflowRunListable interface {
+	// ListExecutions lists recent workflow executions from the external system.
+	ListExecutions(ctx context.Context, config map[string]interface{}, limit int) ([]WorkflowRun, error)
+}
+
+// WorkflowRun represents a single workflow execution from an external system.
+type WorkflowRun struct {
+	ID         string `json:"id"`
+	Status     string `json:"status"`
+	StartedAt  string `json:"startedAt"`
+	StoppedAt  string `json:"stoppedAt,omitempty"`
+	Mode       string `json:"mode"`
+	WorkflowID string `json:"workflowId"`
+}
+
 // TraceTransformer defines the interface for transforming external items to TraceNodes.
 type TraceTransformer interface {
 	// Transform converts external system items into TraceNodes.

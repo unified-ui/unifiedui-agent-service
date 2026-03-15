@@ -176,6 +176,20 @@ type AutonomousAgentRefreshTraceRequest struct {
 	// No fields needed - uses existing trace's referenceId as executionId
 }
 
+// WorkflowRunResponse represents a single workflow execution in the list.
+type WorkflowRunResponse struct {
+	ID        string `json:"id"`
+	Status    string `json:"status"`
+	StartedAt string `json:"startedAt"`
+	StoppedAt string `json:"stoppedAt,omitempty"`
+	Mode      string `json:"mode"`
+}
+
+// ListWorkflowRunsResponse represents the response for listing workflow runs.
+type ListWorkflowRunsResponse struct {
+	Runs []WorkflowRunResponse `json:"runs"`
+}
+
 // --- Transformation Functions ---
 
 // ToTraceNode converts a TraceNodeRequest to a models.TraceNode.

@@ -323,6 +323,78 @@ func (n *TraceImporter) GetTransformer() *Transformer {
 	return n.transformer
 }
 
+// ListExecutions lists recent workflow executions from the N8N API.
+func (n *TraceImporter) ListExecutions(ctx context.Context, backendConfig map[string]interface{}, limit int) ([]traceimport.WorkflowRun, error) {
+	config, ok := ExtractListConfig(backendConfig)
+	if !ok {
+		return nil, fmt.Errorf("invalid or missing N8N configuration for listing executions")
+	}
+
+	baseURL, err := validateHTTPURL(config.BaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid base URL: %w", err)
+	}
+
+	u, err := url.Parse(baseURL + "/api/v1/executions")
+	if err != nil {
+		return nil, fmt.Errorf("failed to construct request URL: %w", err)
+	}
+
+	if limit <= 0 || limit > 100 {
+		limit = 100
+	}
+
+	q := u.Query()
+	q.Set("limit", fmt.Sprintf("%d", limit))
+	if config.WorkflowID != "" {
+		q.Set("workflowId", validateIdentifier(config.WorkflowID))
+	}
+	u.RawQuery = q.Encode()
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), http.NoBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "application/json")
+	httpReq.Header.Set("X-N8N-API-KEY", config.APIKey)
+
+	resp, err := n.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to call N8N API: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("N8N API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var execList ExecutionsListResponse
+	if err := json.Unmarshal(body, &execList); err != nil {
+		return nil, fmt.Errorf("failed to parse N8N response: %w", err)
+	}
+
+	runs := make([]traceimport.WorkflowRun, 0, len(execList.Data))
+	for _, exec := range execList.Data {
+		runs = append(runs, traceimport.WorkflowRun{
+			ID:         exec.ID,
+			Status:     string(exec.Status),
+			StartedAt:  exec.StartedAt,
+			StoppedAt:  exec.StoppedAt,
+			Mode:       exec.Mode,
+			WorkflowID: exec.WorkflowID,
+		})
+	}
+
+	return runs, nil
+}
+
 func validateHTTPURL(rawURL string) (string, error) {
 	parsed, err := url.Parse(strings.TrimRight(rawURL, "/"))
 	if err != nil {
