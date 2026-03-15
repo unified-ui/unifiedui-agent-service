@@ -119,6 +119,7 @@ func (h *MessagesHandler) SendMessage(c *gin.Context) {
 			InvokeConfig: models.MessageInvokeConfig{
 				ChatHistoryMessageCount: req.InvokeConfig.ChatHistoryMessageCount,
 			},
+			Extra: req.Extra,
 		},
 	)
 	userMessage.ID = userMessageID

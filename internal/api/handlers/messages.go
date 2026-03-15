@@ -84,6 +84,7 @@ type MessageResponse struct {
 	StatusTraces        []models.StatusTrace        `json:"statusTraces,omitempty"`
 	Metadata            *models.AssistantMetadata   `json:"metadata,omitempty"`
 	AttachmentsMetadata []models.AttachmentMetadata `json:"attachmentsMetadata,omitempty"`
+	Extra               map[string]interface{}      `json:"extra,omitempty"`
 	CreatedAt           time.Time                   `json:"createdAt"`
 	UpdatedAt           time.Time                   `json:"updatedAt"`
 }
@@ -113,11 +114,12 @@ type InvokeConfig struct {
 
 // SendMessageRequest represents the request body for sending a message.
 type SendMessageRequest struct {
-	ConversationID    string         `json:"conversationId,omitempty"`
-	ChatAgentID       string         `json:"chatAgentId" binding:"required"`
-	ExtConversationID string         `json:"extConversationId,omitempty"`
-	Message           MessageContent `json:"message" binding:"required"`
-	InvokeConfig      InvokeConfig   `json:"invokeConfig,omitempty"`
+	ConversationID    string                 `json:"conversationId,omitempty"`
+	ChatAgentID       string                 `json:"chatAgentId" binding:"required"`
+	ExtConversationID string                 `json:"extConversationId,omitempty"`
+	Message           MessageContent         `json:"message" binding:"required"`
+	InvokeConfig      InvokeConfig           `json:"invokeConfig,omitempty"`
+	Extra             map[string]interface{} `json:"extra,omitempty"`
 }
 
 // SendMessageResponse represents the response for sending a message.
@@ -187,6 +189,11 @@ func (h *MessagesHandler) GetMessages(c *gin.Context) {
 }
 
 func (h *MessagesHandler) toMessageResponse(msg *models.Message) MessageResponse {
+	var extra map[string]interface{}
+	if msg.Request != nil && len(msg.Request.Extra) > 0 {
+		extra = msg.Request.Extra
+	}
+
 	return MessageResponse{
 		ID:                  msg.ID,
 		Type:                msg.Type,
@@ -200,6 +207,7 @@ func (h *MessagesHandler) toMessageResponse(msg *models.Message) MessageResponse
 		StatusTraces:        msg.StatusTraces,
 		Metadata:            msg.Metadata,
 		AttachmentsMetadata: msg.AttachmentsMetadata,
+		Extra:               extra,
 		CreatedAt:           msg.CreatedAt,
 		UpdatedAt:           msg.UpdatedAt,
 	}
