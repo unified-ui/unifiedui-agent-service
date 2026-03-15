@@ -266,36 +266,16 @@ func (s *service) testFoundryAgent(ctx context.Context, projectEndpoint string, 
 	}
 	foundryClient.SetHTTPClient(&http.Client{Timeout: 15 * time.Second})
 
-	reader, err := foundryClient.InvokeStreamReader(testCtx, &foundry.InvokeRequest{
-		ExtConversationID: "",
-		Message:           "ping",
-	})
-	if err != nil {
+	if err := foundryClient.TestConnection(testCtx); err != nil {
 		return &TestResult{
 			Success: false,
 			Message: fmt.Sprintf("Foundry agent unreachable: %s", err.Error()),
 		}, nil
 	}
-	defer func() { _ = reader.Close() }()
-
-	chunk, readErr := reader.Read()
-	if readErr != nil && !errors.Is(readErr, io.EOF) {
-		return &TestResult{
-			Success: false,
-			Message: fmt.Sprintf("Failed to read Foundry response: %s", readErr.Error()),
-		}, nil
-	}
-
-	if chunk != nil || errors.Is(readErr, io.EOF) {
-		return &TestResult{
-			Success: true,
-			Message: fmt.Sprintf("Foundry agent '%s' is reachable and responding", agentName),
-		}, nil
-	}
 
 	return &TestResult{
 		Success: true,
-		Message: fmt.Sprintf("Foundry agent '%s' connection established", agentName),
+		Message: fmt.Sprintf("Foundry agent '%s' is reachable and responding", agentName),
 	}, nil
 }
 

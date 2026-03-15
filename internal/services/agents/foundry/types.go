@@ -205,7 +205,7 @@ type Error struct {
 // RequestPayload represents the request payload to Foundry.
 type RequestPayload struct {
 	Agent        AgentPayload `json:"agent"`
-	Conversation string       `json:"conversation,omitempty"` // Omit when empty to create new conversation
+	Conversation *string      `json:"conversation,omitempty"` // omitted for new conversations, set for existing
 	Input        interface{}  `json:"input"`                  // string or []InputMessage for multimodal
 	Stream       bool         `json:"stream"`
 }

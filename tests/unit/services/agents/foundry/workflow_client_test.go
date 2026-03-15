@@ -127,7 +127,8 @@ func TestInvokeStreamReader_Success(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "agent_reference", payload.Agent.Type)
 		assert.Equal(t, "TestAgent", payload.Agent.Name)
-		assert.Equal(t, "conv_123", payload.Conversation)
+		require.NotNil(t, payload.Conversation)
+		assert.Equal(t, "conv_123", *payload.Conversation)
 		assert.Equal(t, "Hello", payload.Input)
 		assert.True(t, payload.Stream)
 

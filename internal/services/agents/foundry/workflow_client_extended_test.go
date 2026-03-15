@@ -796,7 +796,8 @@ func TestInvoke_CorrectRequestBody(t *testing.T) {
 
 	assert.Equal(t, "agent_reference", payload.Agent.Type)
 	assert.Equal(t, "my-agent", payload.Agent.Name)
-	assert.Equal(t, "conv-body", payload.Conversation)
+	require.NotNil(t, payload.Conversation)
+	assert.Equal(t, "conv-body", *payload.Conversation)
 	assert.Equal(t, "Test message content", payload.Input)
 	assert.True(t, payload.Stream)
 }
@@ -1204,10 +1205,10 @@ func TestInvoke_EmptyConversationID(t *testing.T) {
 	err = json.Unmarshal(receivedBody, &payload)
 	require.NoError(t, err)
 
-	// Conversation should be empty or omitted
+	// Conversation should be omitted (nil) for new conversations
 	conv, exists := payload["conversation"]
 	if exists {
-		assert.Equal(t, "", conv)
+		assert.Nil(t, conv)
 	}
 }
 

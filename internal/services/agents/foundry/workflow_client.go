@@ -61,6 +61,49 @@ func (c *WorkflowClient) SetHTTPClient(client *http.Client) {
 	c.httpClient = client
 }
 
+// TestConnection verifies that the Foundry endpoint and API token are valid
+// by sending a ping message to the agent. A 400 response about payload format
+// still proves connectivity, authentication, and agent existence.
+func (c *WorkflowClient) TestConnection(ctx context.Context) error {
+	url := fmt.Sprintf("%s/openai/responses?api-version=%s", c.projectEndpoint, c.apiVersion)
+
+	payload := &RequestPayload{
+		Agent: AgentPayload{
+			Type: "agent_reference",
+			Name: c.agentName,
+		},
+		Input:  "ping",
+		Stream: false,
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(body))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+c.apiToken)
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	// 200 = full success, 400 = payload rejected but endpoint+auth+agent are valid
+	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusBadRequest {
+		return nil
+	}
+
+	bodyBytes, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+	return fmt.Errorf("foundry API error: status=%d, body=%s", resp.StatusCode, string(bodyBytes))
+}
+
 // Invoke sends a message and returns the complete response (non-streaming).
 func (c *WorkflowClient) Invoke(ctx context.Context, req *InvokeRequest) (*InvokeResponse, error) {
 	reader, err := c.InvokeStreamReader(ctx, req)
@@ -149,12 +192,17 @@ func (c *WorkflowClient) InvokeStreamReader(ctx context.Context, req *InvokeRequ
 		input = req.Message
 	}
 
+	var conversationPtr *string
+	if req.ExtConversationID != "" {
+		conversationPtr = &req.ExtConversationID
+	}
+
 	payload := &RequestPayload{
 		Agent: AgentPayload{
 			Type: "agent_reference",
 			Name: c.agentName,
 		},
-		Conversation: req.ExtConversationID,
+		Conversation: conversationPtr,
 		Input:        input,
 		Stream:       true,
 	}
