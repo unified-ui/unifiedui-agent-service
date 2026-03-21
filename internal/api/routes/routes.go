@@ -44,6 +44,8 @@ func Setup(r *gin.Engine, cfg *Config) {
 	conversations.DELETE("/messages/:messageId", cfg.MessagesHandler.DeleteMessage)
 
 	if cfg.ReactionsHandler != nil {
+		conversations.GET("/reactions", cfg.ReactionsHandler.GetBulkReactions)
+
 		reactions := conversations.Group("/messages/:messageId/reactions")
 		reactions.POST("", cfg.ReactionsHandler.UpsertReaction)
 		reactions.DELETE("", cfg.ReactionsHandler.DeleteReaction)

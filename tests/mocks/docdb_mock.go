@@ -481,6 +481,15 @@ func (m *MockReactionsCollection) ListByMessage(ctx context.Context, opts *docdb
 	return args.Get(0).([]*models.MessageReaction), args.Error(1)
 }
 
+// ListByMessages retrieves all reactions for multiple messages.
+func (m *MockReactionsCollection) ListByMessages(ctx context.Context, opts *docdb.ListBulkReactionsOptions) ([]*models.MessageReaction, error) {
+	args := m.Called(ctx, opts)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*models.MessageReaction), args.Error(1)
+}
+
 // Delete removes a reaction.
 func (m *MockReactionsCollection) Delete(ctx context.Context, opts *docdb.DeleteReactionOptions) error {
 	args := m.Called(ctx, opts)

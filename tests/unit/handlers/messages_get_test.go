@@ -60,7 +60,7 @@ func TestGetMessages_Success(t *testing.T) {
 	expectedOpts := &docdb.ListMessagesOptions{
 		ConversationID: testutils.TestConversationID,
 		TenantID:       testutils.TestTenantID,
-		Limit:          25, // DefaultMessagesLimit
+		Limit:          26, // DefaultMessagesLimit + 1 for hasMore
 		Skip:           0,
 		OrderBy:        docdb.SortOrderDesc,
 	}
@@ -84,6 +84,7 @@ func TestGetMessages_Success(t *testing.T) {
 	testutils.ParseJSONResponse(t, w, &response)
 
 	assert.Len(t, response.Messages, 3)
+	assert.False(t, response.HasMore)
 	assert.Equal(t, "msg-0", response.Messages[0].ID)
 	assert.Equal(t, "Message content 0", response.Messages[0].Content)
 	assert.Equal(t, testutils.TestConversationID, response.Messages[0].ConversationID)
@@ -98,7 +99,7 @@ func TestGetMessages_WithLimitPagination(t *testing.T) {
 	expectedOpts := &docdb.ListMessagesOptions{
 		ConversationID: testutils.TestConversationID,
 		TenantID:       testutils.TestTenantID,
-		Limit:          5,
+		Limit:          6, // 5 + 1 for hasMore
 		Skip:           0,
 		OrderBy:        docdb.SortOrderDesc,
 	}
@@ -122,6 +123,7 @@ func TestGetMessages_WithLimitPagination(t *testing.T) {
 	testutils.ParseJSONResponse(t, w, &response)
 
 	assert.Len(t, response.Messages, 5)
+	assert.False(t, response.HasMore)
 
 	mockDocDB.GetMessagesCollection().AssertExpectations(t)
 }
@@ -133,7 +135,7 @@ func TestGetMessages_WithSkipPagination(t *testing.T) {
 	expectedOpts := &docdb.ListMessagesOptions{
 		ConversationID: testutils.TestConversationID,
 		TenantID:       testutils.TestTenantID,
-		Limit:          10,
+		Limit:          11, // 10 + 1 for hasMore
 		Skip:           5,
 		OrderBy:        docdb.SortOrderDesc,
 	}
@@ -168,7 +170,7 @@ func TestGetMessages_EmptyResult(t *testing.T) {
 	expectedOpts := &docdb.ListMessagesOptions{
 		ConversationID: testutils.TestConversationID,
 		TenantID:       testutils.TestTenantID,
-		Limit:          25,
+		Limit:          26,
 		Skip:           0,
 		OrderBy:        docdb.SortOrderDesc,
 	}
@@ -256,7 +258,7 @@ func TestGetMessages_DatabaseError(t *testing.T) {
 	expectedOpts := &docdb.ListMessagesOptions{
 		ConversationID: testutils.TestConversationID,
 		TenantID:       testutils.TestTenantID,
-		Limit:          25,
+		Limit:          26,
 		Skip:           0,
 		OrderBy:        docdb.SortOrderDesc,
 	}
@@ -306,7 +308,7 @@ func TestGetMessages_MessageFieldsMapping(t *testing.T) {
 	expectedOpts := &docdb.ListMessagesOptions{
 		ConversationID: testutils.TestConversationID,
 		TenantID:       testutils.TestTenantID,
-		Limit:          25,
+		Limit:          26,
 		Skip:           0,
 		OrderBy:        docdb.SortOrderDesc,
 	}
@@ -357,13 +359,13 @@ func TestGetMessages_LimitAtBoundary(t *testing.T) {
 		{
 			name:           "minimum limit (1)",
 			limit:          1,
-			expectedLimit:  1,
+			expectedLimit:  2,
 			expectedStatus: http.StatusOK,
 		},
 		{
 			name:           "maximum limit (100)",
 			limit:          100,
-			expectedLimit:  100,
+			expectedLimit:  101,
 			expectedStatus: http.StatusOK,
 		},
 	}
@@ -408,7 +410,7 @@ func TestGetMessages_DifferentTenant(t *testing.T) {
 	expectedOpts := &docdb.ListMessagesOptions{
 		ConversationID: testutils.TestConversationID,
 		TenantID:       differentTenantID,
-		Limit:          25,
+		Limit:          26,
 		Skip:           0,
 		OrderBy:        docdb.SortOrderDesc,
 	}
@@ -476,7 +478,7 @@ func TestGetMessages_ExtraFieldMapping(t *testing.T) {
 	expectedOpts := &docdb.ListMessagesOptions{
 		ConversationID: testutils.TestConversationID,
 		TenantID:       testutils.TestTenantID,
-		Limit:          25,
+		Limit:          26,
 		Skip:           0,
 		OrderBy:        docdb.SortOrderDesc,
 	}

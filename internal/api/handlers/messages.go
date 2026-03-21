@@ -68,6 +68,7 @@ type GetMessagesRequest struct {
 // GetMessagesResponse represents the response for getting messages.
 type GetMessagesResponse struct {
 	Messages []MessageResponse `json:"messages"`
+	HasMore  bool              `json:"hasMore"`
 }
 
 // MessageResponse represents a message in the API response.
@@ -167,7 +168,7 @@ func (h *MessagesHandler) GetMessages(c *gin.Context) {
 	listOpts := &docdb.ListMessagesOptions{
 		ConversationID: req.ConversationID,
 		TenantID:       tenantCtx.TenantID,
-		Limit:          req.Limit,
+		Limit:          req.Limit + 1,
 		Skip:           req.Skip,
 		OrderBy:        docdb.SortOrderDesc,
 	}
@@ -178,6 +179,11 @@ func (h *MessagesHandler) GetMessages(c *gin.Context) {
 		return
 	}
 
+	hasMore := int64(len(messages)) > req.Limit
+	if hasMore {
+		messages = messages[:req.Limit]
+	}
+
 	response := make([]MessageResponse, 0, len(messages))
 	for _, msg := range messages {
 		response = append(response, h.toMessageResponse(msg))
@@ -185,6 +191,7 @@ func (h *MessagesHandler) GetMessages(c *gin.Context) {
 
 	c.JSON(http.StatusOK, GetMessagesResponse{
 		Messages: response,
+		HasMore:  hasMore,
 	})
 }
 
