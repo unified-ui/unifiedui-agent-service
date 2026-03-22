@@ -79,6 +79,7 @@ type AttachmentMetadata struct {
 	FileType     string `json:"fileType" bson:"fileType"`
 	FileSize     int64  `json:"fileSize" bson:"fileSize"`
 	FileCategory string `json:"fileCategory" bson:"fileCategory"`
+	FileID       string `json:"fileId,omitempty" bson:"fileId,omitempty"`
 }
 
 // StatusTrace represents a trace entry during message processing.

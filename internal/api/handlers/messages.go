@@ -98,6 +98,7 @@ type FileAttachment struct {
 	Filename string `json:"filename,omitempty"`
 	MimeType string `json:"mimeType,omitempty"`
 	Detail   string `json:"detail,omitempty"`
+	FileID   string `json:"fileId,omitempty"`
 }
 
 // MessageContent represents the message content in the request.

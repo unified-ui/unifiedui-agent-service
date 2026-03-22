@@ -692,6 +692,7 @@ func convertFilesToAttachmentMetadata(files []FileAttachment) []models.Attachmen
 			FileType:     f.MimeType,
 			FileSize:     fileSize,
 			FileCategory: f.Type,
+			FileID:       f.FileID,
 		}
 	}
 	return result
