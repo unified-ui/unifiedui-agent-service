@@ -51,8 +51,8 @@ type ImportRequest struct {
 	ConversationID string
 	// ChatAgentID is the chat agent ID.
 	ChatAgentID string
-	// AutonomousAgentID is the autonomous agent ID (for autonomous agent context).
-	AutonomousAgentID string
+	// WorkflowID is the workflow ID (for workflow context).
+	WorkflowID string
 	// ExistingTraceID is set when updating an existing trace (preserves the ID).
 	ExistingTraceID string
 	// Logs are optional log entries to add to the trace.

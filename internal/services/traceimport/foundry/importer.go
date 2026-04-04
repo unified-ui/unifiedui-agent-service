@@ -97,7 +97,7 @@ func (f *TraceImporter) Import(ctx context.Context, req *traceimport.ImportReque
 		return existingTrace.ID, nil
 	}
 
-	// If ExistingTraceID is provided, we need to update that trace (autonomous agent upsert)
+	// If ExistingTraceID is provided, we need to update that trace (workflow upsert)
 	if req.ExistingTraceID != "" {
 		existingTraceByID, err := f.docDB.Traces().Get(ctx, req.ExistingTraceID)
 		if err != nil {
@@ -130,20 +130,20 @@ func (f *TraceImporter) Import(ctx context.Context, req *traceimport.ImportReque
 
 	// Determine context type
 	contextType := models.TraceContextConversation
-	if req.AutonomousAgentID != "" {
-		contextType = models.TraceContextAutonomousAgent
+	if req.WorkflowID != "" {
+		contextType = models.TraceContextWorkflow
 	}
 
 	// Create new trace
 	trace := &models.Trace{
-		ID:                traceID,
-		TenantID:          req.TenantID,
-		ChatAgentID:       req.ChatAgentID,
-		ConversationID:    req.ConversationID,
-		AutonomousAgentID: req.AutonomousAgentID,
-		ContextType:       contextType,
-		ReferenceID:       foundryConfig.FoundryConversationID,
-		ReferenceName:     "Microsoft Foundry Conversation",
+		ID:             traceID,
+		TenantID:       req.TenantID,
+		ChatAgentID:    req.ChatAgentID,
+		ConversationID: req.ConversationID,
+		WorkflowID:     req.WorkflowID,
+		ContextType:    contextType,
+		ReferenceID:    foundryConfig.FoundryConversationID,
+		ReferenceName:  "Microsoft Foundry Conversation",
 		ReferenceMetadata: map[string]interface{}{
 			"foundry_conversation_id": foundryConfig.FoundryConversationID,
 			"project_endpoint":        foundryConfig.ProjectEndpoint,

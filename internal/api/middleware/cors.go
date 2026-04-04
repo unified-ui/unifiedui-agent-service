@@ -48,7 +48,7 @@ func DefaultCORSConfig() CORSConfig {
 			"Cache-Control",
 
 			"X-Microsoft-Foundry-API-Key",
-			"X-Unified-UI-Autonomous-Agent-API-Key",
+			"X-Unified-UI-Workflow-API-Key",
 		},
 		ExposeHeaders: []string{
 			"Content-Length",

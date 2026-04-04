@@ -20,18 +20,18 @@ const (
 
 // ListTracesOptions contains options for listing traces.
 type ListTracesOptions struct {
-	TenantID          string
-	ChatAgentID       string
-	ConversationID    string
-	AutonomousAgentID string
-	ContextType       models.TraceContextType // Optional: filter by context type
-	Limit             int64
-	Skip              int64
-	OrderBy           SortOrder // Sort direction (asc/desc)
-	SortBy            SortField // Field to sort by (createdAt/updatedAt)
-	CreatedAfter      *time.Time
-	CreatedBefore     *time.Time
-	Expand            bool // If false, exclude nodes and logs from results
+	TenantID       string
+	ChatAgentID    string
+	ConversationID string
+	WorkflowID     string
+	ContextType    models.TraceContextType // Optional: filter by context type
+	Limit          int64
+	Skip           int64
+	OrderBy        SortOrder // Sort direction (asc/desc)
+	SortBy         SortField // Field to sort by (createdAt/updatedAt)
+	CreatedAfter   *time.Time
+	CreatedBefore  *time.Time
+	Expand         bool // If false, exclude nodes and logs from results
 }
 
 // TracesCollection defines the interface for trace collection operations.
@@ -54,12 +54,12 @@ type TracesCollection interface {
 	// ListByConversation retrieves traces for a conversation as a list.
 	ListByConversation(ctx context.Context, tenantID, conversationID string) ([]*models.Trace, error)
 
-	// GetByAutonomousAgent retrieves the most recent trace for an autonomous agent.
+	// GetByWorkflow retrieves the most recent trace for an workflow.
 	// Returns nil if no trace exists.
-	GetByAutonomousAgent(ctx context.Context, tenantID, autonomousAgentID string) (*models.Trace, error)
+	GetByWorkflow(ctx context.Context, tenantID, workflowID string) (*models.Trace, error)
 
-	// ListByAutonomousAgent retrieves traces for an autonomous agent as a list.
-	ListByAutonomousAgent(ctx context.Context, tenantID, autonomousAgentID string) ([]*models.Trace, error)
+	// ListByWorkflow retrieves traces for an workflow as a list.
+	ListByWorkflow(ctx context.Context, tenantID, workflowID string) ([]*models.Trace, error)
 
 	// List retrieves traces with pagination and filtering.
 	List(ctx context.Context, opts *ListTracesOptions) ([]*models.Trace, error)
@@ -82,8 +82,8 @@ type TracesCollection interface {
 	// DeleteByConversation removes the trace for a conversation.
 	DeleteByConversation(ctx context.Context, tenantID, conversationID string) error
 
-	// DeleteByAutonomousAgent removes the trace for an autonomous agent.
-	DeleteByAutonomousAgent(ctx context.Context, tenantID, autonomousAgentID string) error
+	// DeleteByWorkflow removes the trace for an workflow.
+	DeleteByWorkflow(ctx context.Context, tenantID, workflowID string) error
 
 	// EnsureIndexes creates necessary indexes for the collection.
 	EnsureIndexes(ctx context.Context) error

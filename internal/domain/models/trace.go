@@ -81,8 +81,8 @@ type TraceContextType string
 const (
 	// TraceContextConversation indicates trace is linked to a conversation.
 	TraceContextConversation TraceContextType = "conversation"
-	// TraceContextAutonomousAgent indicates trace is linked to an autonomous agent.
-	TraceContextAutonomousAgent TraceContextType = "autonomous_agent"
+	// TraceContextWorkflow indicates trace is linked to an workflow.
+	TraceContextWorkflow TraceContextType = "workflow"
 )
 
 // NodeDataIO represents input or output data for a node.
@@ -128,12 +128,12 @@ type Trace struct {
 	// TenantID is required for tenant isolation.
 	TenantID string `json:"tenantId" bson:"tenantId"`
 
-	// Context fields - either (ChatAgentID + ConversationID) OR AutonomousAgentID
-	ChatAgentID       string `json:"chatAgentId,omitempty" bson:"chatAgentId,omitempty"`
-	ConversationID    string `json:"conversationId,omitempty" bson:"conversationId,omitempty"`
-	AutonomousAgentID string `json:"autonomousAgentId,omitempty" bson:"autonomousAgentId,omitempty"`
+	// Context fields - either (ChatAgentID + ConversationID) OR WorkflowID
+	ChatAgentID    string `json:"chatAgentId,omitempty" bson:"chatAgentId,omitempty"`
+	ConversationID string `json:"conversationId,omitempty" bson:"conversationId,omitempty"`
+	WorkflowID     string `json:"workflowId,omitempty" bson:"workflowId,omitempty"`
 
-	// ContextType indicates whether this trace is for a conversation or autonomous agent.
+	// ContextType indicates whether this trace is for a conversation or workflow.
 	ContextType TraceContextType `json:"contextType" bson:"contextType"`
 
 	// Reference fields for external system linkage.
@@ -171,19 +171,19 @@ func NewConversationTrace(tenantID, chatAgentID, conversationID, createdBy strin
 	}
 }
 
-// NewAutonomousAgentTrace creates a new trace for an autonomous agent context.
-func NewAutonomousAgentTrace(tenantID, autonomousAgentID, createdBy string) *Trace {
+// NewWorkflowTrace creates a new trace for an workflow context.
+func NewWorkflowTrace(tenantID, workflowID, createdBy string) *Trace {
 	now := time.Now().UTC()
 	return &Trace{
-		TenantID:          tenantID,
-		AutonomousAgentID: autonomousAgentID,
-		ContextType:       TraceContextAutonomousAgent,
-		Nodes:             []TraceNode{},
-		Logs:              []string{},
-		CreatedAt:         now,
-		UpdatedAt:         now,
-		CreatedBy:         createdBy,
-		UpdatedBy:         createdBy,
+		TenantID:    tenantID,
+		WorkflowID:  workflowID,
+		ContextType: TraceContextWorkflow,
+		Nodes:       []TraceNode{},
+		Logs:        []string{},
+		CreatedAt:   now,
+		UpdatedAt:   now,
+		CreatedBy:   createdBy,
+		UpdatedBy:   createdBy,
 	}
 }
 
@@ -239,18 +239,18 @@ func (t *Trace) IsConversationContext() bool {
 	return t.ContextType == TraceContextConversation
 }
 
-// IsAutonomousAgentContext returns true if the trace is for an autonomous agent context.
-func (t *Trace) IsAutonomousAgentContext() bool {
-	return t.ContextType == TraceContextAutonomousAgent
+// IsWorkflowContext returns true if the trace is for an workflow context.
+func (t *Trace) IsWorkflowContext() bool {
+	return t.ContextType == TraceContextWorkflow
 }
 
 // ValidateContext validates that the trace has valid context fields.
 func (t *Trace) ValidateContext() bool {
 	if t.ContextType == TraceContextConversation {
-		return t.ChatAgentID != "" && t.ConversationID != "" && t.AutonomousAgentID == ""
+		return t.ChatAgentID != "" && t.ConversationID != "" && t.WorkflowID == ""
 	}
-	if t.ContextType == TraceContextAutonomousAgent {
-		return t.AutonomousAgentID != "" && t.ChatAgentID == "" && t.ConversationID == ""
+	if t.ContextType == TraceContextWorkflow {
+		return t.WorkflowID != "" && t.ChatAgentID == "" && t.ConversationID == ""
 	}
 	return false
 }
@@ -263,10 +263,10 @@ func (t *Trace) Validate() error {
 
 	// Check for mixed context
 	hasConversationContext := t.ChatAgentID != "" || t.ConversationID != ""
-	hasAutonomousAgentContext := t.AutonomousAgentID != ""
+	hasWorkflowContext := t.WorkflowID != ""
 
-	if hasConversationContext && hasAutonomousAgentContext {
-		return fmt.Errorf("cannot have both conversation and autonomous agent context")
+	if hasConversationContext && hasWorkflowContext {
+		return fmt.Errorf("cannot have both conversation and workflow context")
 	}
 
 	switch t.ContextType {
@@ -277,9 +277,9 @@ func (t *Trace) Validate() error {
 		if t.ConversationID == "" {
 			return fmt.Errorf("conversationId is required for conversation context")
 		}
-	case TraceContextAutonomousAgent:
-		if t.AutonomousAgentID == "" {
-			return fmt.Errorf("autonomousAgentId is required for autonomous agent context")
+	case TraceContextWorkflow:
+		if t.WorkflowID == "" {
+			return fmt.Errorf("workflowId is required for workflow context")
 		}
 	default:
 		return fmt.Errorf("invalid context type: %s", t.ContextType)

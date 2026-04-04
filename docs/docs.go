@@ -105,14 +105,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/agent-service/tenants/{tenantId}/autonomous-agents/traces": {
-            "get": {
+        "/api/v1/agent-service/tenants/{tenantId}/ai/analyze-trace": {
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retrieves a list of traces for autonomous agents with pagination, sorting, and filtering",
+                "description": "Analyzes a failed trace node and provides root cause analysis and suggested fixes",
                 "consumes": [
                     "application/json"
                 ],
@@ -120,9 +120,9 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Traces"
+                    "AI"
                 ],
-                "summary": "List traces for autonomous agents",
+                "summary": "Analyze a trace error using AI",
                 "parameters": [
                     {
                         "type": "string",
@@ -132,282 +132,12 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "type": "string",
-                        "description": "Filter by autonomous agent ID",
-                        "name": "autonomousAgentId",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Maximum number of results (default: 20, max: 100)",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Number of results to skip (default: 0)",
-                        "name": "skip",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Sort order: asc or desc (default: desc)",
-                        "name": "order",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Sort field: created_at or updated_at (default: created_at)",
-                        "name": "order_by",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Filter: traces created after this ISO 8601 timestamp",
-                        "name": "created_after",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Filter: traces created before this ISO 8601 timestamp",
-                        "name": "created_before",
-                        "in": "query"
-                    },
-                    {
-                        "type": "boolean",
-                        "description": "Include nodes and logs in response (default: false)",
-                        "name": "expand",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ListTracesResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad request",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/data": {
-            "delete": {
-                "description": "Deletes all traces associated with an autonomous agent. Requires X-Service-Key authentication.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Data"
-                ],
-                "summary": "Delete all data for an autonomous agent",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Tenant ID",
-                        "name": "tenantId",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Autonomous Agent ID",
-                        "name": "agentId",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Service-to-service authentication key",
-                        "name": "X-Service-Key",
-                        "in": "header",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "No Content"
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/traces": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Retrieves traces for a specific autonomous agent with pagination, sorting, and filtering",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Traces"
-                ],
-                "summary": "List traces for an autonomous agent",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Tenant ID",
-                        "name": "tenantId",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Autonomous Agent ID",
-                        "name": "agentId",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Maximum number of results (default: 20, max: 100)",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Number of results to skip (default: 0)",
-                        "name": "skip",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Sort order: asc or desc (default: desc)",
-                        "name": "order",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Sort field: created_at or updated_at (default: created_at)",
-                        "name": "order_by",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Filter: traces created after this ISO 8601 timestamp",
-                        "name": "created_after",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Filter: traces created before this ISO 8601 timestamp",
-                        "name": "created_before",
-                        "in": "query"
-                    },
-                    {
-                        "type": "boolean",
-                        "description": "Include nodes and logs in response (default: false)",
-                        "name": "expand",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ListTracesResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad request",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Replaces the trace for a specific autonomous agent completely",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Traces"
-                ],
-                "summary": "Refresh trace for an autonomous agent",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Tenant ID",
-                        "name": "tenantId",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Autonomous Agent ID",
-                        "name": "agentId",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "New trace data",
+                        "description": "Trace analysis request",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.RefreshTraceRequest"
+                            "$ref": "#/definitions/dto.AnalyzeTraceRequest"
                         }
                     }
                 ],
@@ -415,97 +145,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.TraceResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad request",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Trace not found",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/traces/import": {
-            "put": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Imports traces from an external system (N8N, etc.) for an autonomous agent. If a trace with the same executionId already exists, it will be updated; otherwise a new trace is created.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Traces"
-                ],
-                "summary": "Import or update traces for an autonomous agent (upsert by executionId)",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Tenant ID",
-                        "name": "tenantId",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Autonomous Agent ID",
-                        "name": "agentId",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Autonomous Agent API Key",
-                        "name": "X-Unified-UI-Autonomous-Agent-API-Key",
-                        "in": "header",
-                        "required": true
-                    },
-                    {
-                        "description": "Import request",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/dto.AutonomousAgentImportTraceRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Trace updated",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ImportTraceResponse"
-                        }
-                    },
-                    "201": {
-                        "description": "Trace created",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ImportTraceResponse"
+                            "$ref": "#/definitions/dto.AnalyzeTraceResponse"
                         }
                     },
                     "400": {
@@ -515,13 +155,7 @@ const docTemplate = `{
                         }
                     },
                     "401": {
-                        "description": "Unauthorized - invalid API key",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Autonomous agent not found",
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
@@ -535,14 +169,60 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/traces/{traceId}/import/refresh": {
-            "put": {
+        "/api/v1/agent-service/tenants/{tenantId}/ai/capabilities": {
+            "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
-                "description": "Re-imports traces from the external system using the existing trace's reference ID",
+                "description": "Returns which AI features are available based on configured models",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "AI"
+                ],
+                "summary": "Get available AI capabilities for a tenant",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Tenant ID",
+                        "name": "tenantId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.AICapabilitiesResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agent-service/tenants/{tenantId}/ai/generate-description": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Uses configured LLM models to generate or polish a description for any entity type",
                 "consumes": [
                     "application/json"
                 ],
@@ -550,9 +230,9 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Traces"
+                    "AI"
                 ],
-                "summary": "Refresh an imported trace for an autonomous agent",
+                "summary": "Generate or improve an entity description using AI",
                 "parameters": [
                     {
                         "type": "string",
@@ -562,48 +242,286 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "type": "string",
-                        "description": "Autonomous Agent ID",
-                        "name": "agentId",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Trace ID",
-                        "name": "traceId",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Autonomous Agent API Key",
-                        "name": "X-Unified-UI-Autonomous-Agent-API-Key",
-                        "in": "header",
-                        "required": true
+                        "description": "Description generation request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.GenerateDescriptionRequest"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.ImportTraceResponse"
+                            "$ref": "#/definitions/dto.GenerateDescriptionResponse"
                         }
                     },
                     "400": {
-                        "description": "Bad request - trace has no reference ID",
+                        "description": "Bad request - validation error",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "401": {
-                        "description": "Unauthorized - invalid API key",
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
-                    "404": {
-                        "description": "Trace or autonomous agent not found",
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agent-service/tenants/{tenantId}/ai/summarize-trace": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Summarizes trace nodes at the specified detail level (short, medium, long)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "AI"
+                ],
+                "summary": "Summarize a trace using AI",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Tenant ID",
+                        "name": "tenantId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Trace summarization request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.SummarizeTraceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.SummarizeTraceResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request - validation error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agent-service/tenants/{tenantId}/ai/test-model": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Tests LLM connectivity by sending a simple ping message with the provided config and credentials",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "AI"
+                ],
+                "summary": "Test an AI model configuration",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Tenant ID",
+                        "name": "tenantId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Model test request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.TestModelRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.TestModelResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request - validation error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agent-service/tenants/{tenantId}/ai/trace-chat": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Handles conversational questions about a trace, maintaining chat history for context",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "AI"
+                ],
+                "summary": "Chat about a trace using AI",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Tenant ID",
+                        "name": "tenantId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Trace chat request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.TraceChatRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.TraceChatResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request - validation error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agent-service/tenants/{tenantId}/connections/test": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Tests connectivity to an external service (n8n, Foundry, REST API) with the provided URL, credentials and configuration",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Connections"
+                ],
+                "summary": "Test an external service connection",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Tenant ID",
+                        "name": "tenantId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Connection test request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.TestConnectionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.TestConnectionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request - validation error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
@@ -764,6 +682,85 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/agent-service/tenants/{tenantId}/conversation/messages/search": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Searches messages by content text using case-insensitive matching across all conversations",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Messages"
+                ],
+                "summary": "Search messages",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Tenant ID",
+                        "name": "tenantId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search query text",
+                        "name": "query",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "maximum": 50,
+                        "minimum": 1,
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Maximum number of messages",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "minimum": 0,
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Offset for pagination",
+                        "name": "skip",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.SearchMessagesResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/data": {
             "delete": {
                 "description": "Deletes all messages and traces associated with a conversation. Requires X-Service-Key authentication.",
@@ -815,6 +812,438 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/messages/{messageId}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Updates the content of an existing user message",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Messages"
+                ],
+                "summary": "Edit a message",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Tenant ID",
+                        "name": "tenantId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Conversation ID",
+                        "name": "conversationId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Message ID",
+                        "name": "messageId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Updated message content",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.EditMessageRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.MessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Deletes a user message and its associated assistant response",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Messages"
+                ],
+                "summary": "Delete a message",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Tenant ID",
+                        "name": "tenantId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Conversation ID",
+                        "name": "conversationId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Message ID",
+                        "name": "messageId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/messages/{messageId}/reactions": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieves all reactions for a specific message",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reactions"
+                ],
+                "summary": "Get reactions for a message",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Tenant ID",
+                        "name": "tenantId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Conversation ID",
+                        "name": "conversationId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Message ID",
+                        "name": "messageId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ListReactionsResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates or updates a user's reaction to a message (one per user per message)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reactions"
+                ],
+                "summary": "Create or update a reaction",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Tenant ID",
+                        "name": "tenantId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Conversation ID",
+                        "name": "conversationId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Message ID",
+                        "name": "messageId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Reaction data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.UpsertReactionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ReactionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Removes the current user's reaction from a message",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reactions"
+                ],
+                "summary": "Delete a reaction",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Tenant ID",
+                        "name": "tenantId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Conversation ID",
+                        "name": "conversationId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Message ID",
+                        "name": "messageId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/reactions": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieves reactions for multiple messages in a single request",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reactions"
+                ],
+                "summary": "Get reactions for multiple messages",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Tenant ID",
+                        "name": "tenantId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Conversation ID",
+                        "name": "conversationId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated message IDs",
+                        "name": "messageIds",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.BulkReactionsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
@@ -1029,7 +1458,7 @@ const docTemplate = `{
         },
         "/api/v1/agent-service/tenants/{tenantId}/traces": {
             "post": {
-                "description": "Creates a new trace for a conversation or autonomous agent. Uses Bearer token for conversation context, API key for autonomous agent context.",
+                "description": "Creates a new trace for a conversation or workflow. Uses Bearer token for conversation context, API key for workflow context.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1065,8 +1494,8 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "API key (required for autonomous agent traces)",
-                        "name": "X-Unified-UI-Autonomous-Agent-API-Key",
+                        "description": "API key (required for workflow traces)",
+                        "name": "X-Unified-UI-Workflow-API-Key",
                         "in": "header"
                     }
                 ],
@@ -1090,7 +1519,7 @@ const docTemplate = `{
                         }
                     },
                     "404": {
-                        "description": "ChatAgent, Conversation, or AutonomousAgent not found",
+                        "description": "Application, Conversation, or Workflow not found",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
@@ -1269,7 +1698,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "API key",
-                        "name": "X-Unified-UI-Autonomous-Agent-API-Key",
+                        "name": "X-Unified-UI-Workflow-API-Key",
                         "in": "header"
                     }
                 ],
@@ -1312,7 +1741,7 @@ const docTemplate = `{
         },
         "/api/v1/agent-service/tenants/{tenantId}/traces/{traceId}/nodes": {
             "post": {
-                "description": "Appends nodes to an existing trace. Uses Bearer token for conversation traces, API key for autonomous agent traces.",
+                "description": "Appends nodes to an existing trace. Uses Bearer token for conversation traces, API key for workflow traces.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1355,8 +1784,8 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "API key (required for autonomous agent traces)",
-                        "name": "X-Unified-UI-Autonomous-Agent-API-Key",
+                        "description": "API key (required for workflow traces)",
+                        "name": "X-Unified-UI-Workflow-API-Key",
                         "in": "header"
                     }
                 ],
@@ -1396,9 +1825,649 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/api/v1/agent-service/tenants/{tenantId}/workflows/traces": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieves a list of traces for workflows with pagination, sorting, and filtering",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Traces"
+                ],
+                "summary": "List traces for workflows",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Tenant ID",
+                        "name": "tenantId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by workflow ID",
+                        "name": "workflowId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum number of results (default: 20, max: 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of results to skip (default: 0)",
+                        "name": "skip",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort order: asc or desc (default: desc)",
+                        "name": "order",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort field: created_at or updated_at (default: created_at)",
+                        "name": "order_by",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter: traces created after this ISO 8601 timestamp",
+                        "name": "created_after",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter: traces created before this ISO 8601 timestamp",
+                        "name": "created_before",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include nodes and logs in response (default: false)",
+                        "name": "expand",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ListTracesResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agent-service/tenants/{tenantId}/workflows/{agentId}/data": {
+            "delete": {
+                "description": "Deletes all traces associated with an workflow. Requires X-Service-Key authentication.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Data"
+                ],
+                "summary": "Delete all data for an workflow",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Tenant ID",
+                        "name": "tenantId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Autonomous Agent ID",
+                        "name": "agentId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Service-to-service authentication key",
+                        "name": "X-Service-Key",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agent-service/tenants/{tenantId}/workflows/{agentId}/traces": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieves traces for a specific workflow with pagination, sorting, and filtering",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Traces"
+                ],
+                "summary": "List traces for an workflow",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Tenant ID",
+                        "name": "tenantId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Autonomous Agent ID",
+                        "name": "agentId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum number of results (default: 20, max: 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of results to skip (default: 0)",
+                        "name": "skip",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort order: asc or desc (default: desc)",
+                        "name": "order",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort field: created_at or updated_at (default: created_at)",
+                        "name": "order_by",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter: traces created after this ISO 8601 timestamp",
+                        "name": "created_after",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter: traces created before this ISO 8601 timestamp",
+                        "name": "created_before",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include nodes and logs in response (default: false)",
+                        "name": "expand",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ListTracesResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Replaces the trace for a specific workflow completely",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Traces"
+                ],
+                "summary": "Refresh trace for an workflow",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Tenant ID",
+                        "name": "tenantId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Autonomous Agent ID",
+                        "name": "agentId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "New trace data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.RefreshTraceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.TraceResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Trace not found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agent-service/tenants/{tenantId}/workflows/{agentId}/traces/import": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Imports traces from an external system (N8N, etc.) for an workflow. If a trace with the same executionId already exists, it will be updated; otherwise a new trace is created.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Traces"
+                ],
+                "summary": "Import or update traces for an workflow (upsert by executionId)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Tenant ID",
+                        "name": "tenantId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Autonomous Agent ID",
+                        "name": "agentId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bearer token (requires WRITE permission on workflow)",
+                        "name": "Authorization",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Autonomous Agent API Key",
+                        "name": "X-Unified-UI-Workflow-API-Key",
+                        "in": "header"
+                    },
+                    {
+                        "description": "Import request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.WorkflowImportTraceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Trace updated",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ImportTraceResponse"
+                        }
+                    },
+                    "201": {
+                        "description": "Trace created",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ImportTraceResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request - validation error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - invalid credentials",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - insufficient permissions",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Autonomous agent not found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agent-service/tenants/{tenantId}/workflows/{agentId}/traces/{traceId}/import/refresh": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Re-imports traces from the external system using the existing trace's reference ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Traces"
+                ],
+                "summary": "Refresh an imported trace for an workflow",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Tenant ID",
+                        "name": "tenantId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Autonomous Agent ID",
+                        "name": "agentId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Trace ID",
+                        "name": "traceId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bearer token (requires WRITE permission on workflow)",
+                        "name": "Authorization",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Autonomous Agent API Key",
+                        "name": "X-Unified-UI-Workflow-API-Key",
+                        "in": "header"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ImportTraceResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request - trace has no reference ID",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - invalid credentials",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - insufficient permissions",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Trace or workflow not found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agent-service/tenants/{tenantId}/workflows/{agentId}/workflow-runs": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lists recent workflow executions from the external system (e.g., N8N) for an workflow",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Traces"
+                ],
+                "summary": "List workflow runs for an workflow",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Tenant ID",
+                        "name": "tenantId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Autonomous Agent ID",
+                        "name": "agentId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum number of runs to return (default: 50, max: 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Pagination cursor from previous response",
+                        "name": "cursor",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ListWorkflowRunsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request - unsupported agent type",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Autonomous agent not found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
+        "dto.AICapabilitiesResponse": {
+            "type": "object",
+            "properties": {
+                "description_generation": {
+                    "type": "boolean"
+                },
+                "summarization": {
+                    "type": "boolean"
+                },
+                "title_generation": {
+                    "type": "boolean"
+                },
+                "trace_analysis": {
+                    "type": "boolean"
+                }
+            }
+        },
         "dto.AddLogsRequest": {
             "type": "object",
             "required": [
@@ -1427,23 +2496,43 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.AutonomousAgentImportTraceRequest": {
+        "dto.AnalyzeTraceRequest": {
             "type": "object",
             "required": [
-                "executionId",
-                "type"
+                "error",
+                "node_name",
+                "node_type"
             ],
             "properties": {
-                "executionId": {
-                    "description": "ExecutionID is the external execution/run identifier (e.g., N8N execution ID).\nRequired for initial import.",
+                "error": {
                     "type": "string"
                 },
-                "sessionId": {
-                    "description": "SessionID is an optional session identifier for finding executions.",
+                "input": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "node_id": {
                     "type": "string"
                 },
-                "type": {
-                    "description": "Type is the agent type for the import (e.g., \"N8N\", \"MICROSOFT_FOUNDRY\").\nThis determines which importer to use.",
+                "node_name": {
+                    "type": "string"
+                },
+                "node_type": {
+                    "type": "string"
+                },
+                "output": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "trace_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.AnalyzeTraceResponse": {
+            "type": "object",
+            "properties": {
+                "analysis": {
                     "type": "string"
                 }
             }
@@ -1452,10 +2541,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "chatAgentId": {
-                    "description": "Context fields - EITHER (chatAgentId + conversationId) OR autonomousAgentId",
-                    "type": "string"
-                },
-                "autonomousAgentId": {
+                    "description": "Context fields - EITHER (chatAgentId + conversationId) OR workflowId",
                     "type": "string"
                 },
                 "conversationId": {
@@ -1487,6 +2573,9 @@ const docTemplate = `{
                 },
                 "referenceName": {
                     "type": "string"
+                },
+                "workflowId": {
+                    "type": "string"
                 }
             }
         },
@@ -1512,6 +2601,36 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.GenerateDescriptionRequest": {
+            "type": "object",
+            "required": [
+                "entity_name",
+                "entity_type"
+            ],
+            "properties": {
+                "context": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "entity_name": {
+                    "type": "string"
+                },
+                "entity_type": {
+                    "type": "string"
+                },
+                "existing_description": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.GenerateDescriptionResponse": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                }
+            }
+        },
         "dto.ImportTraceResponse": {
             "type": "object",
             "properties": {
@@ -1530,6 +2649,20 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/dto.TraceResponse"
+                    }
+                }
+            }
+        },
+        "dto.ListWorkflowRunsResponse": {
+            "type": "object",
+            "properties": {
+                "nextCursor": {
+                    "type": "string"
+                },
+                "runs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.WorkflowRunResponse"
                     }
                 }
             }
@@ -1612,6 +2745,180 @@ const docTemplate = `{
                     "additionalProperties": true
                 },
                 "referenceName": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.SummarizeTraceRequest": {
+            "type": "object",
+            "required": [
+                "detail_level",
+                "nodes"
+            ],
+            "properties": {
+                "detail_level": {
+                    "type": "string",
+                    "enum": [
+                        "short",
+                        "medium",
+                        "long"
+                    ]
+                },
+                "nodes": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                    }
+                },
+                "trace_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.SummarizeTraceResponse": {
+            "type": "object",
+            "properties": {
+                "summary": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.TestConnectionRequest": {
+            "type": "object",
+            "required": [
+                "test_type",
+                "url"
+            ],
+            "properties": {
+                "config": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "credential_id": {
+                    "type": "string"
+                },
+                "test_type": {
+                    "$ref": "#/definitions/dto.TestConnectionType"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.TestConnectionResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "response_time_ms": {
+                    "type": "integer"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "dto.TestConnectionType": {
+            "type": "string",
+            "enum": [
+                "N8N_CHAT_URL",
+                "N8N_WORKFLOW",
+                "N8N_WEBHOOK",
+                "FOUNDRY_AGENT",
+                "REST_API_INVOKE",
+                "REST_API_CONVERSATION"
+            ],
+            "x-enum-varnames": [
+                "TestConnectionTypeN8NChatURL",
+                "TestConnectionTypeN8NWorkflow",
+                "TestConnectionTypeN8NWebhook",
+                "TestConnectionTypeFoundryAgent",
+                "TestConnectionTypeRestAPIInvoke",
+                "TestConnectionTypeRestAPIConversation"
+            ]
+        },
+        "dto.TestModelRequest": {
+            "type": "object",
+            "required": [
+                "config",
+                "provider"
+            ],
+            "properties": {
+                "config": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "credential_id": {
+                    "type": "string"
+                },
+                "provider": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.TestModelResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "response_time_ms": {
+                    "type": "integer"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "dto.TraceChatMessage": {
+            "type": "object",
+            "required": [
+                "content",
+                "role"
+            ],
+            "properties": {
+                "content": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string",
+                    "enum": [
+                        "user",
+                        "assistant"
+                    ]
+                }
+            }
+        },
+        "dto.TraceChatRequest": {
+            "type": "object",
+            "required": [
+                "message",
+                "trace"
+            ],
+            "properties": {
+                "history": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.TraceChatMessage"
+                    }
+                },
+                "message": {
+                    "type": "string"
+                },
+                "selected_node": {
+                    "type": "string"
+                },
+                "trace": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.TraceChatResponse": {
+            "type": "object",
+            "properties": {
+                "reply": {
                     "type": "string"
                 }
             }
@@ -1735,9 +3042,6 @@ const docTemplate = `{
                 "chatAgentId": {
                     "type": "string"
                 },
-                "autonomousAgentId": {
-                    "type": "string"
-                },
                 "contextType": {
                     "type": "string"
                 },
@@ -1783,12 +3087,120 @@ const docTemplate = `{
                 },
                 "updatedBy": {
                     "type": "string"
+                },
+                "workflowId": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.WorkflowImportTraceRequest": {
+            "type": "object",
+            "required": [
+                "executionId",
+                "type"
+            ],
+            "properties": {
+                "executionId": {
+                    "description": "ExecutionID is the external execution/run identifier (e.g., N8N execution ID).\nRequired for initial import.",
+                    "type": "string"
+                },
+                "sessionId": {
+                    "description": "SessionID is an optional session identifier for finding executions.",
+                    "type": "string"
+                },
+                "type": {
+                    "description": "Type is the agent type for the import (e.g., \"N8N\", \"MICROSOFT_FOUNDRY\").\nThis determines which importer to use.",
+                    "type": "string"
+                }
+            }
+        },
+        "dto.WorkflowRunResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "mode": {
+                    "type": "string"
+                },
+                "startedAt": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "stoppedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.BulkReactionsResponse": {
+            "type": "object",
+            "properties": {
+                "reactions": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/definitions/handlers.ReactionResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "handlers.EditMessageRequest": {
+            "type": "object",
+            "required": [
+                "content"
+            ],
+            "properties": {
+                "content": {
+                    "type": "string",
+                    "maxLength": 32000,
+                    "minLength": 1
+                }
+            }
+        },
+        "handlers.FileAttachment": {
+            "type": "object",
+            "required": [
+                "type"
+            ],
+            "properties": {
+                "detail": {
+                    "type": "string"
+                },
+                "fileData": {
+                    "type": "string"
+                },
+                "fileId": {
+                    "type": "string"
+                },
+                "filename": {
+                    "type": "string"
+                },
+                "imageUrl": {
+                    "type": "string"
+                },
+                "mimeType": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "image",
+                        "file",
+                        "audio"
+                    ]
                 }
             }
         },
         "handlers.GetMessagesResponse": {
             "type": "object",
             "properties": {
+                "hasMore": {
+                    "type": "boolean"
+                },
                 "messages": {
                     "type": "array",
                     "items": {
@@ -1825,6 +3237,17 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.ListReactionsResponse": {
+            "type": "object",
+            "properties": {
+                "reactions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.ReactionResponse"
+                    }
+                }
+            }
+        },
         "handlers.MessageContent": {
             "type": "object",
             "required": [
@@ -1841,12 +3264,24 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 32000,
                     "minLength": 1
+                },
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.FileAttachment"
+                    }
                 }
             }
         },
         "handlers.MessageResponse": {
             "type": "object",
             "properties": {
+                "attachmentsMetadata": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.AttachmentMetadata"
+                    }
+                },
                 "chatAgentId": {
                     "type": "string"
                 },
@@ -1861,6 +3296,10 @@ const docTemplate = `{
                 },
                 "errorMessage": {
                     "type": "string"
+                },
+                "extra": {
+                    "type": "object",
+                    "additionalProperties": true
                 },
                 "id": {
                     "type": "string"
@@ -1891,6 +3330,49 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.ReactionResponse": {
+            "type": "object",
+            "properties": {
+                "conversationId": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "feedbackText": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "messageId": {
+                    "type": "string"
+                },
+                "reaction": {
+                    "$ref": "#/definitions/models.ReactionType"
+                },
+                "tenantId": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "userId": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.SearchMessagesResponse": {
+            "type": "object",
+            "properties": {
+                "messages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.MessageResponse"
+                    }
+                }
+            }
+        },
         "handlers.SendMessageRequest": {
             "type": "object",
             "required": [
@@ -1906,6 +3388,10 @@ const docTemplate = `{
                 },
                 "extConversationId": {
                     "type": "string"
+                },
+                "extra": {
+                    "type": "object",
+                    "additionalProperties": true
                 },
                 "invokeConfig": {
                     "$ref": "#/definitions/handlers.InvokeConfig"
@@ -1926,6 +3412,20 @@ const docTemplate = `{
                 },
                 "userMessageId": {
                     "type": "string"
+                }
+            }
+        },
+        "handlers.UpsertReactionRequest": {
+            "type": "object",
+            "required": [
+                "reaction"
+            ],
+            "properties": {
+                "feedbackText": {
+                    "type": "string"
+                },
+                "reaction": {
+                    "$ref": "#/definitions/models.ReactionType"
                 }
             }
         },
@@ -1956,28 +3456,80 @@ const docTemplate = `{
                 }
             }
         },
+        "models.AttachmentMetadata": {
+            "type": "object",
+            "properties": {
+                "fileCategory": {
+                    "type": "string"
+                },
+                "fileId": {
+                    "type": "string"
+                },
+                "fileName": {
+                    "type": "string"
+                },
+                "fileSize": {
+                    "type": "integer"
+                },
+                "fileType": {
+                    "type": "string"
+                }
+            }
+        },
         "models.MessageStatus": {
             "type": "string",
             "enum": [
                 "pending",
                 "success",
-                "failed"
+                "failed",
+                "cancelled"
+            ],
+            "x-enum-comments": {
+                "MessageStatusCanceled": "nolint:misspell // value must stay \"cancelled\" for external API compatibility"
+            },
+            "x-enum-descriptions": [
+                "",
+                "",
+                "",
+                "nolint:misspell // value must stay \"cancelled\" for external API compatibility"
             ],
             "x-enum-varnames": [
                 "MessageStatusPending",
                 "MessageStatusSuccess",
-                "MessageStatusFailed"
+                "MessageStatusFailed",
+                "MessageStatusCanceled"
             ]
         },
         "models.MessageType": {
             "type": "string",
             "enum": [
                 "user",
-                "assistant"
+                "assistant",
+                "reasoning",
+                "tool_call",
+                "tool_result",
+                "plan",
+                "sub_agent"
             ],
             "x-enum-varnames": [
                 "MessageTypeUser",
-                "MessageTypeAssistant"
+                "MessageTypeAssistant",
+                "MessageTypeReasoning",
+                "MessageTypeToolCall",
+                "MessageTypeToolResult",
+                "MessageTypePlan",
+                "MessageTypeSubAgent"
+            ]
+        },
+        "models.ReactionType": {
+            "type": "string",
+            "enum": [
+                "thumbs_up",
+                "thumbs_down"
+            ],
+            "x-enum-varnames": [
+                "ReactionThumbsUp",
+                "ReactionThumbsDown"
             ]
         },
         "models.StatusTrace": {

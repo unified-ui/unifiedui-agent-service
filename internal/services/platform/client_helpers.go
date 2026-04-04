@@ -111,6 +111,6 @@ func serviceKeyHeaders(c *client) map[string]string {
 
 func apiKeyHeaders(apiKey string) map[string]string {
 	return map[string]string{
-		"X-Unified-UI-Autonomous-Agent-API-Key": apiKey,
+		"X-Unified-UI-Workflow-API-Key": apiKey,
 	}
 }

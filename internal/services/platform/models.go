@@ -164,20 +164,20 @@ type ConversationResponse struct {
 	ExtConversationID string `json:"ext_conversation_id,omitempty"`
 }
 
-// AutonomousAgentConfigResponse represents the config response from platform service
-// for autonomous agents. This is the response from GET /tenants/{tenant_id}/autonomous-agents/{id}/config
+// WorkflowConfigResponse represents the config response from platform service
+// for workflows. This is the response from GET /tenants/{tenant_id}/workflows/{id}/config
 // and uses API key authentication (not Bearer token).
-type AutonomousAgentConfigResponse struct {
-	DocVersion        string                        `json:"docversion"`
-	Type              AgentType                     `json:"type"`
-	TenantID          string                        `json:"tenant_id"`
-	AutonomousAgentID string                        `json:"autonomous_agent_id"`
-	Settings          AutonomousAgentConfigSettings `json:"settings"`
+type WorkflowConfigResponse struct {
+	DocVersion string                 `json:"docversion"`
+	Type       AgentType              `json:"type"`
+	TenantID   string                 `json:"tenant_id"`
+	WorkflowID string                 `json:"workflow_id"`
+	Settings   WorkflowConfigSettings `json:"settings"`
 }
 
-// AutonomousAgentConfigSettings contains the autonomous agent-specific settings.
-type AutonomousAgentConfigSettings struct {
-	// API version for the autonomous agent config format
+// WorkflowConfigSettings contains the workflow-specific settings.
+type WorkflowConfigSettings struct {
+	// API version for the workflow config format
 	APIVersion string `json:"api_version"`
 
 	// N8N specific settings

@@ -149,7 +149,7 @@ func TestTraceToResponse_Nil(t *testing.T) {
 func TestTracesToResponse(t *testing.T) {
 	traces := []*models.Trace{
 		{ID: "t1", TenantID: "ten-1", ContextType: models.TraceContextConversation, ChatAgentID: "a", ConversationID: "c"},
-		{ID: "t2", TenantID: "ten-1", ContextType: models.TraceContextAutonomousAgent, AutonomousAgentID: "aa"},
+		{ID: "t2", TenantID: "ten-1", ContextType: models.TraceContextWorkflow, WorkflowID: "aa"},
 	}
 	resp := dto.TracesToResponse(traces)
 	require.Len(t, resp, 2)

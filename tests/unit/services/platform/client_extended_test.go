@@ -127,32 +127,32 @@ func TestGetConversation_WithExtConversationID(t *testing.T) {
 	assert.Equal(t, "ext-conv-123", result.ExtConversationID)
 }
 
-// === GetAutonomousAgentConfigWithBearer Extended Tests ===
+// === GetWorkflowConfigWithBearer Extended Tests ===
 
-func TestGetAutonomousAgentConfigWithBearer_MissingBaseURL(t *testing.T) {
+func TestGetWorkflowConfigWithBearer_MissingBaseURL(t *testing.T) {
 	client := platform.NewClient(&platform.ClientConfig{ServiceKey: "key"})
-	_, err := client.GetAutonomousAgentConfigWithBearer(context.Background(), "tenant1", "aa1", "token")
+	_, err := client.GetWorkflowConfigWithBearer(context.Background(), "tenant1", "aa1", "token")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not configured")
 }
 
-func TestGetAutonomousAgentConfigWithBearer_NotFound(t *testing.T) {
-	ts := httptest.NewServer(statusHandler(404, "autonomous agent not found"))
+func TestGetWorkflowConfigWithBearer_NotFound(t *testing.T) {
+	ts := httptest.NewServer(statusHandler(404, "workflow not found"))
 	defer ts.Close()
 
 	client := newTestClient(ts)
-	_, err := client.GetAutonomousAgentConfigWithBearer(context.Background(), "tenant1", "aa1", "token")
+	_, err := client.GetWorkflowConfigWithBearer(context.Background(), "tenant1", "aa1", "token")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not_found")
 }
 
-func TestGetAutonomousAgentConfigWithBearer_WithFullSettings(t *testing.T) {
-	resp := platform.AutonomousAgentConfigResponse{
-		DocVersion:        "1",
-		Type:              platform.AgentTypeN8N,
-		TenantID:          "tenant1",
-		AutonomousAgentID: "aa1",
-		Settings: platform.AutonomousAgentConfigSettings{
+func TestGetWorkflowConfigWithBearer_WithFullSettings(t *testing.T) {
+	resp := platform.WorkflowConfigResponse{
+		DocVersion: "1",
+		Type:       platform.AgentTypeN8N,
+		TenantID:   "tenant1",
+		WorkflowID: "aa1",
+		Settings: platform.WorkflowConfigSettings{
 			APIVersion:          "v1",
 			N8NHost:             "https://n8n.example.com",
 			N8NWorkflowEndpoint: "/webhook/workflow",
@@ -163,7 +163,7 @@ func TestGetAutonomousAgentConfigWithBearer_WithFullSettings(t *testing.T) {
 	defer ts.Close()
 
 	client := newTestClient(ts)
-	result, err := client.GetAutonomousAgentConfigWithBearer(context.Background(), "tenant1", "aa1", "token")
+	result, err := client.GetWorkflowConfigWithBearer(context.Background(), "tenant1", "aa1", "token")
 	require.NoError(t, err)
 	assert.Equal(t, "wf123", result.Settings.WorkflowID)
 	assert.Equal(t, "https://n8n.example.com", result.Settings.N8NHost)
@@ -280,89 +280,89 @@ func TestValidateConversation_ServerError(t *testing.T) {
 	assert.Contains(t, err.Error(), "500")
 }
 
-// === ValidateAutonomousAgent Extended Tests ===
+// === ValidateWorkflow Extended Tests ===
 
-func TestValidateAutonomousAgent_NotFound(t *testing.T) {
+func TestValidateWorkflow_NotFound(t *testing.T) {
 	ts := httptest.NewServer(statusHandler(404, "not found"))
 	defer ts.Close()
 
 	client := newTestClient(ts)
-	err := client.ValidateAutonomousAgent(context.Background(), "tenant1", "aa1", "token")
+	err := client.ValidateWorkflow(context.Background(), "tenant1", "aa1", "token")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not_found")
 }
 
-func TestValidateAutonomousAgent_Unauthorized(t *testing.T) {
+func TestValidateWorkflow_Unauthorized(t *testing.T) {
 	ts := httptest.NewServer(statusHandler(401, "unauthorized"))
 	defer ts.Close()
 
 	client := newTestClient(ts)
-	err := client.ValidateAutonomousAgent(context.Background(), "tenant1", "aa1", "token")
+	err := client.ValidateWorkflow(context.Background(), "tenant1", "aa1", "token")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unauthorized")
 }
 
-// === ValidateAutonomousAgentAPIKey Extended Tests ===
+// === ValidateWorkflowAPIKey Extended Tests ===
 
-func TestValidateAutonomousAgentAPIKey_NotFound(t *testing.T) {
-	ts := httptest.NewServer(statusHandler(404, "autonomous agent not found"))
+func TestValidateWorkflowAPIKey_NotFound(t *testing.T) {
+	ts := httptest.NewServer(statusHandler(404, "workflow not found"))
 	defer ts.Close()
 
 	client := newTestClient(ts)
-	err := client.ValidateAutonomousAgentAPIKey(context.Background(), "tenant1", "aa1", "api-key")
+	err := client.ValidateWorkflowAPIKey(context.Background(), "tenant1", "aa1", "api-key")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not_found")
 }
 
-func TestValidateAutonomousAgentAPIKey_Unauthorized(t *testing.T) {
+func TestValidateWorkflowAPIKey_Unauthorized(t *testing.T) {
 	ts := httptest.NewServer(statusHandler(401, "invalid api key"))
 	defer ts.Close()
 
 	client := newTestClient(ts)
-	err := client.ValidateAutonomousAgentAPIKey(context.Background(), "tenant1", "aa1", "bad-key")
+	err := client.ValidateWorkflowAPIKey(context.Background(), "tenant1", "aa1", "bad-key")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unauthorized")
 }
 
-func TestValidateAutonomousAgentAPIKey_Forbidden(t *testing.T) {
+func TestValidateWorkflowAPIKey_Forbidden(t *testing.T) {
 	ts := httptest.NewServer(statusHandler(403, "forbidden"))
 	defer ts.Close()
 
 	client := newTestClient(ts)
-	err := client.ValidateAutonomousAgentAPIKey(context.Background(), "tenant1", "aa1", "api-key")
+	err := client.ValidateWorkflowAPIKey(context.Background(), "tenant1", "aa1", "api-key")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "forbidden")
 }
 
-// === GetAutonomousAgentConfig Extended Tests ===
+// === GetWorkflowConfig Extended Tests ===
 
-func TestGetAutonomousAgentConfig_NotFound(t *testing.T) {
+func TestGetWorkflowConfig_NotFound(t *testing.T) {
 	ts := httptest.NewServer(statusHandler(404, "not found"))
 	defer ts.Close()
 
 	client := newTestClient(ts)
-	_, err := client.GetAutonomousAgentConfig(context.Background(), "tenant1", "aa1", "api-key")
+	_, err := client.GetWorkflowConfig(context.Background(), "tenant1", "aa1", "api-key")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not_found")
 }
 
-func TestGetAutonomousAgentConfig_Unauthorized(t *testing.T) {
+func TestGetWorkflowConfig_Unauthorized(t *testing.T) {
 	ts := httptest.NewServer(statusHandler(401, "unauthorized"))
 	defer ts.Close()
 
 	client := newTestClient(ts)
-	_, err := client.GetAutonomousAgentConfig(context.Background(), "tenant1", "aa1", "bad-key")
+	_, err := client.GetWorkflowConfig(context.Background(), "tenant1", "aa1", "bad-key")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unauthorized")
 }
 
-func TestGetAutonomousAgentConfig_WithCredentials(t *testing.T) {
-	resp := platform.AutonomousAgentConfigResponse{
-		DocVersion:        "1",
-		Type:              platform.AgentTypeN8N,
-		TenantID:          "tenant1",
-		AutonomousAgentID: "aa1",
-		Settings: platform.AutonomousAgentConfigSettings{
+func TestGetWorkflowConfig_WithCredentials(t *testing.T) {
+	resp := platform.WorkflowConfigResponse{
+		DocVersion: "1",
+		Type:       platform.AgentTypeN8N,
+		TenantID:   "tenant1",
+		WorkflowID: "aa1",
+		Settings: platform.WorkflowConfigSettings{
 			APIVersion: "v1",
 			APICredentials: &platform.Credentials{
 				ID:   "cred1",
@@ -375,7 +375,7 @@ func TestGetAutonomousAgentConfig_WithCredentials(t *testing.T) {
 	defer ts.Close()
 
 	client := newTestClient(ts)
-	result, err := client.GetAutonomousAgentConfig(context.Background(), "tenant1", "aa1", "api-key")
+	result, err := client.GetWorkflowConfig(context.Background(), "tenant1", "aa1", "api-key")
 	require.NoError(t, err)
 	require.NotNil(t, result.Settings.APICredentials)
 	assert.Equal(t, "cred1", result.Settings.APICredentials.ID)
@@ -639,7 +639,7 @@ func TestGetCredentialSecret_InvalidJSON(t *testing.T) {
 	assert.Contains(t, err.Error(), "parse")
 }
 
-func TestGetAutonomousAgentConfig_InvalidJSON(t *testing.T) {
+func TestGetWorkflowConfig_InvalidJSON(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		w.Write([]byte("bad json"))
@@ -647,7 +647,7 @@ func TestGetAutonomousAgentConfig_InvalidJSON(t *testing.T) {
 	defer ts.Close()
 
 	client := newTestClient(ts)
-	_, err := client.GetAutonomousAgentConfig(context.Background(), "tenant1", "aa1", "api-key")
+	_, err := client.GetWorkflowConfig(context.Background(), "tenant1", "aa1", "api-key")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "parse")
 }
@@ -748,16 +748,16 @@ func TestGetCredentialSecret_URLConstruction(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestValidateAutonomousAgentAPIKey_URLConstruction(t *testing.T) {
+func TestValidateWorkflowAPIKey_URLConstruction(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/api/v1/platform-service/tenants/t1/autonomous-agents/aa1/validate-api-key", r.URL.Path)
+		assert.Equal(t, "/api/v1/platform-service/tenants/t1/workflows/aa1/validate-api-key", r.URL.Path)
 		assert.Equal(t, http.MethodPost, r.Method)
 		w.WriteHeader(200)
 	}))
 	defer ts.Close()
 
 	client := newTestClient(ts)
-	err := client.ValidateAutonomousAgentAPIKey(context.Background(), "t1", "aa1", "key")
+	err := client.ValidateWorkflowAPIKey(context.Background(), "t1", "aa1", "key")
 	assert.NoError(t, err)
 }
 
@@ -861,25 +861,25 @@ func TestValidateConversation_EmptyBody(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestValidateAutonomousAgent_EmptyBody(t *testing.T) {
+func TestValidateWorkflow_EmptyBody(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 	}))
 	defer ts.Close()
 
 	client := newTestClient(ts)
-	err := client.ValidateAutonomousAgent(context.Background(), "tenant1", "aa1", "token")
+	err := client.ValidateWorkflow(context.Background(), "tenant1", "aa1", "token")
 	assert.NoError(t, err)
 }
 
-func TestValidateAutonomousAgentAPIKey_EmptyBody(t *testing.T) {
+func TestValidateWorkflowAPIKey_EmptyBody(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 	}))
 	defer ts.Close()
 
 	client := newTestClient(ts)
-	err := client.ValidateAutonomousAgentAPIKey(context.Background(), "tenant1", "aa1", "api-key")
+	err := client.ValidateWorkflowAPIKey(context.Background(), "tenant1", "aa1", "api-key")
 	assert.NoError(t, err)
 }
 

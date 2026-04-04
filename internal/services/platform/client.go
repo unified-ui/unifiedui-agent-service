@@ -19,10 +19,10 @@ type Client interface {
 	GetMe(ctx context.Context, authToken string) (*UserInfo, error)
 	GetConversation(ctx context.Context, tenantID, conversationID, authToken string) (*ConversationResponse, error)
 	ValidateConversation(ctx context.Context, tenantID, conversationID, authToken string) error
-	ValidateAutonomousAgent(ctx context.Context, tenantID, autonomousAgentID, authToken string) error
-	GetAutonomousAgentConfig(ctx context.Context, tenantID, autonomousAgentID, apiKey string) (*AutonomousAgentConfigResponse, error)
-	GetAutonomousAgentConfigWithBearer(ctx context.Context, tenantID, autonomousAgentID, authToken string) (*AutonomousAgentConfigResponse, error)
-	ValidateAutonomousAgentAPIKey(ctx context.Context, tenantID, autonomousAgentID, apiKey string) error
+	ValidateWorkflow(ctx context.Context, tenantID, workflowID, authToken string) error
+	GetWorkflowConfig(ctx context.Context, tenantID, workflowID, apiKey string) (*WorkflowConfigResponse, error)
+	GetWorkflowConfigWithBearer(ctx context.Context, tenantID, workflowID, authToken string) (*WorkflowConfigResponse, error)
+	ValidateWorkflowAPIKey(ctx context.Context, tenantID, workflowID, apiKey string) error
 	GetAIModelsByPurpose(ctx context.Context, tenantID, purposeGroup, modelType string) ([]AIModelWithSecretResponse, error)
 	GetCredentialSecret(ctx context.Context, tenantID, credentialID, authToken string) (string, error)
 	UpdateConversationTitle(ctx context.Context, tenantID, conversationID, title, authToken string) error
@@ -154,48 +154,48 @@ func (c *client) ValidateConversation(ctx context.Context, tenantID, conversatio
 	return doValidateRequest(ctx, c, requestConfig{method: http.MethodGet, url: url, headers: bearerHeaders(c, authToken)}, "conversation not found")
 }
 
-func (c *client) ValidateAutonomousAgent(ctx context.Context, tenantID, autonomousAgentID, authToken string) error {
+func (c *client) ValidateWorkflow(ctx context.Context, tenantID, workflowID, authToken string) error {
 	if c.baseURL == "" {
 		return nil
 	}
 	if authToken == "" {
 		return fmt.Errorf("auth token not provided")
 	}
-	url := fmt.Sprintf("%s/api/v1/platform-service/tenants/%s/autonomous-agents/%s", c.baseURL, tenantID, autonomousAgentID)
-	return doValidateRequest(ctx, c, requestConfig{method: http.MethodGet, url: url, headers: bearerHeaders(c, authToken)}, "autonomous agent not found")
+	url := fmt.Sprintf("%s/api/v1/platform-service/tenants/%s/workflows/%s", c.baseURL, tenantID, workflowID)
+	return doValidateRequest(ctx, c, requestConfig{method: http.MethodGet, url: url, headers: bearerHeaders(c, authToken)}, "workflow not found")
 }
 
-func (c *client) GetAutonomousAgentConfig(ctx context.Context, tenantID, autonomousAgentID, apiKey string) (*AutonomousAgentConfigResponse, error) {
+func (c *client) GetWorkflowConfig(ctx context.Context, tenantID, workflowID, apiKey string) (*WorkflowConfigResponse, error) {
 	if c.baseURL == "" {
 		return nil, fmt.Errorf("platform service URL not configured")
 	}
 	if apiKey == "" {
 		return nil, fmt.Errorf("API key not provided")
 	}
-	url := fmt.Sprintf("%s/api/v1/platform-service/tenants/%s/autonomous-agents/%s/config", c.baseURL, tenantID, autonomousAgentID)
-	return doJSONRequest[AutonomousAgentConfigResponse](ctx, c, requestConfig{method: http.MethodGet, url: url, headers: apiKeyHeaders(apiKey)}, "autonomous agent not found")
+	url := fmt.Sprintf("%s/api/v1/platform-service/tenants/%s/workflows/%s/config", c.baseURL, tenantID, workflowID)
+	return doJSONRequest[WorkflowConfigResponse](ctx, c, requestConfig{method: http.MethodGet, url: url, headers: apiKeyHeaders(apiKey)}, "workflow not found")
 }
 
-func (c *client) GetAutonomousAgentConfigWithBearer(ctx context.Context, tenantID, autonomousAgentID, authToken string) (*AutonomousAgentConfigResponse, error) {
+func (c *client) GetWorkflowConfigWithBearer(ctx context.Context, tenantID, workflowID, authToken string) (*WorkflowConfigResponse, error) {
 	if c.baseURL == "" {
 		return nil, fmt.Errorf("platform service URL not configured")
 	}
 	if authToken == "" {
 		return nil, fmt.Errorf("auth token not provided")
 	}
-	url := fmt.Sprintf("%s/api/v1/platform-service/tenants/%s/autonomous-agents/%s/config/bearer", c.baseURL, tenantID, autonomousAgentID)
-	return doJSONRequest[AutonomousAgentConfigResponse](ctx, c, requestConfig{method: http.MethodGet, url: url, headers: bearerHeaders(c, authToken)}, "autonomous agent not found")
+	url := fmt.Sprintf("%s/api/v1/platform-service/tenants/%s/workflows/%s/config/bearer", c.baseURL, tenantID, workflowID)
+	return doJSONRequest[WorkflowConfigResponse](ctx, c, requestConfig{method: http.MethodGet, url: url, headers: bearerHeaders(c, authToken)}, "workflow not found")
 }
 
-func (c *client) ValidateAutonomousAgentAPIKey(ctx context.Context, tenantID, autonomousAgentID, apiKey string) error {
+func (c *client) ValidateWorkflowAPIKey(ctx context.Context, tenantID, workflowID, apiKey string) error {
 	if c.baseURL == "" {
 		return nil
 	}
 	if apiKey == "" {
 		return fmt.Errorf("API key not provided")
 	}
-	url := fmt.Sprintf("%s/api/v1/platform-service/tenants/%s/autonomous-agents/%s/validate-api-key", c.baseURL, tenantID, autonomousAgentID)
-	return doValidateRequest(ctx, c, requestConfig{method: http.MethodPost, url: url, headers: apiKeyHeaders(apiKey)}, "autonomous agent not found")
+	url := fmt.Sprintf("%s/api/v1/platform-service/tenants/%s/workflows/%s/validate-api-key", c.baseURL, tenantID, workflowID)
+	return doValidateRequest(ctx, c, requestConfig{method: http.MethodPost, url: url, headers: apiKeyHeaders(apiKey)}, "workflow not found")
 }
 
 func (c *client) GetAIModelsByPurpose(ctx context.Context, tenantID, purposeGroup, modelType string) ([]AIModelWithSecretResponse, error) {

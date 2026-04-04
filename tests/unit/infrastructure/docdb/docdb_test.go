@@ -179,22 +179,22 @@ func TestListReactionsOptions_AllFields(t *testing.T) {
 
 func TestListTracesOptions_AllFields(t *testing.T) {
 	opts := &docdb.ListTracesOptions{
-		TenantID:          "tenant-123",
-		ChatAgentID:       "agent-456",
-		ConversationID:    "conv-789",
-		AutonomousAgentID: "auto-101",
-		ContextType:       models.TraceContextConversation,
-		Limit:             100,
-		Skip:              25,
-		OrderBy:           docdb.SortOrderDesc,
-		SortBy:            docdb.SortFieldCreatedAt,
-		Expand:            true,
+		TenantID:       "tenant-123",
+		ChatAgentID:    "agent-456",
+		ConversationID: "conv-789",
+		WorkflowID:     "auto-101",
+		ContextType:    models.TraceContextConversation,
+		Limit:          100,
+		Skip:           25,
+		OrderBy:        docdb.SortOrderDesc,
+		SortBy:         docdb.SortFieldCreatedAt,
+		Expand:         true,
 	}
 
 	assert.Equal(t, "tenant-123", opts.TenantID)
 	assert.Equal(t, "agent-456", opts.ChatAgentID)
 	assert.Equal(t, "conv-789", opts.ConversationID)
-	assert.Equal(t, "auto-101", opts.AutonomousAgentID)
+	assert.Equal(t, "auto-101", opts.WorkflowID)
 	assert.Equal(t, models.TraceContextConversation, opts.ContextType)
 	assert.Equal(t, int64(100), opts.Limit)
 	assert.Equal(t, int64(25), opts.Skip)
@@ -877,21 +877,21 @@ func TestMockMessagesCollection_ListChatHistory(t *testing.T) {
 // Traces Collection Autonomous Agent Tests
 // =============================================================================
 
-func TestMockTracesCollection_GetByAutonomousAgent(t *testing.T) {
+func TestMockTracesCollection_GetByWorkflow(t *testing.T) {
 	client := mocks.NewMockDocDBClient()
 	traces := client.GetTracesCollection()
 	ctx := context.Background()
 
 	expected := &models.Trace{
-		ID:                "trace-123",
-		TenantID:          "tenant-456",
-		AutonomousAgentID: "auto-agent-789",
-		ContextType:       models.TraceContextAutonomousAgent,
+		ID:          "trace-123",
+		TenantID:    "tenant-456",
+		WorkflowID:  "auto-agent-789",
+		ContextType: models.TraceContextWorkflow,
 	}
 
-	traces.On("GetByAutonomousAgent", ctx, "tenant-456", "auto-agent-789").Return(expected, nil)
+	traces.On("GetByWorkflow", ctx, "tenant-456", "auto-agent-789").Return(expected, nil)
 
-	result, err := traces.GetByAutonomousAgent(ctx, "tenant-456", "auto-agent-789")
+	result, err := traces.GetByWorkflow(ctx, "tenant-456", "auto-agent-789")
 
 	assert.NoError(t, err)
 	assert.Equal(t, expected, result)
@@ -917,33 +917,33 @@ func TestMockTracesCollection_ListByConversation(t *testing.T) {
 	traces.AssertExpectations(t)
 }
 
-func TestMockTracesCollection_ListByAutonomousAgent(t *testing.T) {
+func TestMockTracesCollection_ListByWorkflow(t *testing.T) {
 	client := mocks.NewMockDocDBClient()
 	traces := client.GetTracesCollection()
 	ctx := context.Background()
 
 	expected := []*models.Trace{
-		{ID: "trace-1", AutonomousAgentID: "auto-123"},
-		{ID: "trace-2", AutonomousAgentID: "auto-123"},
+		{ID: "trace-1", WorkflowID: "auto-123"},
+		{ID: "trace-2", WorkflowID: "auto-123"},
 	}
 
-	traces.On("ListByAutonomousAgent", ctx, "tenant-456", "auto-123").Return(expected, nil)
+	traces.On("ListByWorkflow", ctx, "tenant-456", "auto-123").Return(expected, nil)
 
-	result, err := traces.ListByAutonomousAgent(ctx, "tenant-456", "auto-123")
+	result, err := traces.ListByWorkflow(ctx, "tenant-456", "auto-123")
 
 	assert.NoError(t, err)
 	assert.Len(t, result, 2)
 	traces.AssertExpectations(t)
 }
 
-func TestMockTracesCollection_DeleteByAutonomousAgent(t *testing.T) {
+func TestMockTracesCollection_DeleteByWorkflow(t *testing.T) {
 	client := mocks.NewMockDocDBClient()
 	traces := client.GetTracesCollection()
 	ctx := context.Background()
 
-	traces.On("DeleteByAutonomousAgent", ctx, "tenant-123", "auto-456").Return(nil)
+	traces.On("DeleteByWorkflow", ctx, "tenant-123", "auto-456").Return(nil)
 
-	err := traces.DeleteByAutonomousAgent(ctx, "tenant-123", "auto-456")
+	err := traces.DeleteByWorkflow(ctx, "tenant-123", "auto-456")
 
 	assert.NoError(t, err)
 	traces.AssertExpectations(t)

@@ -132,7 +132,7 @@ func (n *TraceImporter) Import(ctx context.Context, req *traceimport.ImportReque
 		return existingTrace.ID, nil
 	}
 
-	// If ExistingTraceID is provided, we need to update that trace (autonomous agent upsert)
+	// If ExistingTraceID is provided, we need to update that trace (workflow upsert)
 	if req.ExistingTraceID != "" {
 		// Fetch the existing trace and update it
 		existingTraceByID, err := n.docDB.Traces().Get(ctx, req.ExistingTraceID)
@@ -160,8 +160,8 @@ func (n *TraceImporter) Import(ctx context.Context, req *traceimport.ImportReque
 
 	// Determine context type
 	contextType := models.TraceContextConversation
-	if req.AutonomousAgentID != "" {
-		contextType = models.TraceContextAutonomousAgent
+	if req.WorkflowID != "" {
+		contextType = models.TraceContextWorkflow
 	}
 
 	// Create new trace
@@ -170,7 +170,7 @@ func (n *TraceImporter) Import(ctx context.Context, req *traceimport.ImportReque
 		TenantID:          req.TenantID,
 		ChatAgentID:       req.ChatAgentID,
 		ConversationID:    req.ConversationID,
-		AutonomousAgentID: req.AutonomousAgentID,
+		WorkflowID:        req.WorkflowID,
 		ContextType:       contextType,
 		ReferenceID:       n8nConfig.ExecutionID,
 		ReferenceName:     "N8N Workflow Execution",

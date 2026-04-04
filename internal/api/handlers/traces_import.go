@@ -168,17 +168,17 @@ func (h *TracesHandler) buildN8NConfig(
 	)
 }
 
-// ImportAutonomousAgentTrace handles PUT /tenants/{tenantId}/autonomous-agents/{agentId}/traces/import
-// @Summary Import or update traces for an autonomous agent (upsert by executionId)
-// @Description Imports traces from an external system (N8N, etc.) for an autonomous agent. If a trace with the same executionId already exists, it will be updated; otherwise a new trace is created.
+// ImportWorkflowTrace handles PUT /tenants/{tenantId}/workflows/{agentId}/traces/import
+// @Summary Import or update traces for an workflow (upsert by executionId)
+// @Description Imports traces from an external system (N8N, etc.) for an workflow. If a trace with the same executionId already exists, it will be updated; otherwise a new trace is created.
 // @Tags Traces
 // @Accept json
 // @Produce json
 // @Param tenantId path string true "Tenant ID"
 // @Param agentId path string true "Autonomous Agent ID"
-// @Param Authorization header string false "Bearer token (requires WRITE permission on autonomous agent)"
-// @Param X-Unified-UI-Autonomous-Agent-API-Key header string false "Autonomous Agent API Key"
-// @Param request body dto.AutonomousAgentImportTraceRequest true "Import request"
+// @Param Authorization header string false "Bearer token (requires WRITE permission on workflow)"
+// @Param X-Unified-UI-Workflow-API-Key header string false "Autonomous Agent API Key"
+// @Param request body dto.WorkflowImportTraceRequest true "Import request"
 // @Success 200 {object} dto.ImportTraceResponse "Trace updated"
 // @Success 201 {object} dto.ImportTraceResponse "Trace created"
 // @Failure 400 {object} dto.ErrorResponse "Bad request - validation error"
@@ -188,41 +188,41 @@ func (h *TracesHandler) buildN8NConfig(
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Security BearerAuth
 // @Security ApiKeyAuth
-// @Router /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/traces/import [put]
-func (h *TracesHandler) ImportAutonomousAgentTrace(c *gin.Context) {
+// @Router /api/v1/agent-service/tenants/{tenantId}/workflows/{agentId}/traces/import [put]
+func (h *TracesHandler) ImportWorkflowTrace(c *gin.Context) {
 	ctx := c.Request.Context()
 	tenantID := middleware.SanitizePathParam(c, "tenantId")
 	agentID := middleware.SanitizePathParam(c, "agentId")
 	authToken := middleware.GetToken(c)
-	apiKey := middleware.GetAutonomousAgentAPIKey(c)
+	apiKey := middleware.GetWorkflowAPIKey(c)
 
-	var req dto.AutonomousAgentImportTraceRequest
+	var req dto.WorkflowImportTraceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		middleware.HandleError(c, errors.NewValidationError("invalid request body", err.Error()))
 		return
 	}
 
-	var agentConfig *platform.AutonomousAgentConfigResponse
+	var agentConfig *platform.WorkflowConfigResponse
 	var userID string
 
 	switch {
 	case authToken != "":
-		config, err := h.platformClient.GetAutonomousAgentConfigWithBearer(ctx, tenantID, agentID, authToken)
+		config, err := h.platformClient.GetWorkflowConfigWithBearer(ctx, tenantID, agentID, authToken)
 		if err != nil {
 			errStr := err.Error()
 			if strings.HasPrefix(errStr, "unauthorized") {
-				middleware.HandleError(c, errors.NewUnauthorizedError("unauthorized access to autonomous agent"))
+				middleware.HandleError(c, errors.NewUnauthorizedError("unauthorized access to workflow"))
 				return
 			}
 			if strings.HasPrefix(errStr, "forbidden") {
-				middleware.HandleError(c, errors.NewForbiddenError("no WRITE permission on autonomous agent"))
+				middleware.HandleError(c, errors.NewForbiddenError("no WRITE permission on workflow"))
 				return
 			}
 			if strings.HasPrefix(errStr, "not_found") {
-				middleware.HandleError(c, errors.NewNotFoundError("autonomous agent", agentID))
+				middleware.HandleError(c, errors.NewNotFoundError("workflow", agentID))
 				return
 			}
-			middleware.HandleError(c, errors.NewInternalError("failed to get autonomous agent config", err))
+			middleware.HandleError(c, errors.NewInternalError("failed to get workflow config", err))
 			return
 		}
 		agentConfig = config
@@ -234,7 +234,7 @@ func (h *TracesHandler) ImportAutonomousAgentTrace(c *gin.Context) {
 		}
 		userID = uid
 	case apiKey != "":
-		config, err := h.platformClient.GetAutonomousAgentConfig(ctx, tenantID, agentID, apiKey)
+		config, err := h.platformClient.GetWorkflowConfig(ctx, tenantID, agentID, apiKey)
 		if err != nil {
 			errStr := err.Error()
 			if strings.HasPrefix(errStr, "unauthorized") {
@@ -242,16 +242,16 @@ func (h *TracesHandler) ImportAutonomousAgentTrace(c *gin.Context) {
 				return
 			}
 			if strings.HasPrefix(errStr, "not_found") {
-				middleware.HandleError(c, errors.NewNotFoundError("autonomous agent", agentID))
+				middleware.HandleError(c, errors.NewNotFoundError("workflow", agentID))
 				return
 			}
-			middleware.HandleError(c, errors.NewInternalError("failed to get autonomous agent config", err))
+			middleware.HandleError(c, errors.NewInternalError("failed to get workflow config", err))
 			return
 		}
 		agentConfig = config
-		userID = "autonomous-agent-" + agentID
+		userID = "workflow-" + agentID
 	default:
-		middleware.HandleError(c, errors.NewUnauthorizedError("Bearer token or X-Unified-UI-Autonomous-Agent-API-Key header required"))
+		middleware.HandleError(c, errors.NewUnauthorizedError("Bearer token or X-Unified-UI-Workflow-API-Key header required"))
 		return
 	}
 
@@ -276,17 +276,17 @@ func (h *TracesHandler) ImportAutonomousAgentTrace(c *gin.Context) {
 	}
 	isUpdate := existingTrace != nil
 
-	backendConfig, err := h.buildAutonomousAgentBackendConfig(c, agentConfig, req)
+	backendConfig, err := h.buildWorkflowBackendConfig(c, agentConfig, req)
 	if err != nil {
 		middleware.HandleError(c, err)
 		return
 	}
 
 	importReq := &traceimport.ImportRequest{
-		TenantID:          tenantID,
-		AutonomousAgentID: agentID,
-		UserID:            userID,
-		BackendConfig:     backendConfig,
+		TenantID:      tenantID,
+		WorkflowID:    agentID,
+		UserID:        userID,
+		BackendConfig: backendConfig,
 	}
 
 	if isUpdate {
@@ -309,8 +309,8 @@ func (h *TracesHandler) ImportAutonomousAgentTrace(c *gin.Context) {
 	})
 }
 
-// RefreshAutonomousAgentImportTrace handles PUT /tenants/{tenantId}/autonomous-agents/{agentId}/traces/{traceId}/import/refresh
-// @Summary Refresh an imported trace for an autonomous agent
+// RefreshWorkflowImportTrace handles PUT /tenants/{tenantId}/workflows/{agentId}/traces/{traceId}/import/refresh
+// @Summary Refresh an imported trace for an workflow
 // @Description Re-imports traces from the external system using the existing trace's reference ID
 // @Tags Traces
 // @Accept json
@@ -318,46 +318,46 @@ func (h *TracesHandler) ImportAutonomousAgentTrace(c *gin.Context) {
 // @Param tenantId path string true "Tenant ID"
 // @Param agentId path string true "Autonomous Agent ID"
 // @Param traceId path string true "Trace ID"
-// @Param Authorization header string false "Bearer token (requires WRITE permission on autonomous agent)"
-// @Param X-Unified-UI-Autonomous-Agent-API-Key header string false "Autonomous Agent API Key"
+// @Param Authorization header string false "Bearer token (requires WRITE permission on workflow)"
+// @Param X-Unified-UI-Workflow-API-Key header string false "Autonomous Agent API Key"
 // @Success 200 {object} dto.ImportTraceResponse
 // @Failure 400 {object} dto.ErrorResponse "Bad request - trace has no reference ID"
 // @Failure 401 {object} dto.ErrorResponse "Unauthorized - invalid credentials"
 // @Failure 403 {object} dto.ErrorResponse "Forbidden - insufficient permissions"
-// @Failure 404 {object} dto.ErrorResponse "Trace or autonomous agent not found"
+// @Failure 404 {object} dto.ErrorResponse "Trace or workflow not found"
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Security BearerAuth
 // @Security ApiKeyAuth
-// @Router /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/traces/{traceId}/import/refresh [put]
-func (h *TracesHandler) RefreshAutonomousAgentImportTrace(c *gin.Context) {
+// @Router /api/v1/agent-service/tenants/{tenantId}/workflows/{agentId}/traces/{traceId}/import/refresh [put]
+func (h *TracesHandler) RefreshWorkflowImportTrace(c *gin.Context) {
 	ctx := c.Request.Context()
 	tenantID := middleware.SanitizePathParam(c, "tenantId")
 	agentID := middleware.SanitizePathParam(c, "agentId")
 	traceID := middleware.SanitizePathParam(c, "traceId")
 	authToken := middleware.GetToken(c)
-	apiKey := middleware.GetAutonomousAgentAPIKey(c)
+	apiKey := middleware.GetWorkflowAPIKey(c)
 
-	var agentConfig *platform.AutonomousAgentConfigResponse
+	var agentConfig *platform.WorkflowConfigResponse
 	var userID string
 
 	switch {
 	case authToken != "":
-		config, err := h.platformClient.GetAutonomousAgentConfigWithBearer(ctx, tenantID, agentID, authToken)
+		config, err := h.platformClient.GetWorkflowConfigWithBearer(ctx, tenantID, agentID, authToken)
 		if err != nil {
 			errStr := err.Error()
 			if strings.HasPrefix(errStr, "unauthorized") {
-				middleware.HandleError(c, errors.NewUnauthorizedError("unauthorized access to autonomous agent"))
+				middleware.HandleError(c, errors.NewUnauthorizedError("unauthorized access to workflow"))
 				return
 			}
 			if strings.HasPrefix(errStr, "forbidden") {
-				middleware.HandleError(c, errors.NewForbiddenError("no WRITE permission on autonomous agent"))
+				middleware.HandleError(c, errors.NewForbiddenError("no WRITE permission on workflow"))
 				return
 			}
 			if strings.HasPrefix(errStr, "not_found") {
-				middleware.HandleError(c, errors.NewNotFoundError("autonomous agent", agentID))
+				middleware.HandleError(c, errors.NewNotFoundError("workflow", agentID))
 				return
 			}
-			middleware.HandleError(c, errors.NewInternalError("failed to get autonomous agent config", err))
+			middleware.HandleError(c, errors.NewInternalError("failed to get workflow config", err))
 			return
 		}
 		agentConfig = config
@@ -369,7 +369,7 @@ func (h *TracesHandler) RefreshAutonomousAgentImportTrace(c *gin.Context) {
 		}
 		userID = uid
 	case apiKey != "":
-		config, err := h.platformClient.GetAutonomousAgentConfig(ctx, tenantID, agentID, apiKey)
+		config, err := h.platformClient.GetWorkflowConfig(ctx, tenantID, agentID, apiKey)
 		if err != nil {
 			errStr := err.Error()
 			if strings.HasPrefix(errStr, "unauthorized") {
@@ -377,16 +377,16 @@ func (h *TracesHandler) RefreshAutonomousAgentImportTrace(c *gin.Context) {
 				return
 			}
 			if strings.HasPrefix(errStr, "not_found") {
-				middleware.HandleError(c, errors.NewNotFoundError("autonomous agent", agentID))
+				middleware.HandleError(c, errors.NewNotFoundError("workflow", agentID))
 				return
 			}
-			middleware.HandleError(c, errors.NewInternalError("failed to get autonomous agent config", err))
+			middleware.HandleError(c, errors.NewInternalError("failed to get workflow config", err))
 			return
 		}
 		agentConfig = config
-		userID = "autonomous-agent-" + agentID
+		userID = "workflow-" + agentID
 	default:
-		middleware.HandleError(c, errors.NewUnauthorizedError("Bearer token or X-Unified-UI-Autonomous-Agent-API-Key header required"))
+		middleware.HandleError(c, errors.NewUnauthorizedError("Bearer token or X-Unified-UI-Workflow-API-Key header required"))
 		return
 	}
 
@@ -400,8 +400,8 @@ func (h *TracesHandler) RefreshAutonomousAgentImportTrace(c *gin.Context) {
 		return
 	}
 
-	if trace.AutonomousAgentID != agentID {
-		middleware.HandleError(c, errors.NewForbiddenError("trace does not belong to this autonomous agent"))
+	if trace.WorkflowID != agentID {
+		middleware.HandleError(c, errors.NewForbiddenError("trace does not belong to this workflow"))
 		return
 	}
 
@@ -424,7 +424,7 @@ func (h *TracesHandler) RefreshAutonomousAgentImportTrace(c *gin.Context) {
 		return
 	}
 
-	backendConfig, err := h.buildAutonomousAgentRefreshBackendConfig(c, agentConfig, executionID)
+	backendConfig, err := h.buildWorkflowRefreshBackendConfig(c, agentConfig, executionID)
 	if err != nil {
 		middleware.HandleError(c, err)
 		return
@@ -444,8 +444,8 @@ func (h *TracesHandler) RefreshAutonomousAgentImportTrace(c *gin.Context) {
 
 	updatedTrace, err := h.docDBClient.Traces().Get(ctx, newTraceID)
 	if err == nil && updatedTrace != nil {
-		updatedTrace.AutonomousAgentID = agentID
-		updatedTrace.ContextType = models.TraceContextAutonomousAgent
+		updatedTrace.WorkflowID = agentID
+		updatedTrace.ContextType = models.TraceContextWorkflow
 		_ = h.docDBClient.Traces().Update(ctx, updatedTrace)
 	}
 
@@ -465,41 +465,41 @@ func (h *TracesHandler) mapImportType(importType string) (platform.AgentType, er
 	}
 }
 
-func (h *TracesHandler) buildAutonomousAgentBackendConfig(
+func (h *TracesHandler) buildWorkflowBackendConfig(
 	c *gin.Context,
-	agentConfig *platform.AutonomousAgentConfigResponse,
-	req dto.AutonomousAgentImportTraceRequest,
+	agentConfig *platform.WorkflowConfigResponse,
+	req dto.WorkflowImportTraceRequest,
 ) (map[string]interface{}, error) {
 	switch agentConfig.Type {
 	case platform.AgentTypeN8N:
-		return h.buildN8NAutonomousAgentConfig(c, agentConfig, req.ExecutionID, req.SessionID)
+		return h.buildN8NWorkflowConfig(c, agentConfig, req.ExecutionID, req.SessionID)
 	default:
 		return nil, errors.NewValidationError(
-			"unsupported agent type for autonomous agent import",
+			"unsupported agent type for workflow import",
 			string(agentConfig.Type),
 		)
 	}
 }
 
-func (h *TracesHandler) buildAutonomousAgentRefreshBackendConfig(
+func (h *TracesHandler) buildWorkflowRefreshBackendConfig(
 	c *gin.Context,
-	agentConfig *platform.AutonomousAgentConfigResponse,
+	agentConfig *platform.WorkflowConfigResponse,
 	executionID string,
 ) (map[string]interface{}, error) {
 	switch agentConfig.Type {
 	case platform.AgentTypeN8N:
-		return h.buildN8NAutonomousAgentConfig(c, agentConfig, executionID, "")
+		return h.buildN8NWorkflowConfig(c, agentConfig, executionID, "")
 	default:
 		return nil, errors.NewValidationError(
-			"unsupported agent type for autonomous agent import",
+			"unsupported agent type for workflow import",
 			string(agentConfig.Type),
 		)
 	}
 }
 
-func (h *TracesHandler) buildN8NAutonomousAgentConfig(
+func (h *TracesHandler) buildN8NWorkflowConfig(
 	_ *gin.Context,
-	agentConfig *platform.AutonomousAgentConfigResponse,
+	agentConfig *platform.WorkflowConfigResponse,
 	executionID string,
 	sessionID string,
 ) (map[string]interface{}, error) {
@@ -507,7 +507,7 @@ func (h *TracesHandler) buildN8NAutonomousAgentConfig(
 
 	if settings.N8NHost == "" {
 		return nil, errors.NewValidationError(
-			"autonomous agent configuration missing N8N host",
+			"workflow configuration missing N8N host",
 			"",
 		)
 	}
@@ -519,7 +519,7 @@ func (h *TracesHandler) buildN8NAutonomousAgentConfig(
 
 	if apiKey == "" {
 		return nil, errors.NewValidationError(
-			"autonomous agent configuration missing API credentials",
+			"workflow configuration missing API credentials",
 			"",
 		)
 	}
@@ -549,9 +549,9 @@ func (h *TracesHandler) getExecutionIDFromTrace(trace *models.Trace) string {
 	return trace.ReferenceID
 }
 
-// ListWorkflowRuns handles GET /tenants/{tenantId}/autonomous-agents/{agentId}/workflow-runs
-// @Summary List workflow runs for an autonomous agent
-// @Description Lists recent workflow executions from the external system (e.g., N8N) for an autonomous agent
+// ListWorkflowRuns handles GET /tenants/{tenantId}/workflows/{agentId}/workflow-runs
+// @Summary List workflow runs for an workflow
+// @Description Lists recent workflow executions from the external system (e.g., N8N) for an workflow
 // @Tags Traces
 // @Produce json
 // @Param tenantId path string true "Tenant ID"
@@ -565,7 +565,7 @@ func (h *TracesHandler) getExecutionIDFromTrace(trace *models.Trace) string {
 // @Failure 404 {object} dto.ErrorResponse "Autonomous agent not found"
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/workflow-runs [get]
+// @Router /api/v1/agent-service/tenants/{tenantId}/workflows/{agentId}/workflow-runs [get]
 func (h *TracesHandler) ListWorkflowRuns(c *gin.Context) {
 	ctx := c.Request.Context()
 	tenantID := middleware.SanitizePathParam(c, "tenantId")
@@ -573,22 +573,22 @@ func (h *TracesHandler) ListWorkflowRuns(c *gin.Context) {
 	authToken := middleware.GetToken(c)
 	cursor := c.Query("cursor")
 
-	agentConfig, err := h.platformClient.GetAutonomousAgentConfigWithBearer(ctx, tenantID, agentID, authToken)
+	agentConfig, err := h.platformClient.GetWorkflowConfigWithBearer(ctx, tenantID, agentID, authToken)
 	if err != nil {
 		errStr := err.Error()
 		if strings.HasPrefix(errStr, "unauthorized") {
-			middleware.HandleError(c, errors.NewUnauthorizedError("unauthorized access to autonomous agent"))
+			middleware.HandleError(c, errors.NewUnauthorizedError("unauthorized access to workflow"))
 			return
 		}
 		if strings.HasPrefix(errStr, "forbidden") {
-			middleware.HandleError(c, errors.NewForbiddenError("no permission on autonomous agent"))
+			middleware.HandleError(c, errors.NewForbiddenError("no permission on workflow"))
 			return
 		}
 		if strings.HasPrefix(errStr, "not_found") {
-			middleware.HandleError(c, errors.NewNotFoundError("autonomous agent", agentID))
+			middleware.HandleError(c, errors.NewNotFoundError("workflow", agentID))
 			return
 		}
-		middleware.HandleError(c, errors.NewInternalError("failed to get autonomous agent config", err))
+		middleware.HandleError(c, errors.NewInternalError("failed to get workflow config", err))
 		return
 	}
 
@@ -640,13 +640,13 @@ func (h *TracesHandler) ListWorkflowRuns(c *gin.Context) {
 }
 
 func (h *TracesHandler) buildListWorkflowRunsConfig(
-	agentConfig *platform.AutonomousAgentConfigResponse,
+	agentConfig *platform.WorkflowConfigResponse,
 ) (map[string]interface{}, error) {
 	settings := agentConfig.Settings
 
 	if settings.N8NHost == "" {
 		return nil, errors.NewValidationError(
-			"autonomous agent configuration missing N8N host",
+			"workflow configuration missing N8N host",
 			"",
 		)
 	}
@@ -658,7 +658,7 @@ func (h *TracesHandler) buildListWorkflowRunsConfig(
 
 	if apiKey == "" {
 		return nil, errors.NewValidationError(
-			"autonomous agent configuration missing API credentials",
+			"workflow configuration missing API credentials",
 			"",
 		)
 	}
