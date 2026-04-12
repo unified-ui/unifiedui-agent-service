@@ -143,6 +143,8 @@ func (h *MessagesHandler) SendMessage(c *gin.Context) {
 	} else if agentConfig.Type == platform.AgentTypeRestAPI {
 		authToken := middleware.GetToken(c)
 		agentClients, createErr = h.agentFactory.CreateRestAPIClients(agentConfig, authToken)
+	} else if agentConfig.Type == platform.AgentTypeLLM {
+		agentClients, createErr = h.agentFactory.CreateLLMClients(agentConfig)
 	} else {
 		agentClients, createErr = h.agentFactory.CreateClients(agentConfig)
 	}

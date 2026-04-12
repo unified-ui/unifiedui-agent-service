@@ -9,6 +9,7 @@ import (
 	"github.com/unifiedui/agent-service/internal/domain/models"
 	"github.com/unifiedui/agent-service/internal/pkg/contextformat"
 	"github.com/unifiedui/agent-service/internal/services/agents/foundry"
+	"github.com/unifiedui/agent-service/internal/services/agents/llm"
 	"github.com/unifiedui/agent-service/internal/services/agents/n8n"
 	"github.com/unifiedui/agent-service/internal/services/agents/react"
 	"github.com/unifiedui/agent-service/internal/services/agents/restapi"
@@ -488,6 +489,29 @@ func (f *Factory) CreateRestAPIClients(config *platform.AgentConfig, userToken s
 		},
 		APIClient: nil,
 		Config:    config,
+	}, nil
+}
+
+// CreateLLMClients creates LLM agent clients for direct model chat streaming.
+func (f *Factory) CreateLLMClients(config *platform.AgentConfig) (*AgentClients, error) {
+	if config == nil {
+		return nil, fmt.Errorf("config is required")
+	}
+
+	aiModel := config.Settings.AIModel
+	if aiModel == nil {
+		return nil, fmt.Errorf("LLM agent requires a resolved AI model in config")
+	}
+
+	streamClient, err := llm.NewStreamingClient(aiModel.Provider, aiModel.Config, aiModel.CredentialSecret)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create LLM streaming client: %w", err)
+	}
+
+	return &AgentClients{
+		WorkflowClient: &llmWorkflowAdapter{client: streamClient, settings: config.Settings},
+		APIClient:      nil,
+		Config:         config,
 	}, nil
 }
 

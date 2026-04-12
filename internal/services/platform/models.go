@@ -12,6 +12,7 @@ const (
 	AgentTypeCopilot    AgentType = "COPILOT"
 	AgentTypeCustom     AgentType = "CUSTOM"
 	AgentTypeRestAPI    AgentType = "REST_API"
+	AgentTypeLLM        AgentType = "LLM"
 )
 
 // CredentialType represents the type of credentials.
@@ -100,6 +101,10 @@ type AgentSettings struct {
 	Credential                 *Credentials `json:"credential,omitempty"`
 	AccessToken                string       `json:"access_token,omitempty"`
 	APIKeyHeaderName           string       `json:"api_key_header_name,omitempty"`
+
+	// LLM specific settings
+	AIModelID string           `json:"ai_model_id,omitempty"`
+	AIModel   *ResolvedAIModel `json:"ai_model,omitempty"`
 }
 
 // ResolvedAIModel represents a fully resolved AI model with decrypted credentials

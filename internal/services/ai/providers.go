@@ -27,19 +27,20 @@ func newHTTPClient() *http.Client {
 type azureOpenAIClient struct {
 	httpLLMClient
 	endpoint       string
-	apiVersion     string
 	deploymentName string
+	apiVersion     string
 	apiKey         string
 }
 
 func newAzureOpenAIClient(config map[string]interface{}, apiKey string) (*azureOpenAIClient, error) {
 	endpoint, _ := config["endpoint"].(string)
-	apiVersion, _ := config["api_version"].(string)
 	deploymentName, _ := config["deployment_name"].(string)
 
 	if endpoint == "" || deploymentName == "" {
 		return nil, fmt.Errorf("azure_openai requires endpoint and deployment_name")
 	}
+
+	apiVersion, _ := config["api_version"].(string)
 	if apiVersion == "" {
 		apiVersion = "2024-12-01-preview"
 	}
@@ -47,8 +48,8 @@ func newAzureOpenAIClient(config map[string]interface{}, apiKey string) (*azureO
 	return &azureOpenAIClient{
 		httpLLMClient:  httpLLMClient{httpClient: newHTTPClient()},
 		endpoint:       endpoint,
-		apiVersion:     apiVersion,
 		deploymentName: deploymentName,
+		apiVersion:     apiVersion,
 		apiKey:         apiKey,
 	}, nil
 }
@@ -83,6 +84,7 @@ func (c *azureOpenAIClient) doRequest(ctx context.Context, url string, body inte
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "unified-ui-agent-service/1.0")
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
@@ -448,6 +450,7 @@ func doHTTPRequest(ctx context.Context, client *http.Client, url string, body in
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "unified-ui-agent-service/1.0")
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}

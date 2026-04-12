@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -20,6 +21,7 @@ type Config struct {
 	ReactService ReactServiceConfig
 	AppVault     AppVaultConfig
 	Log          LogConfig
+	CORS         CORSConfig
 }
 
 // ServerConfig holds server-related configuration.
@@ -47,9 +49,12 @@ type CacheConfig struct {
 
 // DocDBConfig holds document database configuration.
 type DocDBConfig struct {
-	Type     string
-	URI      string
-	Database string
+	Type               string
+	URI                string // MongoDB URI (for mongodb type)
+	Database           string
+	CosmosDBEndpoint   string // CosmosDB endpoint (for cosmosdb type)
+	CosmosDBKey        string // CosmosDB key (optional, empty = use managed identity)
+	UseManagedIdentity bool   // Use managed identity for CosmosDB auth
 }
 
 // VaultConfig holds vault configuration for a specific vault purpose.
@@ -113,6 +118,11 @@ type LogConfig struct {
 	Format string
 }
 
+// CORSConfig holds CORS configuration.
+type CORSConfig struct {
+	AllowOrigins []string
+}
+
 // Load loads configuration from environment variables.
 func Load() (*Config, error) {
 	// Load .env file if it exists (ignore error if not found)
@@ -134,9 +144,12 @@ func Load() (*Config, error) {
 			ConfigCacheTTL: time.Duration(getEnvAsInt("CONFIG_CACHE_TTL_SECONDS", 300)) * time.Second,
 		},
 		DocDB: DocDBConfig{
-			Type:     getEnv("DOCDB_TYPE", "mongodb"),
-			URI:      getEnv("MONGODB_URI", "mongodb://localhost:27017"),
-			Database: getEnv("MONGODB_DATABASE", "unifiedui"),
+			Type:               getEnv("DOCDB_TYPE", "mongodb"),
+			URI:                getEnv("MONGODB_URI", "mongodb://localhost:27017"),
+			Database:           getEnv("MONGODB_DATABASE", "unifiedui"),
+			CosmosDBEndpoint:   getEnv("COSMOSDB_ENDPOINT", ""),
+			CosmosDBKey:        getEnv("COSMOSDB_KEY", ""),
+			UseManagedIdentity: getEnvAsBool("COSMOSDB_USE_MANAGED_IDENTITY", true),
 		},
 		Vaults: VaultsConfig{
 			VaultType:        getEnv("VAULT_TYPE", "dotenv"),
@@ -173,6 +186,13 @@ func Load() (*Config, error) {
 			Level:  getEnv("LOG_LEVEL", "info"),
 			Format: getEnv("LOG_FORMAT", "json"),
 		},
+		CORS: CORSConfig{
+			AllowOrigins: getEnvAsStringSlice("CORS_ORIGINS", []string{
+				"http://localhost:5173",
+				"http://localhost:5174",
+				"http://localhost:3000",
+			}),
+		},
 	}
 
 	return cfg, nil
@@ -194,4 +214,35 @@ func getEnvAsInt(key string, defaultValue int) int {
 		}
 	}
 	return defaultValue
+}
+
+// getEnvAsBool gets an environment variable as a boolean with a default value.
+func getEnvAsBool(key string, defaultValue bool) bool {
+	if value := os.Getenv(key); value != "" {
+		boolValue, err := strconv.ParseBool(value)
+		if err == nil {
+			return boolValue
+		}
+	}
+	return defaultValue
+}
+
+// getEnvAsStringSlice gets an environment variable as a comma-separated string slice.
+func getEnvAsStringSlice(key string, defaultValue []string) []string {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	parts := strings.Split(value, ",")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	if len(result) == 0 {
+		return defaultValue
+	}
+	return result
 }
