@@ -271,10 +271,45 @@ func (r *streamReader) Read() (*StreamChunk, error) {
 			continue
 		}
 
+		// Strip SSE "data: " prefix if present
+		parseLine := line
+		if strings.HasPrefix(line, "data: ") {
+			parseLine = strings.TrimPrefix(line, "data: ")
+		}
+
 		// Parse N8N stream event
 		var event StreamEvent
-		if err := json.Unmarshal([]byte(line), &event); err != nil {
+		if err := json.Unmarshal([]byte(parseLine), &event); err != nil {
 			// Skip non-JSON lines
+			continue
+		}
+
+		// Handle non-streaming response format: {"output":"text"}
+		if event.Type == "" {
+			var plainResp map[string]interface{}
+			if err := json.Unmarshal([]byte(parseLine), &plainResp); err == nil {
+				if output, ok := plainResp["output"].(string); ok && output != "" {
+					return &StreamChunk{
+						Type:     ChunkTypeContent,
+						Content:  output,
+						Metadata: make(map[string]interface{}),
+					}, nil
+				}
+				if text, ok := plainResp["text"].(string); ok && text != "" {
+					return &StreamChunk{
+						Type:     ChunkTypeContent,
+						Content:  text,
+						Metadata: make(map[string]interface{}),
+					}, nil
+				}
+				if resp, ok := plainResp["response"].(string); ok && resp != "" {
+					return &StreamChunk{
+						Type:     ChunkTypeContent,
+						Content:  resp,
+						Metadata: make(map[string]interface{}),
+					}, nil
+				}
+			}
 			continue
 		}
 
@@ -292,8 +327,6 @@ func (r *streamReader) Read() (*StreamChunk, error) {
 		if strings.HasPrefix(event.Content, "{") {
 			var innerData map[string]interface{}
 			if err := json.Unmarshal([]byte(event.Content), &innerData); err == nil {
-				// This is metadata, skip it for now
-				// Could be executionId, runInfo, etc.
 				if execID, ok := innerData["executionId"].(string); ok {
 					return &StreamChunk{
 						Type:        ChunkTypeMetadata,
@@ -301,7 +334,6 @@ func (r *streamReader) Read() (*StreamChunk, error) {
 						Metadata:    make(map[string]interface{}),
 					}, nil
 				}
-				// Skip other JSON metadata
 				continue
 			}
 		}

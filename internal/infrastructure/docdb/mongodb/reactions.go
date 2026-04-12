@@ -110,6 +110,35 @@ func (c *ReactionsCollection) ListByMessage(ctx context.Context, opts *docdb.Lis
 	return reactions, nil
 }
 
+// ListByMessages retrieves all reactions for multiple messages in a single query.
+func (c *ReactionsCollection) ListByMessages(ctx context.Context, opts *docdb.ListBulkReactionsOptions) ([]*models.MessageReaction, error) {
+	sanitizedIDs := make(bson.A, 0, len(opts.MessageIDs))
+	for _, id := range opts.MessageIDs {
+		sanitizedIDs = append(sanitizedIDs, sanitizeValue(id))
+	}
+
+	filter := bson.M{
+		"tenantId":       sanitizeValue(opts.TenantID),
+		"conversationId": sanitizeValue(opts.ConversationID),
+		"messageId":      bson.M{"$in": sanitizedIDs},
+	}
+
+	findOpts := options.Find().SetSort(bson.D{{Key: "createdAt", Value: 1}})
+
+	cursor, err := c.collection.Find(ctx, filter, findOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list bulk reactions: %w", err)
+	}
+	defer func() { _ = cursor.Close(ctx) }()
+
+	var reactions []*models.MessageReaction
+	if err := cursor.All(ctx, &reactions); err != nil {
+		return nil, fmt.Errorf("failed to decode bulk reactions: %w", err)
+	}
+
+	return reactions, nil
+}
+
 // Delete removes a user's reaction from a message.
 func (c *ReactionsCollection) Delete(ctx context.Context, opts *docdb.DeleteReactionOptions) error {
 	filter := bson.M{

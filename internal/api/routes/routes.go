@@ -10,14 +10,15 @@ import (
 
 // Config holds the dependencies for setting up routes.
 type Config struct {
-	HealthHandler    *handlers.HealthHandler
-	MessagesHandler  *handlers.MessagesHandler
-	ReactionsHandler *handlers.ReactionsHandler
-	TracesHandler    *handlers.TracesHandler
-	DataHandler      *handlers.DataHandler
-	AIHandler        *handlers.AIHandler
-	AuthMiddleware   *middleware.AuthMiddleware
-	ServiceKeyMw     *middleware.ServiceKeyMiddleware
+	HealthHandler      *handlers.HealthHandler
+	MessagesHandler    *handlers.MessagesHandler
+	ReactionsHandler   *handlers.ReactionsHandler
+	TracesHandler      *handlers.TracesHandler
+	DataHandler        *handlers.DataHandler
+	AIHandler          *handlers.AIHandler
+	ConnectionsHandler *handlers.ConnectionsHandler
+	AuthMiddleware     *middleware.AuthMiddleware
+	ServiceKeyMw       *middleware.ServiceKeyMiddleware
 }
 
 // Setup configures all routes on the Gin engine.
@@ -43,6 +44,8 @@ func Setup(r *gin.Engine, cfg *Config) {
 	conversations.DELETE("/messages/:messageId", cfg.MessagesHandler.DeleteMessage)
 
 	if cfg.ReactionsHandler != nil {
+		conversations.GET("/reactions", cfg.ReactionsHandler.GetBulkReactions)
+
 		reactions := conversations.Group("/messages/:messageId/reactions")
 		reactions.POST("", cfg.ReactionsHandler.UpsertReaction)
 		reactions.DELETE("", cfg.ReactionsHandler.DeleteReaction)
@@ -57,7 +60,7 @@ func Setup(r *gin.Engine, cfg *Config) {
 	traces.GET("/:traceId", cfg.TracesHandler.GetTrace)
 	traces.DELETE("/:traceId", cfg.TracesHandler.DeleteTrace)
 
-	tenants.GET("/autonomous-agents/traces", cfg.TracesHandler.ListAutonomousAgentTraces)
+	tenants.GET("/workflows/traces", cfg.TracesHandler.ListWorkflowTraces)
 
 	if cfg.AIHandler != nil {
 		aiRoutes := tenants.Group("/ai")
@@ -69,16 +72,21 @@ func Setup(r *gin.Engine, cfg *Config) {
 		aiRoutes.GET("/capabilities", cfg.AIHandler.GetCapabilities)
 	}
 
-	agents := tenants.Group("/autonomous-agents/:agentId")
-	agents.GET("/traces", cfg.TracesHandler.GetAutonomousAgentTraces)
-	agents.PUT("/traces", cfg.TracesHandler.RefreshAutonomousAgentTrace)
+	if cfg.ConnectionsHandler != nil {
+		tenants.POST("/connections/test", cfg.ConnectionsHandler.TestConnection)
+	}
+
+	agents := tenants.Group("/workflows/:agentId")
+	agents.GET("/traces", cfg.TracesHandler.GetWorkflowTraces)
+	agents.PUT("/traces", cfg.TracesHandler.RefreshWorkflowTrace)
+	agents.GET("/workflow-runs", cfg.TracesHandler.ListWorkflowRuns)
 
 	agentImport := v1.Group("/tenants/:tenantId")
 	agentImport.Use(cfg.AuthMiddleware.AuthenticateFlexible())
 
-	agentImportRoutes := agentImport.Group("/autonomous-agents/:agentId")
-	agentImportRoutes.PUT("/traces/import", cfg.TracesHandler.ImportAutonomousAgentTrace)
-	agentImportRoutes.PUT("/traces/:traceId/import/refresh", cfg.TracesHandler.RefreshAutonomousAgentImportTrace)
+	agentImportRoutes := agentImport.Group("/workflows/:agentId")
+	agentImportRoutes.PUT("/traces/import", cfg.TracesHandler.ImportWorkflowTrace)
+	agentImportRoutes.PUT("/traces/:traceId/import/refresh", cfg.TracesHandler.RefreshWorkflowImportTrace)
 
 	flexibleAuth := v1.Group("/tenants/:tenantId")
 	flexibleAuth.Use(cfg.AuthMiddleware.AuthenticateFlexible())
@@ -92,7 +100,7 @@ func Setup(r *gin.Engine, cfg *Config) {
 		serviceAuth := v1.Group("/tenants/:tenantId")
 		serviceAuth.Use(cfg.ServiceKeyMw.AuthenticateServiceKey())
 		serviceAuth.DELETE("/conversations/:conversationId/data", cfg.DataHandler.DeleteConversationData)
-		serviceAuth.DELETE("/autonomous-agents/:agentId/data", cfg.DataHandler.DeleteAutonomousAgentData)
+		serviceAuth.DELETE("/workflows/:agentId/data", cfg.DataHandler.DeleteWorkflowData)
 	}
 }
 

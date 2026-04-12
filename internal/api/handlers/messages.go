@@ -68,6 +68,7 @@ type GetMessagesRequest struct {
 // GetMessagesResponse represents the response for getting messages.
 type GetMessagesResponse struct {
 	Messages []MessageResponse `json:"messages"`
+	HasMore  bool              `json:"hasMore"`
 }
 
 // MessageResponse represents a message in the API response.
@@ -84,6 +85,7 @@ type MessageResponse struct {
 	StatusTraces        []models.StatusTrace        `json:"statusTraces,omitempty"`
 	Metadata            *models.AssistantMetadata   `json:"metadata,omitempty"`
 	AttachmentsMetadata []models.AttachmentMetadata `json:"attachmentsMetadata,omitempty"`
+	Extra               map[string]interface{}      `json:"extra,omitempty"`
 	CreatedAt           time.Time                   `json:"createdAt"`
 	UpdatedAt           time.Time                   `json:"updatedAt"`
 }
@@ -96,6 +98,7 @@ type FileAttachment struct {
 	Filename string `json:"filename,omitempty"`
 	MimeType string `json:"mimeType,omitempty"`
 	Detail   string `json:"detail,omitempty"`
+	FileID   string `json:"fileId,omitempty"`
 }
 
 // MessageContent represents the message content in the request.
@@ -113,11 +116,12 @@ type InvokeConfig struct {
 
 // SendMessageRequest represents the request body for sending a message.
 type SendMessageRequest struct {
-	ConversationID    string         `json:"conversationId,omitempty"`
-	ChatAgentID       string         `json:"chatAgentId" binding:"required"`
-	ExtConversationID string         `json:"extConversationId,omitempty"`
-	Message           MessageContent `json:"message" binding:"required"`
-	InvokeConfig      InvokeConfig   `json:"invokeConfig,omitempty"`
+	ConversationID    string                 `json:"conversationId,omitempty"`
+	ChatAgentID       string                 `json:"chatAgentId" binding:"required"`
+	ExtConversationID string                 `json:"extConversationId,omitempty"`
+	Message           MessageContent         `json:"message" binding:"required"`
+	InvokeConfig      InvokeConfig           `json:"invokeConfig,omitempty"`
+	Extra             map[string]interface{} `json:"extra,omitempty"`
 }
 
 // SendMessageResponse represents the response for sending a message.
@@ -165,7 +169,7 @@ func (h *MessagesHandler) GetMessages(c *gin.Context) {
 	listOpts := &docdb.ListMessagesOptions{
 		ConversationID: req.ConversationID,
 		TenantID:       tenantCtx.TenantID,
-		Limit:          req.Limit,
+		Limit:          req.Limit + 1,
 		Skip:           req.Skip,
 		OrderBy:        docdb.SortOrderDesc,
 	}
@@ -176,6 +180,11 @@ func (h *MessagesHandler) GetMessages(c *gin.Context) {
 		return
 	}
 
+	hasMore := int64(len(messages)) > req.Limit
+	if hasMore {
+		messages = messages[:req.Limit]
+	}
+
 	response := make([]MessageResponse, 0, len(messages))
 	for _, msg := range messages {
 		response = append(response, h.toMessageResponse(msg))
@@ -183,10 +192,16 @@ func (h *MessagesHandler) GetMessages(c *gin.Context) {
 
 	c.JSON(http.StatusOK, GetMessagesResponse{
 		Messages: response,
+		HasMore:  hasMore,
 	})
 }
 
 func (h *MessagesHandler) toMessageResponse(msg *models.Message) MessageResponse {
+	var extra map[string]interface{}
+	if msg.Request != nil && len(msg.Request.Extra) > 0 {
+		extra = msg.Request.Extra
+	}
+
 	return MessageResponse{
 		ID:                  msg.ID,
 		Type:                msg.Type,
@@ -200,6 +215,7 @@ func (h *MessagesHandler) toMessageResponse(msg *models.Message) MessageResponse
 		StatusTraces:        msg.StatusTraces,
 		Metadata:            msg.Metadata,
 		AttachmentsMetadata: msg.AttachmentsMetadata,
+		Extra:               extra,
 		CreatedAt:           msg.CreatedAt,
 		UpdatedAt:           msg.UpdatedAt,
 	}

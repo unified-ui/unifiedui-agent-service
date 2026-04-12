@@ -236,9 +236,9 @@ func (m *MockTracesCollection) GetByReferenceID(ctx context.Context, tenantID, r
 	return args.Get(0).(*models.Trace), args.Error(1)
 }
 
-// GetByAutonomousAgent gets a trace by autonomous agent ID.
-func (m *MockTracesCollection) GetByAutonomousAgent(ctx context.Context, tenantID, autonomousAgentID string) (*models.Trace, error) {
-	args := m.Called(ctx, tenantID, autonomousAgentID)
+// GetByWorkflow gets a trace by workflow ID.
+func (m *MockTracesCollection) GetByWorkflow(ctx context.Context, tenantID, workflowID string) (*models.Trace, error) {
+	args := m.Called(ctx, tenantID, workflowID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -254,9 +254,9 @@ func (m *MockTracesCollection) ListByConversation(ctx context.Context, tenantID,
 	return args.Get(0).([]*models.Trace), args.Error(1)
 }
 
-// ListByAutonomousAgent lists traces by autonomous agent ID.
-func (m *MockTracesCollection) ListByAutonomousAgent(ctx context.Context, tenantID, autonomousAgentID string) ([]*models.Trace, error) {
-	args := m.Called(ctx, tenantID, autonomousAgentID)
+// ListByWorkflow lists traces by workflow ID.
+func (m *MockTracesCollection) ListByWorkflow(ctx context.Context, tenantID, workflowID string) ([]*models.Trace, error) {
+	args := m.Called(ctx, tenantID, workflowID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -308,9 +308,9 @@ func (m *MockTracesCollection) DeleteByConversation(ctx context.Context, tenantI
 	return args.Error(0)
 }
 
-// DeleteByAutonomousAgent deletes a trace by autonomous agent.
-func (m *MockTracesCollection) DeleteByAutonomousAgent(ctx context.Context, tenantID, autonomousAgentID string) error {
-	args := m.Called(ctx, tenantID, autonomousAgentID)
+// DeleteByWorkflow deletes a trace by workflow.
+func (m *MockTracesCollection) DeleteByWorkflow(ctx context.Context, tenantID, workflowID string) error {
+	args := m.Called(ctx, tenantID, workflowID)
 	return args.Error(0)
 }
 
@@ -474,6 +474,15 @@ func (m *MockReactionsCollection) Get(ctx context.Context, opts *docdb.UpsertRea
 
 // ListByMessage retrieves all reactions for a message.
 func (m *MockReactionsCollection) ListByMessage(ctx context.Context, opts *docdb.ListReactionsOptions) ([]*models.MessageReaction, error) {
+	args := m.Called(ctx, opts)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*models.MessageReaction), args.Error(1)
+}
+
+// ListByMessages retrieves all reactions for multiple messages.
+func (m *MockReactionsCollection) ListByMessages(ctx context.Context, opts *docdb.ListBulkReactionsOptions) ([]*models.MessageReaction, error) {
 	args := m.Called(ctx, opts)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)

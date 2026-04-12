@@ -25,11 +25,11 @@ import (
 
 // Test constants for extended tests
 const (
-	testTenantID          = "tenant-test-123"
-	testAutonomousAgentID = "auto-agent-123"
-	testTraceID           = "trace-test-xyz"
-	testExecutionID       = "exec-123"
-	testUserID            = "user-test-def"
+	testTenantID    = "tenant-test-123"
+	testWorkflowID  = "auto-agent-123"
+	testTraceID     = "trace-test-xyz"
+	testExecutionID = "exec-123"
+	testUserID      = "user-test-def"
 )
 
 // --- mapImportType Tests ---
@@ -108,18 +108,18 @@ func TestMapImportType_EmptyString(t *testing.T) {
 	assert.Equal(t, platform.AgentType(""), agentType)
 }
 
-// --- buildAutonomousAgentBackendConfig Tests ---
+// --- buildWorkflowBackendConfig Tests ---
 
-func TestBuildAutonomousAgentBackendConfig_N8N_Success(t *testing.T) {
+func TestBuildWorkflowBackendConfig_N8N_Success(t *testing.T) {
 	handler := &TracesHandler{}
 
 	c, _ := setupTestContext(nil)
 
-	agentConfig := &platform.AutonomousAgentConfigResponse{
-		Type:              platform.AgentTypeN8N,
-		TenantID:          testTenantID,
-		AutonomousAgentID: testAutonomousAgentID,
-		Settings: platform.AutonomousAgentConfigSettings{
+	agentConfig := &platform.WorkflowConfigResponse{
+		Type:       platform.AgentTypeN8N,
+		TenantID:   testTenantID,
+		WorkflowID: testWorkflowID,
+		Settings: platform.WorkflowConfigSettings{
 			N8NHost:    "https://n8n.example.com",
 			WorkflowID: "workflow-123",
 			APICredentials: &platform.Credentials{
@@ -130,13 +130,13 @@ func TestBuildAutonomousAgentBackendConfig_N8N_Success(t *testing.T) {
 		},
 	}
 
-	req := dto.AutonomousAgentImportTraceRequest{
+	req := dto.WorkflowImportTraceRequest{
 		Type:        "N8N",
 		ExecutionID: testExecutionID,
 		SessionID:   "session-456",
 	}
 
-	config, err := handler.buildAutonomousAgentBackendConfig(c, agentConfig, req)
+	config, err := handler.buildWorkflowBackendConfig(c, agentConfig, req)
 
 	require.NoError(t, err)
 	assert.NotNil(t, config)
@@ -147,66 +147,66 @@ func TestBuildAutonomousAgentBackendConfig_N8N_Success(t *testing.T) {
 	assert.Equal(t, "test-api-key", config["api_key"])
 }
 
-func TestBuildAutonomousAgentBackendConfig_Foundry_Unsupported(t *testing.T) {
+func TestBuildWorkflowBackendConfig_Foundry_Unsupported(t *testing.T) {
 	handler := &TracesHandler{}
 
 	c, _ := setupTestContext(nil)
 
-	agentConfig := &platform.AutonomousAgentConfigResponse{
-		Type:              platform.AgentTypeFoundry,
-		TenantID:          testTenantID,
-		AutonomousAgentID: testAutonomousAgentID,
-		Settings:          platform.AutonomousAgentConfigSettings{},
+	agentConfig := &platform.WorkflowConfigResponse{
+		Type:       platform.AgentTypeFoundry,
+		TenantID:   testTenantID,
+		WorkflowID: testWorkflowID,
+		Settings:   platform.WorkflowConfigSettings{},
 	}
 
-	req := dto.AutonomousAgentImportTraceRequest{
+	req := dto.WorkflowImportTraceRequest{
 		Type:        "FOUNDRY",
 		ExecutionID: testExecutionID,
 	}
 
-	config, err := handler.buildAutonomousAgentBackendConfig(c, agentConfig, req)
+	config, err := handler.buildWorkflowBackendConfig(c, agentConfig, req)
 
 	assert.Nil(t, config)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unsupported agent type for autonomous agent import")
+	assert.Contains(t, err.Error(), "unsupported agent type for workflow import")
 }
 
-func TestBuildAutonomousAgentBackendConfig_UnknownType(t *testing.T) {
+func TestBuildWorkflowBackendConfig_UnknownType(t *testing.T) {
 	handler := &TracesHandler{}
 
 	c, _ := setupTestContext(nil)
 
-	agentConfig := &platform.AutonomousAgentConfigResponse{
-		Type:              platform.AgentType("custom"),
-		TenantID:          testTenantID,
-		AutonomousAgentID: testAutonomousAgentID,
-		Settings:          platform.AutonomousAgentConfigSettings{},
+	agentConfig := &platform.WorkflowConfigResponse{
+		Type:       platform.AgentType("custom"),
+		TenantID:   testTenantID,
+		WorkflowID: testWorkflowID,
+		Settings:   platform.WorkflowConfigSettings{},
 	}
 
-	req := dto.AutonomousAgentImportTraceRequest{
+	req := dto.WorkflowImportTraceRequest{
 		Type:        "custom",
 		ExecutionID: testExecutionID,
 	}
 
-	config, err := handler.buildAutonomousAgentBackendConfig(c, agentConfig, req)
+	config, err := handler.buildWorkflowBackendConfig(c, agentConfig, req)
 
 	assert.Nil(t, config)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unsupported agent type for autonomous agent import")
+	assert.Contains(t, err.Error(), "unsupported agent type for workflow import")
 }
 
-// --- buildAutonomousAgentRefreshBackendConfig Tests ---
+// --- buildWorkflowRefreshBackendConfig Tests ---
 
-func TestBuildAutonomousAgentRefreshBackendConfig_N8N_Success(t *testing.T) {
+func TestBuildWorkflowRefreshBackendConfig_N8N_Success(t *testing.T) {
 	handler := &TracesHandler{}
 
 	c, _ := setupTestContext(nil)
 
-	agentConfig := &platform.AutonomousAgentConfigResponse{
-		Type:              platform.AgentTypeN8N,
-		TenantID:          testTenantID,
-		AutonomousAgentID: testAutonomousAgentID,
-		Settings: platform.AutonomousAgentConfigSettings{
+	agentConfig := &platform.WorkflowConfigResponse{
+		Type:       platform.AgentTypeN8N,
+		TenantID:   testTenantID,
+		WorkflowID: testWorkflowID,
+		Settings: platform.WorkflowConfigSettings{
 			N8NHost:    "https://n8n.example.com",
 			WorkflowID: "workflow-123",
 			APICredentials: &platform.Credentials{
@@ -217,7 +217,7 @@ func TestBuildAutonomousAgentRefreshBackendConfig_N8N_Success(t *testing.T) {
 		},
 	}
 
-	config, err := handler.buildAutonomousAgentRefreshBackendConfig(c, agentConfig, testExecutionID)
+	config, err := handler.buildWorkflowRefreshBackendConfig(c, agentConfig, testExecutionID)
 
 	require.NoError(t, err)
 	assert.NotNil(t, config)
@@ -227,56 +227,56 @@ func TestBuildAutonomousAgentRefreshBackendConfig_N8N_Success(t *testing.T) {
 	assert.Equal(t, "workflow-123", config["workflow_id"])
 }
 
-func TestBuildAutonomousAgentRefreshBackendConfig_Foundry_Unsupported(t *testing.T) {
+func TestBuildWorkflowRefreshBackendConfig_Foundry_Unsupported(t *testing.T) {
 	handler := &TracesHandler{}
 
 	c, _ := setupTestContext(nil)
 
-	agentConfig := &platform.AutonomousAgentConfigResponse{
-		Type:              platform.AgentTypeFoundry,
-		TenantID:          testTenantID,
-		AutonomousAgentID: testAutonomousAgentID,
-		Settings:          platform.AutonomousAgentConfigSettings{},
+	agentConfig := &platform.WorkflowConfigResponse{
+		Type:       platform.AgentTypeFoundry,
+		TenantID:   testTenantID,
+		WorkflowID: testWorkflowID,
+		Settings:   platform.WorkflowConfigSettings{},
 	}
 
-	config, err := handler.buildAutonomousAgentRefreshBackendConfig(c, agentConfig, testExecutionID)
+	config, err := handler.buildWorkflowRefreshBackendConfig(c, agentConfig, testExecutionID)
 
 	assert.Nil(t, config)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unsupported agent type for autonomous agent import")
+	assert.Contains(t, err.Error(), "unsupported agent type for workflow import")
 }
 
-func TestBuildAutonomousAgentRefreshBackendConfig_UnknownType(t *testing.T) {
+func TestBuildWorkflowRefreshBackendConfig_UnknownType(t *testing.T) {
 	handler := &TracesHandler{}
 
 	c, _ := setupTestContext(nil)
 
-	agentConfig := &platform.AutonomousAgentConfigResponse{
-		Type:              platform.AgentType("unknown"),
-		TenantID:          testTenantID,
-		AutonomousAgentID: testAutonomousAgentID,
-		Settings:          platform.AutonomousAgentConfigSettings{},
+	agentConfig := &platform.WorkflowConfigResponse{
+		Type:       platform.AgentType("unknown"),
+		TenantID:   testTenantID,
+		WorkflowID: testWorkflowID,
+		Settings:   platform.WorkflowConfigSettings{},
 	}
 
-	config, err := handler.buildAutonomousAgentRefreshBackendConfig(c, agentConfig, testExecutionID)
+	config, err := handler.buildWorkflowRefreshBackendConfig(c, agentConfig, testExecutionID)
 
 	assert.Nil(t, config)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unsupported agent type for autonomous agent import")
+	assert.Contains(t, err.Error(), "unsupported agent type for workflow import")
 }
 
-// --- buildN8NAutonomousAgentConfig Tests ---
+// --- buildN8NWorkflowConfig Tests ---
 
-func TestBuildN8NAutonomousAgentConfig_Success(t *testing.T) {
+func TestBuildN8NWorkflowConfig_Success(t *testing.T) {
 	handler := &TracesHandler{}
 
 	c, _ := setupTestContext(nil)
 
-	agentConfig := &platform.AutonomousAgentConfigResponse{
-		Type:              platform.AgentTypeN8N,
-		TenantID:          testTenantID,
-		AutonomousAgentID: testAutonomousAgentID,
-		Settings: platform.AutonomousAgentConfigSettings{
+	agentConfig := &platform.WorkflowConfigResponse{
+		Type:       platform.AgentTypeN8N,
+		TenantID:   testTenantID,
+		WorkflowID: testWorkflowID,
+		Settings: platform.WorkflowConfigSettings{
 			N8NHost:    "https://n8n.example.com",
 			WorkflowID: "workflow-123",
 			APICredentials: &platform.Credentials{
@@ -287,7 +287,7 @@ func TestBuildN8NAutonomousAgentConfig_Success(t *testing.T) {
 		},
 	}
 
-	config, err := handler.buildN8NAutonomousAgentConfig(c, agentConfig, testExecutionID, "session-456")
+	config, err := handler.buildN8NWorkflowConfig(c, agentConfig, testExecutionID, "session-456")
 
 	require.NoError(t, err)
 	assert.NotNil(t, config)
@@ -298,16 +298,16 @@ func TestBuildN8NAutonomousAgentConfig_Success(t *testing.T) {
 	assert.Equal(t, "test-api-key", config["api_key"])
 }
 
-func TestBuildN8NAutonomousAgentConfig_MissingN8NHost(t *testing.T) {
+func TestBuildN8NWorkflowConfig_MissingN8NHost(t *testing.T) {
 	handler := &TracesHandler{}
 
 	c, _ := setupTestContext(nil)
 
-	agentConfig := &platform.AutonomousAgentConfigResponse{
-		Type:              platform.AgentTypeN8N,
-		TenantID:          testTenantID,
-		AutonomousAgentID: testAutonomousAgentID,
-		Settings: platform.AutonomousAgentConfigSettings{
+	agentConfig := &platform.WorkflowConfigResponse{
+		Type:       platform.AgentTypeN8N,
+		TenantID:   testTenantID,
+		WorkflowID: testWorkflowID,
+		Settings: platform.WorkflowConfigSettings{
 			N8NHost:    "", // Missing
 			WorkflowID: "workflow-123",
 			APICredentials: &platform.Credentials{
@@ -318,46 +318,46 @@ func TestBuildN8NAutonomousAgentConfig_MissingN8NHost(t *testing.T) {
 		},
 	}
 
-	config, err := handler.buildN8NAutonomousAgentConfig(c, agentConfig, testExecutionID, "session-456")
+	config, err := handler.buildN8NWorkflowConfig(c, agentConfig, testExecutionID, "session-456")
 
 	assert.Nil(t, config)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "autonomous agent configuration missing N8N host")
+	assert.Contains(t, err.Error(), "workflow configuration missing N8N host")
 }
 
-func TestBuildN8NAutonomousAgentConfig_MissingAPICredentials(t *testing.T) {
+func TestBuildN8NWorkflowConfig_MissingAPICredentials(t *testing.T) {
 	handler := &TracesHandler{}
 
 	c, _ := setupTestContext(nil)
 
-	agentConfig := &platform.AutonomousAgentConfigResponse{
-		Type:              platform.AgentTypeN8N,
-		TenantID:          testTenantID,
-		AutonomousAgentID: testAutonomousAgentID,
-		Settings: platform.AutonomousAgentConfigSettings{
+	agentConfig := &platform.WorkflowConfigResponse{
+		Type:       platform.AgentTypeN8N,
+		TenantID:   testTenantID,
+		WorkflowID: testWorkflowID,
+		Settings: platform.WorkflowConfigSettings{
 			N8NHost:        "https://n8n.example.com",
 			WorkflowID:     "workflow-123",
 			APICredentials: nil, // Missing
 		},
 	}
 
-	config, err := handler.buildN8NAutonomousAgentConfig(c, agentConfig, testExecutionID, "session-456")
+	config, err := handler.buildN8NWorkflowConfig(c, agentConfig, testExecutionID, "session-456")
 
 	assert.Nil(t, config)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "autonomous agent configuration missing API credentials")
+	assert.Contains(t, err.Error(), "workflow configuration missing API credentials")
 }
 
-func TestBuildN8NAutonomousAgentConfig_EmptySecretString(t *testing.T) {
+func TestBuildN8NWorkflowConfig_EmptySecretString(t *testing.T) {
 	handler := &TracesHandler{}
 
 	c, _ := setupTestContext(nil)
 
-	agentConfig := &platform.AutonomousAgentConfigResponse{
-		Type:              platform.AgentTypeN8N,
-		TenantID:          testTenantID,
-		AutonomousAgentID: testAutonomousAgentID,
-		Settings: platform.AutonomousAgentConfigSettings{
+	agentConfig := &platform.WorkflowConfigResponse{
+		Type:       platform.AgentTypeN8N,
+		TenantID:   testTenantID,
+		WorkflowID: testWorkflowID,
+		Settings: platform.WorkflowConfigSettings{
 			N8NHost:    "https://n8n.example.com",
 			WorkflowID: "workflow-123",
 			APICredentials: &platform.Credentials{
@@ -368,24 +368,24 @@ func TestBuildN8NAutonomousAgentConfig_EmptySecretString(t *testing.T) {
 		},
 	}
 
-	config, err := handler.buildN8NAutonomousAgentConfig(c, agentConfig, testExecutionID, "session-456")
+	config, err := handler.buildN8NWorkflowConfig(c, agentConfig, testExecutionID, "session-456")
 
 	assert.Nil(t, config)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "autonomous agent configuration missing API credentials")
+	assert.Contains(t, err.Error(), "workflow configuration missing API credentials")
 }
 
-func TestBuildN8NAutonomousAgentConfig_NonStringSecret(t *testing.T) {
+func TestBuildN8NWorkflowConfig_NonStringSecret(t *testing.T) {
 	handler := &TracesHandler{}
 
 	c, _ := setupTestContext(nil)
 
 	// Test with non-string secret (e.g., map for basic auth)
-	agentConfig := &platform.AutonomousAgentConfigResponse{
-		Type:              platform.AgentTypeN8N,
-		TenantID:          testTenantID,
-		AutonomousAgentID: testAutonomousAgentID,
-		Settings: platform.AutonomousAgentConfigSettings{
+	agentConfig := &platform.WorkflowConfigResponse{
+		Type:       platform.AgentTypeN8N,
+		TenantID:   testTenantID,
+		WorkflowID: testWorkflowID,
+		Settings: platform.WorkflowConfigSettings{
 			N8NHost:    "https://n8n.example.com",
 			WorkflowID: "workflow-123",
 			APICredentials: &platform.Credentials{
@@ -399,24 +399,24 @@ func TestBuildN8NAutonomousAgentConfig_NonStringSecret(t *testing.T) {
 		},
 	}
 
-	config, err := handler.buildN8NAutonomousAgentConfig(c, agentConfig, testExecutionID, "session-456")
+	config, err := handler.buildN8NWorkflowConfig(c, agentConfig, testExecutionID, "session-456")
 
 	// GetSecretAsString returns empty string for non-string secrets
 	assert.Nil(t, config)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "autonomous agent configuration missing API credentials")
+	assert.Contains(t, err.Error(), "workflow configuration missing API credentials")
 }
 
-func TestBuildN8NAutonomousAgentConfig_EmptySessionID(t *testing.T) {
+func TestBuildN8NWorkflowConfig_EmptySessionID(t *testing.T) {
 	handler := &TracesHandler{}
 
 	c, _ := setupTestContext(nil)
 
-	agentConfig := &platform.AutonomousAgentConfigResponse{
-		Type:              platform.AgentTypeN8N,
-		TenantID:          testTenantID,
-		AutonomousAgentID: testAutonomousAgentID,
-		Settings: platform.AutonomousAgentConfigSettings{
+	agentConfig := &platform.WorkflowConfigResponse{
+		Type:       platform.AgentTypeN8N,
+		TenantID:   testTenantID,
+		WorkflowID: testWorkflowID,
+		Settings: platform.WorkflowConfigSettings{
 			N8NHost:    "https://n8n.example.com",
 			WorkflowID: "workflow-123",
 			APICredentials: &platform.Credentials{
@@ -428,7 +428,7 @@ func TestBuildN8NAutonomousAgentConfig_EmptySessionID(t *testing.T) {
 	}
 
 	// Call with empty session ID (valid scenario for refresh)
-	config, err := handler.buildN8NAutonomousAgentConfig(c, agentConfig, testExecutionID, "")
+	config, err := handler.buildN8NWorkflowConfig(c, agentConfig, testExecutionID, "")
 
 	require.NoError(t, err)
 	assert.NotNil(t, config)
@@ -581,7 +581,7 @@ func TestGetExecutionIDFromTrace_AllEmpty(t *testing.T) {
 	assert.Equal(t, "", executionID)
 }
 
-// --- ImportAutonomousAgentTrace Handler Tests ---
+// --- ImportWorkflowTrace Handler Tests ---
 
 // createTestTracesHandlerWithMocks creates a TracesHandler with mocks for handler testing.
 func createTestTracesHandlerWithMocks(mockDocDB *mocks.MockDocDBClient, mockPlatform *mocks.MockPlatformClient) *TracesHandler {
@@ -621,7 +621,7 @@ func setContextParams(c *gin.Context, params map[string]string) {
 	c.Params = ginParams
 }
 
-func TestImportAutonomousAgentTrace_InvalidRequestBody(t *testing.T) {
+func TestImportWorkflowTrace_InvalidRequestBody(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
@@ -633,26 +633,26 @@ func TestImportAutonomousAgentTrace_InvalidRequestBody(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	c.Request = httptest.NewRequest(http.MethodPut, "/test", bytes.NewReader([]byte("invalid json")))
 	c.Request.Header.Set("Content-Type", "application/json")
-	c.Request.Header.Set("X-Unified-UI-Autonomous-Agent-API-Key", "test-api-key")
-	c.Set("autonomous_agent_api_key", "test-api-key")
+	c.Request.Header.Set("X-Unified-UI-Workflow-API-Key", "test-api-key")
+	c.Set("workflow_api_key", "test-api-key")
 
 	setContextParams(c, map[string]string{
 		"tenantId": testTenantID,
-		"agentId":  testAutonomousAgentID,
+		"agentId":  testWorkflowID,
 	})
 
-	handler.ImportAutonomousAgentTrace(c)
+	handler.ImportWorkflowTrace(c)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func TestImportAutonomousAgentTrace_NoAuthProvided(t *testing.T) {
+func TestImportWorkflowTrace_NoAuthProvided(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
 	handler := createTestTracesHandlerWithMocks(mockDocDB, mockPlatform)
 
-	importReq := dto.AutonomousAgentImportTraceRequest{
+	importReq := dto.WorkflowImportTraceRequest{
 		Type:        "N8N",
 		ExecutionID: testExecutionID,
 	}
@@ -660,25 +660,25 @@ func TestImportAutonomousAgentTrace_NoAuthProvided(t *testing.T) {
 	c, w := setupTestContextWithBody(http.MethodPut, "/test", importReq, nil)
 	setContextParams(c, map[string]string{
 		"tenantId": testTenantID,
-		"agentId":  testAutonomousAgentID,
+		"agentId":  testWorkflowID,
 	})
 	// No auth token or API key set
 
-	handler.ImportAutonomousAgentTrace(c)
+	handler.ImportWorkflowTrace(c)
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
-func TestImportAutonomousAgentTrace_BearerToken_Unauthorized(t *testing.T) {
+func TestImportWorkflowTrace_BearerToken_Unauthorized(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
-	mockPlatform.On("GetAutonomousAgentConfigWithBearer", mock.Anything, testTenantID, testAutonomousAgentID, "test-bearer-token").
+	mockPlatform.On("GetWorkflowConfigWithBearer", mock.Anything, testTenantID, testWorkflowID, "test-bearer-token").
 		Return(nil, fmt.Errorf("unauthorized: invalid token"))
 
 	handler := createTestTracesHandlerWithMocks(mockDocDB, mockPlatform)
 
-	importReq := dto.AutonomousAgentImportTraceRequest{
+	importReq := dto.WorkflowImportTraceRequest{
 		Type:        "N8N",
 		ExecutionID: testExecutionID,
 	}
@@ -689,25 +689,25 @@ func TestImportAutonomousAgentTrace_BearerToken_Unauthorized(t *testing.T) {
 	c.Set("auth_token", "test-bearer-token")
 	setContextParams(c, map[string]string{
 		"tenantId": testTenantID,
-		"agentId":  testAutonomousAgentID,
+		"agentId":  testWorkflowID,
 	})
 
-	handler.ImportAutonomousAgentTrace(c)
+	handler.ImportWorkflowTrace(c)
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 	mockPlatform.AssertExpectations(t)
 }
 
-func TestImportAutonomousAgentTrace_BearerToken_Forbidden(t *testing.T) {
+func TestImportWorkflowTrace_BearerToken_Forbidden(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
-	mockPlatform.On("GetAutonomousAgentConfigWithBearer", mock.Anything, testTenantID, testAutonomousAgentID, "test-bearer-token").
+	mockPlatform.On("GetWorkflowConfigWithBearer", mock.Anything, testTenantID, testWorkflowID, "test-bearer-token").
 		Return(nil, fmt.Errorf("forbidden: insufficient permissions"))
 
 	handler := createTestTracesHandlerWithMocks(mockDocDB, mockPlatform)
 
-	importReq := dto.AutonomousAgentImportTraceRequest{
+	importReq := dto.WorkflowImportTraceRequest{
 		Type:        "N8N",
 		ExecutionID: testExecutionID,
 	}
@@ -718,25 +718,25 @@ func TestImportAutonomousAgentTrace_BearerToken_Forbidden(t *testing.T) {
 	c.Set("auth_token", "test-bearer-token")
 	setContextParams(c, map[string]string{
 		"tenantId": testTenantID,
-		"agentId":  testAutonomousAgentID,
+		"agentId":  testWorkflowID,
 	})
 
-	handler.ImportAutonomousAgentTrace(c)
+	handler.ImportWorkflowTrace(c)
 
 	assert.Equal(t, http.StatusForbidden, w.Code)
 	mockPlatform.AssertExpectations(t)
 }
 
-func TestImportAutonomousAgentTrace_BearerToken_NotFound(t *testing.T) {
+func TestImportWorkflowTrace_BearerToken_NotFound(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
-	mockPlatform.On("GetAutonomousAgentConfigWithBearer", mock.Anything, testTenantID, testAutonomousAgentID, "test-bearer-token").
-		Return(nil, fmt.Errorf("not_found: autonomous agent not found"))
+	mockPlatform.On("GetWorkflowConfigWithBearer", mock.Anything, testTenantID, testWorkflowID, "test-bearer-token").
+		Return(nil, fmt.Errorf("not_found: workflow not found"))
 
 	handler := createTestTracesHandlerWithMocks(mockDocDB, mockPlatform)
 
-	importReq := dto.AutonomousAgentImportTraceRequest{
+	importReq := dto.WorkflowImportTraceRequest{
 		Type:        "N8N",
 		ExecutionID: testExecutionID,
 	}
@@ -747,25 +747,25 @@ func TestImportAutonomousAgentTrace_BearerToken_NotFound(t *testing.T) {
 	c.Set("auth_token", "test-bearer-token")
 	setContextParams(c, map[string]string{
 		"tenantId": testTenantID,
-		"agentId":  testAutonomousAgentID,
+		"agentId":  testWorkflowID,
 	})
 
-	handler.ImportAutonomousAgentTrace(c)
+	handler.ImportWorkflowTrace(c)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
 	mockPlatform.AssertExpectations(t)
 }
 
-func TestImportAutonomousAgentTrace_BearerToken_InternalError(t *testing.T) {
+func TestImportWorkflowTrace_BearerToken_InternalError(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
-	mockPlatform.On("GetAutonomousAgentConfigWithBearer", mock.Anything, testTenantID, testAutonomousAgentID, "test-bearer-token").
+	mockPlatform.On("GetWorkflowConfigWithBearer", mock.Anything, testTenantID, testWorkflowID, "test-bearer-token").
 		Return(nil, fmt.Errorf("database connection failed"))
 
 	handler := createTestTracesHandlerWithMocks(mockDocDB, mockPlatform)
 
-	importReq := dto.AutonomousAgentImportTraceRequest{
+	importReq := dto.WorkflowImportTraceRequest{
 		Type:        "N8N",
 		ExecutionID: testExecutionID,
 	}
@@ -776,25 +776,25 @@ func TestImportAutonomousAgentTrace_BearerToken_InternalError(t *testing.T) {
 	c.Set("auth_token", "test-bearer-token")
 	setContextParams(c, map[string]string{
 		"tenantId": testTenantID,
-		"agentId":  testAutonomousAgentID,
+		"agentId":  testWorkflowID,
 	})
 
-	handler.ImportAutonomousAgentTrace(c)
+	handler.ImportWorkflowTrace(c)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 	mockPlatform.AssertExpectations(t)
 }
 
-func TestImportAutonomousAgentTrace_BearerToken_GetUserFallbackToSystem(t *testing.T) {
+func TestImportWorkflowTrace_BearerToken_GetUserFallbackToSystem(t *testing.T) {
 	// When GetMe fails, getUserID returns "system" as fallback, not an error
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
-	agentConfig := &platform.AutonomousAgentConfigResponse{
-		Type:              platform.AgentTypeN8N,
-		TenantID:          testTenantID,
-		AutonomousAgentID: testAutonomousAgentID,
-		Settings: platform.AutonomousAgentConfigSettings{
+	agentConfig := &platform.WorkflowConfigResponse{
+		Type:       platform.AgentTypeN8N,
+		TenantID:   testTenantID,
+		WorkflowID: testWorkflowID,
+		Settings: platform.WorkflowConfigSettings{
 			N8NHost:    "https://n8n.example.com",
 			WorkflowID: "workflow-123",
 			APICredentials: &platform.Credentials{
@@ -805,7 +805,7 @@ func TestImportAutonomousAgentTrace_BearerToken_GetUserFallbackToSystem(t *testi
 		},
 	}
 
-	mockPlatform.On("GetAutonomousAgentConfigWithBearer", mock.Anything, testTenantID, testAutonomousAgentID, "test-bearer-token").
+	mockPlatform.On("GetWorkflowConfigWithBearer", mock.Anything, testTenantID, testWorkflowID, "test-bearer-token").
 		Return(agentConfig, nil)
 	mockPlatform.On("GetMe", mock.Anything, "test-bearer-token").
 		Return(nil, fmt.Errorf("failed to get user info"))
@@ -822,7 +822,7 @@ func TestImportAutonomousAgentTrace_BearerToken_GetUserFallbackToSystem(t *testi
 	handler := createTestTracesHandlerWithMocks(mockDocDB, mockPlatform)
 	handler.GetImportService().RegisterImporter(mocks.NewMockTraceImporter())
 
-	importReq := dto.AutonomousAgentImportTraceRequest{
+	importReq := dto.WorkflowImportTraceRequest{
 		Type:        "N8N",
 		ExecutionID: testExecutionID,
 	}
@@ -833,54 +833,54 @@ func TestImportAutonomousAgentTrace_BearerToken_GetUserFallbackToSystem(t *testi
 	c.Set("auth_token", "test-bearer-token")
 	setContextParams(c, map[string]string{
 		"tenantId": testTenantID,
-		"agentId":  testAutonomousAgentID,
+		"agentId":  testWorkflowID,
 	})
 
-	handler.ImportAutonomousAgentTrace(c)
+	handler.ImportWorkflowTrace(c)
 
 	// Should succeed with fallback user ID
 	assert.Equal(t, http.StatusCreated, w.Code)
 	mockPlatform.AssertExpectations(t)
 }
 
-func TestImportAutonomousAgentTrace_APIKey_InternalError(t *testing.T) {
+func TestImportWorkflowTrace_APIKey_InternalError(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
-	mockPlatform.On("GetAutonomousAgentConfig", mock.Anything, testTenantID, testAutonomousAgentID, "test-api-key").
+	mockPlatform.On("GetWorkflowConfig", mock.Anything, testTenantID, testWorkflowID, "test-api-key").
 		Return(nil, fmt.Errorf("database connection failed"))
 
 	handler := createTestTracesHandlerWithMocks(mockDocDB, mockPlatform)
 
-	importReq := dto.AutonomousAgentImportTraceRequest{
+	importReq := dto.WorkflowImportTraceRequest{
 		Type:        "N8N",
 		ExecutionID: testExecutionID,
 	}
 
 	c, w := setupTestContextWithBody(http.MethodPut, "/test", importReq, map[string]string{
-		"X-Unified-UI-Autonomous-Agent-API-Key": "test-api-key",
+		"X-Unified-UI-Workflow-API-Key": "test-api-key",
 	})
-	c.Set("autonomous_agent_api_key", "test-api-key")
+	c.Set("workflow_api_key", "test-api-key")
 	setContextParams(c, map[string]string{
 		"tenantId": testTenantID,
-		"agentId":  testAutonomousAgentID,
+		"agentId":  testWorkflowID,
 	})
 
-	handler.ImportAutonomousAgentTrace(c)
+	handler.ImportWorkflowTrace(c)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 	mockPlatform.AssertExpectations(t)
 }
 
-func TestImportAutonomousAgentTrace_GetByReferenceIDError(t *testing.T) {
+func TestImportWorkflowTrace_GetByReferenceIDError(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
-	agentConfig := &platform.AutonomousAgentConfigResponse{
-		Type:              platform.AgentTypeN8N,
-		TenantID:          testTenantID,
-		AutonomousAgentID: testAutonomousAgentID,
-		Settings: platform.AutonomousAgentConfigSettings{
+	agentConfig := &platform.WorkflowConfigResponse{
+		Type:       platform.AgentTypeN8N,
+		TenantID:   testTenantID,
+		WorkflowID: testWorkflowID,
+		Settings: platform.WorkflowConfigSettings{
 			N8NHost:    "https://n8n.example.com",
 			WorkflowID: "workflow-123",
 			APICredentials: &platform.Credentials{
@@ -891,7 +891,7 @@ func TestImportAutonomousAgentTrace_GetByReferenceIDError(t *testing.T) {
 		},
 	}
 
-	mockPlatform.On("GetAutonomousAgentConfig", mock.Anything, testTenantID, testAutonomousAgentID, "test-api-key").
+	mockPlatform.On("GetWorkflowConfig", mock.Anything, testTenantID, testWorkflowID, "test-api-key").
 		Return(agentConfig, nil)
 	mockDocDB.GetTracesCollection().On("GetByReferenceID", mock.Anything, testTenantID, testExecutionID).
 		Return(nil, fmt.Errorf("database error"))
@@ -899,78 +899,78 @@ func TestImportAutonomousAgentTrace_GetByReferenceIDError(t *testing.T) {
 	handler := createTestTracesHandlerWithMocks(mockDocDB, mockPlatform)
 	handler.GetImportService().RegisterImporter(mocks.NewMockTraceImporter())
 
-	importReq := dto.AutonomousAgentImportTraceRequest{
+	importReq := dto.WorkflowImportTraceRequest{
 		Type:        "N8N",
 		ExecutionID: testExecutionID,
 	}
 
 	c, w := setupTestContextWithBody(http.MethodPut, "/test", importReq, map[string]string{
-		"X-Unified-UI-Autonomous-Agent-API-Key": "test-api-key",
+		"X-Unified-UI-Workflow-API-Key": "test-api-key",
 	})
-	c.Set("autonomous_agent_api_key", "test-api-key")
+	c.Set("workflow_api_key", "test-api-key")
 	setContextParams(c, map[string]string{
 		"tenantId": testTenantID,
-		"agentId":  testAutonomousAgentID,
+		"agentId":  testWorkflowID,
 	})
 
-	handler.ImportAutonomousAgentTrace(c)
+	handler.ImportWorkflowTrace(c)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 	mockPlatform.AssertExpectations(t)
 }
 
-func TestImportAutonomousAgentTrace_NoImporterRegistered(t *testing.T) {
+func TestImportWorkflowTrace_NoImporterRegistered(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
-	agentConfig := &platform.AutonomousAgentConfigResponse{
-		Type:              platform.AgentTypeN8N,
-		TenantID:          testTenantID,
-		AutonomousAgentID: testAutonomousAgentID,
-		Settings:          platform.AutonomousAgentConfigSettings{},
+	agentConfig := &platform.WorkflowConfigResponse{
+		Type:       platform.AgentTypeN8N,
+		TenantID:   testTenantID,
+		WorkflowID: testWorkflowID,
+		Settings:   platform.WorkflowConfigSettings{},
 	}
 
-	mockPlatform.On("GetAutonomousAgentConfig", mock.Anything, testTenantID, testAutonomousAgentID, "test-api-key").
+	mockPlatform.On("GetWorkflowConfig", mock.Anything, testTenantID, testWorkflowID, "test-api-key").
 		Return(agentConfig, nil)
 
 	handler := createTestTracesHandlerWithMocks(mockDocDB, mockPlatform)
 	// Note: No importer registered
 
-	importReq := dto.AutonomousAgentImportTraceRequest{
+	importReq := dto.WorkflowImportTraceRequest{
 		Type:        "N8N",
 		ExecutionID: testExecutionID,
 	}
 
 	c, w := setupTestContextWithBody(http.MethodPut, "/test", importReq, map[string]string{
-		"X-Unified-UI-Autonomous-Agent-API-Key": "test-api-key",
+		"X-Unified-UI-Workflow-API-Key": "test-api-key",
 	})
-	c.Set("autonomous_agent_api_key", "test-api-key")
+	c.Set("workflow_api_key", "test-api-key")
 	setContextParams(c, map[string]string{
 		"tenantId": testTenantID,
-		"agentId":  testAutonomousAgentID,
+		"agentId":  testWorkflowID,
 	})
 
-	handler.ImportAutonomousAgentTrace(c)
+	handler.ImportWorkflowTrace(c)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 	mockPlatform.AssertExpectations(t)
 }
 
-func TestImportAutonomousAgentTrace_BackendConfigError(t *testing.T) {
+func TestImportWorkflowTrace_BackendConfigError(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
 	// Config without required N8N host
-	agentConfig := &platform.AutonomousAgentConfigResponse{
-		Type:              platform.AgentTypeN8N,
-		TenantID:          testTenantID,
-		AutonomousAgentID: testAutonomousAgentID,
-		Settings: platform.AutonomousAgentConfigSettings{
+	agentConfig := &platform.WorkflowConfigResponse{
+		Type:       platform.AgentTypeN8N,
+		TenantID:   testTenantID,
+		WorkflowID: testWorkflowID,
+		Settings: platform.WorkflowConfigSettings{
 			N8NHost: "", // Missing
 		},
 	}
 
-	mockPlatform.On("GetAutonomousAgentConfig", mock.Anything, testTenantID, testAutonomousAgentID, "test-api-key").
+	mockPlatform.On("GetWorkflowConfig", mock.Anything, testTenantID, testWorkflowID, "test-api-key").
 		Return(agentConfig, nil)
 	mockDocDB.GetTracesCollection().On("GetByReferenceID", mock.Anything, testTenantID, testExecutionID).
 		Return(nil, nil)
@@ -978,29 +978,29 @@ func TestImportAutonomousAgentTrace_BackendConfigError(t *testing.T) {
 	handler := createTestTracesHandlerWithMocks(mockDocDB, mockPlatform)
 	handler.GetImportService().RegisterImporter(mocks.NewMockTraceImporter())
 
-	importReq := dto.AutonomousAgentImportTraceRequest{
+	importReq := dto.WorkflowImportTraceRequest{
 		Type:        "N8N",
 		ExecutionID: testExecutionID,
 	}
 
 	c, w := setupTestContextWithBody(http.MethodPut, "/test", importReq, map[string]string{
-		"X-Unified-UI-Autonomous-Agent-API-Key": "test-api-key",
+		"X-Unified-UI-Workflow-API-Key": "test-api-key",
 	})
-	c.Set("autonomous_agent_api_key", "test-api-key")
+	c.Set("workflow_api_key", "test-api-key")
 	setContextParams(c, map[string]string{
 		"tenantId": testTenantID,
-		"agentId":  testAutonomousAgentID,
+		"agentId":  testWorkflowID,
 	})
 
-	handler.ImportAutonomousAgentTrace(c)
+	handler.ImportWorkflowTrace(c)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 	mockPlatform.AssertExpectations(t)
 }
 
-// --- RefreshAutonomousAgentImportTrace Handler Tests ---
+// --- RefreshWorkflowImportTrace Handler Tests ---
 
-func TestRefreshAutonomousAgentImportTrace_NoAuthProvided(t *testing.T) {
+func TestRefreshWorkflowImportTrace_NoAuthProvided(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
@@ -1009,20 +1009,20 @@ func TestRefreshAutonomousAgentImportTrace_NoAuthProvided(t *testing.T) {
 	c, w := setupTestContextWithBody(http.MethodPut, "/test", nil, nil)
 	setContextParams(c, map[string]string{
 		"tenantId": testTenantID,
-		"agentId":  testAutonomousAgentID,
+		"agentId":  testWorkflowID,
 		"traceId":  testTraceID,
 	})
 
-	handler.RefreshAutonomousAgentImportTrace(c)
+	handler.RefreshWorkflowImportTrace(c)
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
-func TestRefreshAutonomousAgentImportTrace_BearerToken_Unauthorized(t *testing.T) {
+func TestRefreshWorkflowImportTrace_BearerToken_Unauthorized(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
-	mockPlatform.On("GetAutonomousAgentConfigWithBearer", mock.Anything, testTenantID, testAutonomousAgentID, "test-bearer-token").
+	mockPlatform.On("GetWorkflowConfigWithBearer", mock.Anything, testTenantID, testWorkflowID, "test-bearer-token").
 		Return(nil, fmt.Errorf("unauthorized: invalid token"))
 
 	handler := createTestTracesHandlerWithMocks(mockDocDB, mockPlatform)
@@ -1033,21 +1033,21 @@ func TestRefreshAutonomousAgentImportTrace_BearerToken_Unauthorized(t *testing.T
 	c.Set("auth_token", "test-bearer-token")
 	setContextParams(c, map[string]string{
 		"tenantId": testTenantID,
-		"agentId":  testAutonomousAgentID,
+		"agentId":  testWorkflowID,
 		"traceId":  testTraceID,
 	})
 
-	handler.RefreshAutonomousAgentImportTrace(c)
+	handler.RefreshWorkflowImportTrace(c)
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 	mockPlatform.AssertExpectations(t)
 }
 
-func TestRefreshAutonomousAgentImportTrace_BearerToken_Forbidden(t *testing.T) {
+func TestRefreshWorkflowImportTrace_BearerToken_Forbidden(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
-	mockPlatform.On("GetAutonomousAgentConfigWithBearer", mock.Anything, testTenantID, testAutonomousAgentID, "test-bearer-token").
+	mockPlatform.On("GetWorkflowConfigWithBearer", mock.Anything, testTenantID, testWorkflowID, "test-bearer-token").
 		Return(nil, fmt.Errorf("forbidden: no write permission"))
 
 	handler := createTestTracesHandlerWithMocks(mockDocDB, mockPlatform)
@@ -1058,21 +1058,21 @@ func TestRefreshAutonomousAgentImportTrace_BearerToken_Forbidden(t *testing.T) {
 	c.Set("auth_token", "test-bearer-token")
 	setContextParams(c, map[string]string{
 		"tenantId": testTenantID,
-		"agentId":  testAutonomousAgentID,
+		"agentId":  testWorkflowID,
 		"traceId":  testTraceID,
 	})
 
-	handler.RefreshAutonomousAgentImportTrace(c)
+	handler.RefreshWorkflowImportTrace(c)
 
 	assert.Equal(t, http.StatusForbidden, w.Code)
 	mockPlatform.AssertExpectations(t)
 }
 
-func TestRefreshAutonomousAgentImportTrace_BearerToken_NotFound(t *testing.T) {
+func TestRefreshWorkflowImportTrace_BearerToken_NotFound(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
-	mockPlatform.On("GetAutonomousAgentConfigWithBearer", mock.Anything, testTenantID, testAutonomousAgentID, "test-bearer-token").
+	mockPlatform.On("GetWorkflowConfigWithBearer", mock.Anything, testTenantID, testWorkflowID, "test-bearer-token").
 		Return(nil, fmt.Errorf("not_found: agent not found"))
 
 	handler := createTestTracesHandlerWithMocks(mockDocDB, mockPlatform)
@@ -1083,78 +1083,78 @@ func TestRefreshAutonomousAgentImportTrace_BearerToken_NotFound(t *testing.T) {
 	c.Set("auth_token", "test-bearer-token")
 	setContextParams(c, map[string]string{
 		"tenantId": testTenantID,
-		"agentId":  testAutonomousAgentID,
+		"agentId":  testWorkflowID,
 		"traceId":  testTraceID,
 	})
 
-	handler.RefreshAutonomousAgentImportTrace(c)
+	handler.RefreshWorkflowImportTrace(c)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
 	mockPlatform.AssertExpectations(t)
 }
 
-func TestRefreshAutonomousAgentImportTrace_APIKey_Unauthorized(t *testing.T) {
+func TestRefreshWorkflowImportTrace_APIKey_Unauthorized(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
-	mockPlatform.On("GetAutonomousAgentConfig", mock.Anything, testTenantID, testAutonomousAgentID, "test-api-key").
+	mockPlatform.On("GetWorkflowConfig", mock.Anything, testTenantID, testWorkflowID, "test-api-key").
 		Return(nil, fmt.Errorf("unauthorized: invalid API key"))
 
 	handler := createTestTracesHandlerWithMocks(mockDocDB, mockPlatform)
 
 	c, w := setupTestContextWithBody(http.MethodPut, "/test", nil, map[string]string{
-		"X-Unified-UI-Autonomous-Agent-API-Key": "test-api-key",
+		"X-Unified-UI-Workflow-API-Key": "test-api-key",
 	})
-	c.Set("autonomous_agent_api_key", "test-api-key")
+	c.Set("workflow_api_key", "test-api-key")
 	setContextParams(c, map[string]string{
 		"tenantId": testTenantID,
-		"agentId":  testAutonomousAgentID,
+		"agentId":  testWorkflowID,
 		"traceId":  testTraceID,
 	})
 
-	handler.RefreshAutonomousAgentImportTrace(c)
+	handler.RefreshWorkflowImportTrace(c)
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 	mockPlatform.AssertExpectations(t)
 }
 
-func TestRefreshAutonomousAgentImportTrace_APIKey_NotFound(t *testing.T) {
+func TestRefreshWorkflowImportTrace_APIKey_NotFound(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
-	mockPlatform.On("GetAutonomousAgentConfig", mock.Anything, testTenantID, testAutonomousAgentID, "test-api-key").
+	mockPlatform.On("GetWorkflowConfig", mock.Anything, testTenantID, testWorkflowID, "test-api-key").
 		Return(nil, fmt.Errorf("not_found: agent not found"))
 
 	handler := createTestTracesHandlerWithMocks(mockDocDB, mockPlatform)
 
 	c, w := setupTestContextWithBody(http.MethodPut, "/test", nil, map[string]string{
-		"X-Unified-UI-Autonomous-Agent-API-Key": "test-api-key",
+		"X-Unified-UI-Workflow-API-Key": "test-api-key",
 	})
-	c.Set("autonomous_agent_api_key", "test-api-key")
+	c.Set("workflow_api_key", "test-api-key")
 	setContextParams(c, map[string]string{
 		"tenantId": testTenantID,
-		"agentId":  testAutonomousAgentID,
+		"agentId":  testWorkflowID,
 		"traceId":  testTraceID,
 	})
 
-	handler.RefreshAutonomousAgentImportTrace(c)
+	handler.RefreshWorkflowImportTrace(c)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
 	mockPlatform.AssertExpectations(t)
 }
 
-func TestRefreshAutonomousAgentImportTrace_TraceGetError(t *testing.T) {
+func TestRefreshWorkflowImportTrace_TraceGetError(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
-	agentConfig := &platform.AutonomousAgentConfigResponse{
-		Type:              platform.AgentTypeN8N,
-		TenantID:          testTenantID,
-		AutonomousAgentID: testAutonomousAgentID,
-		Settings:          platform.AutonomousAgentConfigSettings{},
+	agentConfig := &platform.WorkflowConfigResponse{
+		Type:       platform.AgentTypeN8N,
+		TenantID:   testTenantID,
+		WorkflowID: testWorkflowID,
+		Settings:   platform.WorkflowConfigSettings{},
 	}
 
-	mockPlatform.On("GetAutonomousAgentConfig", mock.Anything, testTenantID, testAutonomousAgentID, "test-api-key").
+	mockPlatform.On("GetWorkflowConfig", mock.Anything, testTenantID, testWorkflowID, "test-api-key").
 		Return(agentConfig, nil)
 	mockDocDB.GetTracesCollection().On("Get", mock.Anything, testTraceID).
 		Return(nil, fmt.Errorf("database error"))
@@ -1162,33 +1162,33 @@ func TestRefreshAutonomousAgentImportTrace_TraceGetError(t *testing.T) {
 	handler := createTestTracesHandlerWithMocks(mockDocDB, mockPlatform)
 
 	c, w := setupTestContextWithBody(http.MethodPut, "/test", nil, map[string]string{
-		"X-Unified-UI-Autonomous-Agent-API-Key": "test-api-key",
+		"X-Unified-UI-Workflow-API-Key": "test-api-key",
 	})
-	c.Set("autonomous_agent_api_key", "test-api-key")
+	c.Set("workflow_api_key", "test-api-key")
 	setContextParams(c, map[string]string{
 		"tenantId": testTenantID,
-		"agentId":  testAutonomousAgentID,
+		"agentId":  testWorkflowID,
 		"traceId":  testTraceID,
 	})
 
-	handler.RefreshAutonomousAgentImportTrace(c)
+	handler.RefreshWorkflowImportTrace(c)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 	mockPlatform.AssertExpectations(t)
 }
 
-func TestRefreshAutonomousAgentImportTrace_TraceNotFound(t *testing.T) {
+func TestRefreshWorkflowImportTrace_TraceNotFound(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
-	agentConfig := &platform.AutonomousAgentConfigResponse{
-		Type:              platform.AgentTypeN8N,
-		TenantID:          testTenantID,
-		AutonomousAgentID: testAutonomousAgentID,
-		Settings:          platform.AutonomousAgentConfigSettings{},
+	agentConfig := &platform.WorkflowConfigResponse{
+		Type:       platform.AgentTypeN8N,
+		TenantID:   testTenantID,
+		WorkflowID: testWorkflowID,
+		Settings:   platform.WorkflowConfigSettings{},
 	}
 
-	mockPlatform.On("GetAutonomousAgentConfig", mock.Anything, testTenantID, testAutonomousAgentID, "test-api-key").
+	mockPlatform.On("GetWorkflowConfig", mock.Anything, testTenantID, testWorkflowID, "test-api-key").
 		Return(agentConfig, nil)
 	mockDocDB.GetTracesCollection().On("Get", mock.Anything, testTraceID).
 		Return(nil, nil) // Trace not found
@@ -1196,40 +1196,40 @@ func TestRefreshAutonomousAgentImportTrace_TraceNotFound(t *testing.T) {
 	handler := createTestTracesHandlerWithMocks(mockDocDB, mockPlatform)
 
 	c, w := setupTestContextWithBody(http.MethodPut, "/test", nil, map[string]string{
-		"X-Unified-UI-Autonomous-Agent-API-Key": "test-api-key",
+		"X-Unified-UI-Workflow-API-Key": "test-api-key",
 	})
-	c.Set("autonomous_agent_api_key", "test-api-key")
+	c.Set("workflow_api_key", "test-api-key")
 	setContextParams(c, map[string]string{
 		"tenantId": testTenantID,
-		"agentId":  testAutonomousAgentID,
+		"agentId":  testWorkflowID,
 		"traceId":  testTraceID,
 	})
 
-	handler.RefreshAutonomousAgentImportTrace(c)
+	handler.RefreshWorkflowImportTrace(c)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
 	mockPlatform.AssertExpectations(t)
 }
 
-func TestRefreshAutonomousAgentImportTrace_TraceBelongsToDifferentAgent(t *testing.T) {
+func TestRefreshWorkflowImportTrace_TraceBelongsToDifferentAgent(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
-	agentConfig := &platform.AutonomousAgentConfigResponse{
-		Type:              platform.AgentTypeN8N,
-		TenantID:          testTenantID,
-		AutonomousAgentID: testAutonomousAgentID,
-		Settings:          platform.AutonomousAgentConfigSettings{},
+	agentConfig := &platform.WorkflowConfigResponse{
+		Type:       platform.AgentTypeN8N,
+		TenantID:   testTenantID,
+		WorkflowID: testWorkflowID,
+		Settings:   platform.WorkflowConfigSettings{},
 	}
 
 	trace := &models.Trace{
-		ID:                testTraceID,
-		TenantID:          testTenantID,
-		AutonomousAgentID: "different-agent-id", // Different agent
-		ReferenceID:       testExecutionID,
+		ID:          testTraceID,
+		TenantID:    testTenantID,
+		WorkflowID:  "different-agent-id", // Different agent
+		ReferenceID: testExecutionID,
 	}
 
-	mockPlatform.On("GetAutonomousAgentConfig", mock.Anything, testTenantID, testAutonomousAgentID, "test-api-key").
+	mockPlatform.On("GetWorkflowConfig", mock.Anything, testTenantID, testWorkflowID, "test-api-key").
 		Return(agentConfig, nil)
 	mockDocDB.GetTracesCollection().On("Get", mock.Anything, testTraceID).
 		Return(trace, nil)
@@ -1237,41 +1237,41 @@ func TestRefreshAutonomousAgentImportTrace_TraceBelongsToDifferentAgent(t *testi
 	handler := createTestTracesHandlerWithMocks(mockDocDB, mockPlatform)
 
 	c, w := setupTestContextWithBody(http.MethodPut, "/test", nil, map[string]string{
-		"X-Unified-UI-Autonomous-Agent-API-Key": "test-api-key",
+		"X-Unified-UI-Workflow-API-Key": "test-api-key",
 	})
-	c.Set("autonomous_agent_api_key", "test-api-key")
+	c.Set("workflow_api_key", "test-api-key")
 	setContextParams(c, map[string]string{
 		"tenantId": testTenantID,
-		"agentId":  testAutonomousAgentID,
+		"agentId":  testWorkflowID,
 		"traceId":  testTraceID,
 	})
 
-	handler.RefreshAutonomousAgentImportTrace(c)
+	handler.RefreshWorkflowImportTrace(c)
 
 	assert.Equal(t, http.StatusForbidden, w.Code)
 	mockPlatform.AssertExpectations(t)
 }
 
-func TestRefreshAutonomousAgentImportTrace_NoExecutionID(t *testing.T) {
+func TestRefreshWorkflowImportTrace_NoExecutionID(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
-	agentConfig := &platform.AutonomousAgentConfigResponse{
-		Type:              platform.AgentTypeN8N,
-		TenantID:          testTenantID,
-		AutonomousAgentID: testAutonomousAgentID,
-		Settings:          platform.AutonomousAgentConfigSettings{},
+	agentConfig := &platform.WorkflowConfigResponse{
+		Type:       platform.AgentTypeN8N,
+		TenantID:   testTenantID,
+		WorkflowID: testWorkflowID,
+		Settings:   platform.WorkflowConfigSettings{},
 	}
 
 	trace := &models.Trace{
 		ID:                testTraceID,
 		TenantID:          testTenantID,
-		AutonomousAgentID: testAutonomousAgentID,
+		WorkflowID:        testWorkflowID,
 		ReferenceID:       "", // No execution ID
 		ReferenceMetadata: nil,
 	}
 
-	mockPlatform.On("GetAutonomousAgentConfig", mock.Anything, testTenantID, testAutonomousAgentID, "test-api-key").
+	mockPlatform.On("GetWorkflowConfig", mock.Anything, testTenantID, testWorkflowID, "test-api-key").
 		Return(agentConfig, nil)
 	mockDocDB.GetTracesCollection().On("Get", mock.Anything, testTraceID).
 		Return(trace, nil)
@@ -1279,40 +1279,40 @@ func TestRefreshAutonomousAgentImportTrace_NoExecutionID(t *testing.T) {
 	handler := createTestTracesHandlerWithMocks(mockDocDB, mockPlatform)
 
 	c, w := setupTestContextWithBody(http.MethodPut, "/test", nil, map[string]string{
-		"X-Unified-UI-Autonomous-Agent-API-Key": "test-api-key",
+		"X-Unified-UI-Workflow-API-Key": "test-api-key",
 	})
-	c.Set("autonomous_agent_api_key", "test-api-key")
+	c.Set("workflow_api_key", "test-api-key")
 	setContextParams(c, map[string]string{
 		"tenantId": testTenantID,
-		"agentId":  testAutonomousAgentID,
+		"agentId":  testWorkflowID,
 		"traceId":  testTraceID,
 	})
 
-	handler.RefreshAutonomousAgentImportTrace(c)
+	handler.RefreshWorkflowImportTrace(c)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 	mockPlatform.AssertExpectations(t)
 }
 
-func TestRefreshAutonomousAgentImportTrace_NoImporterRegistered(t *testing.T) {
+func TestRefreshWorkflowImportTrace_NoImporterRegistered(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
-	agentConfig := &platform.AutonomousAgentConfigResponse{
-		Type:              platform.AgentTypeN8N,
-		TenantID:          testTenantID,
-		AutonomousAgentID: testAutonomousAgentID,
-		Settings:          platform.AutonomousAgentConfigSettings{},
+	agentConfig := &platform.WorkflowConfigResponse{
+		Type:       platform.AgentTypeN8N,
+		TenantID:   testTenantID,
+		WorkflowID: testWorkflowID,
+		Settings:   platform.WorkflowConfigSettings{},
 	}
 
 	trace := &models.Trace{
-		ID:                testTraceID,
-		TenantID:          testTenantID,
-		AutonomousAgentID: testAutonomousAgentID,
-		ReferenceID:       testExecutionID,
+		ID:          testTraceID,
+		TenantID:    testTenantID,
+		WorkflowID:  testWorkflowID,
+		ReferenceID: testExecutionID,
 	}
 
-	mockPlatform.On("GetAutonomousAgentConfig", mock.Anything, testTenantID, testAutonomousAgentID, "test-api-key").
+	mockPlatform.On("GetWorkflowConfig", mock.Anything, testTenantID, testWorkflowID, "test-api-key").
 		Return(agentConfig, nil)
 	mockDocDB.GetTracesCollection().On("Get", mock.Anything, testTraceID).
 		Return(trace, nil)
@@ -1321,43 +1321,43 @@ func TestRefreshAutonomousAgentImportTrace_NoImporterRegistered(t *testing.T) {
 	// Note: No importer registered
 
 	c, w := setupTestContextWithBody(http.MethodPut, "/test", nil, map[string]string{
-		"X-Unified-UI-Autonomous-Agent-API-Key": "test-api-key",
+		"X-Unified-UI-Workflow-API-Key": "test-api-key",
 	})
-	c.Set("autonomous_agent_api_key", "test-api-key")
+	c.Set("workflow_api_key", "test-api-key")
 	setContextParams(c, map[string]string{
 		"tenantId": testTenantID,
-		"agentId":  testAutonomousAgentID,
+		"agentId":  testWorkflowID,
 		"traceId":  testTraceID,
 	})
 
-	handler.RefreshAutonomousAgentImportTrace(c)
+	handler.RefreshWorkflowImportTrace(c)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 	mockPlatform.AssertExpectations(t)
 }
 
-func TestRefreshAutonomousAgentImportTrace_BackendConfigError(t *testing.T) {
+func TestRefreshWorkflowImportTrace_BackendConfigError(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
 	// Config without required N8N host
-	agentConfig := &platform.AutonomousAgentConfigResponse{
-		Type:              platform.AgentTypeN8N,
-		TenantID:          testTenantID,
-		AutonomousAgentID: testAutonomousAgentID,
-		Settings: platform.AutonomousAgentConfigSettings{
+	agentConfig := &platform.WorkflowConfigResponse{
+		Type:       platform.AgentTypeN8N,
+		TenantID:   testTenantID,
+		WorkflowID: testWorkflowID,
+		Settings: platform.WorkflowConfigSettings{
 			N8NHost: "", // Missing
 		},
 	}
 
 	trace := &models.Trace{
-		ID:                testTraceID,
-		TenantID:          testTenantID,
-		AutonomousAgentID: testAutonomousAgentID,
-		ReferenceID:       testExecutionID,
+		ID:          testTraceID,
+		TenantID:    testTenantID,
+		WorkflowID:  testWorkflowID,
+		ReferenceID: testExecutionID,
 	}
 
-	mockPlatform.On("GetAutonomousAgentConfig", mock.Anything, testTenantID, testAutonomousAgentID, "test-api-key").
+	mockPlatform.On("GetWorkflowConfig", mock.Anything, testTenantID, testWorkflowID, "test-api-key").
 		Return(agentConfig, nil)
 	mockDocDB.GetTracesCollection().On("Get", mock.Anything, testTraceID).
 		Return(trace, nil)
@@ -1366,31 +1366,31 @@ func TestRefreshAutonomousAgentImportTrace_BackendConfigError(t *testing.T) {
 	handler.GetImportService().RegisterImporter(mocks.NewMockTraceImporter())
 
 	c, w := setupTestContextWithBody(http.MethodPut, "/test", nil, map[string]string{
-		"X-Unified-UI-Autonomous-Agent-API-Key": "test-api-key",
+		"X-Unified-UI-Workflow-API-Key": "test-api-key",
 	})
-	c.Set("autonomous_agent_api_key", "test-api-key")
+	c.Set("workflow_api_key", "test-api-key")
 	setContextParams(c, map[string]string{
 		"tenantId": testTenantID,
-		"agentId":  testAutonomousAgentID,
+		"agentId":  testWorkflowID,
 		"traceId":  testTraceID,
 	})
 
-	handler.RefreshAutonomousAgentImportTrace(c)
+	handler.RefreshWorkflowImportTrace(c)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 	mockPlatform.AssertExpectations(t)
 }
 
-func TestRefreshAutonomousAgentImportTrace_BearerToken_GetUserFallbackToSystem(t *testing.T) {
+func TestRefreshWorkflowImportTrace_BearerToken_GetUserFallbackToSystem(t *testing.T) {
 	// When GetMe fails, getUserID returns "system" as fallback, not an error
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
-	agentConfig := &platform.AutonomousAgentConfigResponse{
-		Type:              platform.AgentTypeN8N,
-		TenantID:          testTenantID,
-		AutonomousAgentID: testAutonomousAgentID,
-		Settings: platform.AutonomousAgentConfigSettings{
+	agentConfig := &platform.WorkflowConfigResponse{
+		Type:       platform.AgentTypeN8N,
+		TenantID:   testTenantID,
+		WorkflowID: testWorkflowID,
+		Settings: platform.WorkflowConfigSettings{
 			N8NHost:    "https://n8n.example.com",
 			WorkflowID: "workflow-123",
 			APICredentials: &platform.Credentials{
@@ -1403,26 +1403,26 @@ func TestRefreshAutonomousAgentImportTrace_BearerToken_GetUserFallbackToSystem(t
 
 	now := time.Now().UTC()
 	trace := &models.Trace{
-		ID:                testTraceID,
-		TenantID:          testTenantID,
-		AutonomousAgentID: testAutonomousAgentID,
-		ContextType:       models.TraceContextAutonomousAgent,
-		ReferenceID:       testExecutionID,
-		CreatedAt:         now,
-		UpdatedAt:         now,
+		ID:          testTraceID,
+		TenantID:    testTenantID,
+		WorkflowID:  testWorkflowID,
+		ContextType: models.TraceContextWorkflow,
+		ReferenceID: testExecutionID,
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	}
 
 	mockReturnedTrace := &models.Trace{
-		ID:                "mock-trace-id",
-		TenantID:          testTenantID,
-		AutonomousAgentID: testAutonomousAgentID,
-		ContextType:       models.TraceContextAutonomousAgent,
-		ReferenceID:       testExecutionID,
-		CreatedAt:         now,
-		UpdatedAt:         now,
+		ID:          "mock-trace-id",
+		TenantID:    testTenantID,
+		WorkflowID:  testWorkflowID,
+		ContextType: models.TraceContextWorkflow,
+		ReferenceID: testExecutionID,
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	}
 
-	mockPlatform.On("GetAutonomousAgentConfigWithBearer", mock.Anything, testTenantID, testAutonomousAgentID, "test-bearer-token").
+	mockPlatform.On("GetWorkflowConfigWithBearer", mock.Anything, testTenantID, testWorkflowID, "test-bearer-token").
 		Return(agentConfig, nil)
 	mockPlatform.On("GetMe", mock.Anything, "test-bearer-token").
 		Return(nil, fmt.Errorf("failed to get user"))
@@ -1447,26 +1447,26 @@ func TestRefreshAutonomousAgentImportTrace_BearerToken_GetUserFallbackToSystem(t
 	c.Set("auth_token", "test-bearer-token")
 	setContextParams(c, map[string]string{
 		"tenantId": testTenantID,
-		"agentId":  testAutonomousAgentID,
+		"agentId":  testWorkflowID,
 		"traceId":  testTraceID,
 	})
 
-	handler.RefreshAutonomousAgentImportTrace(c)
+	handler.RefreshWorkflowImportTrace(c)
 
 	// Should succeed with fallback user ID
 	assert.Equal(t, http.StatusOK, w.Code)
 	mockPlatform.AssertExpectations(t)
 }
 
-func TestRefreshAutonomousAgentImportTrace_Success(t *testing.T) {
+func TestRefreshWorkflowImportTrace_Success(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
-	agentConfig := &platform.AutonomousAgentConfigResponse{
-		Type:              platform.AgentTypeN8N,
-		TenantID:          testTenantID,
-		AutonomousAgentID: testAutonomousAgentID,
-		Settings: platform.AutonomousAgentConfigSettings{
+	agentConfig := &platform.WorkflowConfigResponse{
+		Type:       platform.AgentTypeN8N,
+		TenantID:   testTenantID,
+		WorkflowID: testWorkflowID,
+		Settings: platform.WorkflowConfigSettings{
 			N8NHost:    "https://n8n.example.com",
 			WorkflowID: "workflow-123",
 			APICredentials: &platform.Credentials{
@@ -1479,26 +1479,26 @@ func TestRefreshAutonomousAgentImportTrace_Success(t *testing.T) {
 
 	now := time.Now().UTC()
 	trace := &models.Trace{
-		ID:                testTraceID,
-		TenantID:          testTenantID,
-		AutonomousAgentID: testAutonomousAgentID,
-		ContextType:       models.TraceContextAutonomousAgent,
-		ReferenceID:       testExecutionID,
-		CreatedAt:         now,
-		UpdatedAt:         now,
+		ID:          testTraceID,
+		TenantID:    testTenantID,
+		WorkflowID:  testWorkflowID,
+		ContextType: models.TraceContextWorkflow,
+		ReferenceID: testExecutionID,
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	}
 
 	mockReturnedTrace := &models.Trace{
-		ID:                "mock-trace-id",
-		TenantID:          testTenantID,
-		AutonomousAgentID: testAutonomousAgentID,
-		ContextType:       models.TraceContextAutonomousAgent,
-		ReferenceID:       testExecutionID,
-		CreatedAt:         now,
-		UpdatedAt:         now,
+		ID:          "mock-trace-id",
+		TenantID:    testTenantID,
+		WorkflowID:  testWorkflowID,
+		ContextType: models.TraceContextWorkflow,
+		ReferenceID: testExecutionID,
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	}
 
-	mockPlatform.On("GetAutonomousAgentConfig", mock.Anything, testTenantID, testAutonomousAgentID, "test-api-key").
+	mockPlatform.On("GetWorkflowConfig", mock.Anything, testTenantID, testWorkflowID, "test-api-key").
 		Return(agentConfig, nil)
 	// First Get is for fetching the original trace by traceID
 	mockDocDB.GetTracesCollection().On("Get", mock.Anything, testTraceID).
@@ -1515,16 +1515,16 @@ func TestRefreshAutonomousAgentImportTrace_Success(t *testing.T) {
 	handler.GetImportService().RegisterImporter(mocks.NewMockTraceImporter())
 
 	c, w := setupTestContextWithBody(http.MethodPut, "/test", nil, map[string]string{
-		"X-Unified-UI-Autonomous-Agent-API-Key": "test-api-key",
+		"X-Unified-UI-Workflow-API-Key": "test-api-key",
 	})
-	c.Set("autonomous_agent_api_key", "test-api-key")
+	c.Set("workflow_api_key", "test-api-key")
 	setContextParams(c, map[string]string{
 		"tenantId": testTenantID,
-		"agentId":  testAutonomousAgentID,
+		"agentId":  testWorkflowID,
 		"traceId":  testTraceID,
 	})
 
-	handler.RefreshAutonomousAgentImportTrace(c)
+	handler.RefreshWorkflowImportTrace(c)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 

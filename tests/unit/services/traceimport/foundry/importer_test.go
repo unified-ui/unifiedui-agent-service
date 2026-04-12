@@ -205,7 +205,7 @@ func TestTraceImporter_Import_UpdateByExistingTraceID(t *testing.T) {
 	assert.Equal(t, "trace-by-id", traceID)
 }
 
-func TestTraceImporter_Import_AutonomousAgentContext(t *testing.T) {
+func TestTraceImporter_Import_WorkflowContext(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(makeFoundryItemsResponse())
@@ -220,15 +220,15 @@ func TestTraceImporter_Import_AutonomousAgentContext(t *testing.T) {
 	tracesCol.On("Create", mock.Anything, mock.AnythingOfType("*models.Trace")).
 		Run(func(args mock.Arguments) {
 			trace := args.Get(1).(*models.Trace)
-			assert.Equal(t, models.TraceContextAutonomousAgent, trace.ContextType)
+			assert.Equal(t, models.TraceContextWorkflow, trace.ContextType)
 		}).Return(nil)
 
 	importer := foundryimport.NewTraceImporter(docDB)
 
 	_, err := importer.Import(context.Background(), &traceimport.ImportRequest{
-		TenantID:          "t1",
-		AutonomousAgentID: "auto-1",
-		UserID:            "user-1",
+		TenantID:   "t1",
+		WorkflowID: "auto-1",
+		UserID:     "user-1",
 		BackendConfig: map[string]interface{}{
 			"ext_conversation_id": "conv-ext-1",
 			"project_endpoint":    server.URL,

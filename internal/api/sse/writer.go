@@ -227,7 +227,13 @@ func (w *Writer) WriteToolCallStart(toolName string, config map[string]interface
 	if config == nil {
 		config = map[string]interface{}{}
 	}
-	config["tool_name"] = toolName
+	config["toolName"] = toolName
+	if args, ok := config["tool_arguments"]; ok {
+		config["toolInput"] = args
+	}
+	if ct, ok := config["call_type"]; ok {
+		config["callType"] = ct
+	}
 	return w.WriteJSON(EventMessage, &StreamMessage{
 		Type:   StreamTypeToolCallStart,
 		Config: config,
@@ -246,6 +252,15 @@ func (w *Writer) WriteToolCallStream(content string) error {
 func (w *Writer) WriteToolCallEnd(config map[string]interface{}) error {
 	if config == nil {
 		config = map[string]interface{}{}
+	}
+	if result, ok := config["tool_result"]; ok {
+		config["toolResult"] = result
+	}
+	if name, ok := config["tool_name"]; ok {
+		config["toolName"] = name
+	}
+	if ct, ok := config["call_type"]; ok {
+		config["callType"] = ct
 	}
 	return w.WriteJSON(EventMessage, &StreamMessage{
 		Type:   StreamTypeToolCallEnd,
@@ -285,7 +300,10 @@ func (w *Writer) WriteSubAgentStart(agentName string, config map[string]interfac
 	if config == nil {
 		config = map[string]interface{}{}
 	}
-	config["agent_name"] = agentName
+	config["agentName"] = agentName
+	if id, ok := config["sub_agent_id"]; ok {
+		config["agentId"] = id
+	}
 	return w.WriteJSON(EventMessage, &StreamMessage{
 		Type:   StreamTypeSubAgentStart,
 		Config: config,

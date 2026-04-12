@@ -172,13 +172,13 @@ func TestAuthMiddleware_AuthenticateFlexible_APIKey(t *testing.T) {
 	router.Use(am.AuthenticateFlexible())
 	var apiKey string
 	router.GET("/test", func(c *gin.Context) {
-		apiKey = middleware.GetAutonomousAgentAPIKey(c)
+		apiKey = middleware.GetWorkflowAPIKey(c)
 		c.Status(http.StatusOK)
 	})
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
-	req.Header.Set("X-Unified-UI-Autonomous-Agent-API-Key", "my-api-key")
+	req.Header.Set("X-Unified-UI-Workflow-API-Key", "my-api-key")
 	router.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusOK, w.Code)
@@ -251,43 +251,43 @@ func TestAuthMiddleware_AuthenticateFlexible_InvalidAuthHeader_WithAPIKey(t *tes
 	router.Use(am.AuthenticateFlexible())
 	var apiKey string
 	router.GET("/test", func(c *gin.Context) {
-		apiKey = middleware.GetAutonomousAgentAPIKey(c)
+		apiKey = middleware.GetWorkflowAPIKey(c)
 		c.Status(http.StatusOK)
 	})
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
-	req.Header.Set("Authorization", "Basic invalid")                        // Invalid auth header
-	req.Header.Set("X-Unified-UI-Autonomous-Agent-API-Key", "fallback-key") // But has API key
+	req.Header.Set("Authorization", "Basic invalid")                // Invalid auth header
+	req.Header.Set("X-Unified-UI-Workflow-API-Key", "fallback-key") // But has API key
 	router.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusOK, w.Code)
 	require.Equal(t, "fallback-key", apiKey)
 }
 
-func TestAuthMiddleware_AuthenticateAutonomousAgentAPIKey_Success(t *testing.T) {
+func TestAuthMiddleware_AuthenticateWorkflowAPIKey_Success(t *testing.T) {
 	router := gin.New()
 	am := middleware.NewAuthMiddleware("http://platform")
-	router.Use(am.AuthenticateAutonomousAgentAPIKey())
+	router.Use(am.AuthenticateWorkflowAPIKey())
 	var apiKey string
 	router.GET("/test", func(c *gin.Context) {
-		apiKey = middleware.GetAutonomousAgentAPIKey(c)
+		apiKey = middleware.GetWorkflowAPIKey(c)
 		c.Status(http.StatusOK)
 	})
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
-	req.Header.Set("X-Unified-UI-Autonomous-Agent-API-Key", "agent-key")
+	req.Header.Set("X-Unified-UI-Workflow-API-Key", "agent-key")
 	router.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusOK, w.Code)
 	require.Equal(t, "agent-key", apiKey)
 }
 
-func TestAuthMiddleware_AuthenticateAutonomousAgentAPIKey_Missing(t *testing.T) {
+func TestAuthMiddleware_AuthenticateWorkflowAPIKey_Missing(t *testing.T) {
 	router := gin.New()
 	am := middleware.NewAuthMiddleware("http://platform")
-	router.Use(am.AuthenticateAutonomousAgentAPIKey())
+	router.Use(am.AuthenticateWorkflowAPIKey())
 	router.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
 
 	w := httptest.NewRecorder()
@@ -304,9 +304,9 @@ func TestGetToken_NotSet(t *testing.T) {
 	require.Equal(t, "", middleware.GetToken(c))
 }
 
-func TestGetAutonomousAgentAPIKey_NotSet(t *testing.T) {
+func TestGetWorkflowAPIKey_NotSet(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Request = httptest.NewRequest(http.MethodGet, "/", http.NoBody)
-	require.Equal(t, "", middleware.GetAutonomousAgentAPIKey(c))
+	require.Equal(t, "", middleware.GetWorkflowAPIKey(c))
 }

@@ -124,12 +124,12 @@ func (c *TracesCollection) ListByConversation(ctx context.Context, tenantID, con
 	return traces, nil
 }
 
-// GetByAutonomousAgent retrieves the most recent trace for an autonomous agent.
-func (c *TracesCollection) GetByAutonomousAgent(ctx context.Context, tenantID, autonomousAgentID string) (*models.Trace, error) {
+// GetByWorkflow retrieves the most recent trace for an workflow.
+func (c *TracesCollection) GetByWorkflow(ctx context.Context, tenantID, workflowID string) (*models.Trace, error) {
 	filter := bson.M{
-		"tenantId":          sanitizeValue(tenantID),
-		"autonomousAgentId": sanitizeValue(autonomousAgentID),
-		"contextType":       models.TraceContextAutonomousAgent,
+		"tenantId":    sanitizeValue(tenantID),
+		"workflowId":  sanitizeValue(workflowID),
+		"contextType": models.TraceContextWorkflow,
 	}
 
 	findOpts := options.FindOne().SetSort(bson.M{"createdAt": -1})
@@ -140,25 +140,25 @@ func (c *TracesCollection) GetByAutonomousAgent(ctx context.Context, tenantID, a
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("failed to get trace by autonomous agent: %w", err)
+		return nil, fmt.Errorf("failed to get trace by workflow: %w", err)
 	}
 
 	return &trace, nil
 }
 
-// ListByAutonomousAgent retrieves traces for an autonomous agent as a list.
-func (c *TracesCollection) ListByAutonomousAgent(ctx context.Context, tenantID, autonomousAgentID string) ([]*models.Trace, error) {
+// ListByWorkflow retrieves traces for an workflow as a list.
+func (c *TracesCollection) ListByWorkflow(ctx context.Context, tenantID, workflowID string) ([]*models.Trace, error) {
 	filter := bson.M{
-		"tenantId":          sanitizeValue(tenantID),
-		"autonomousAgentId": sanitizeValue(autonomousAgentID),
-		"contextType":       models.TraceContextAutonomousAgent,
+		"tenantId":    sanitizeValue(tenantID),
+		"workflowId":  sanitizeValue(workflowID),
+		"contextType": models.TraceContextWorkflow,
 	}
 
 	findOpts := options.Find().SetSort(bson.M{"createdAt": -1})
 
 	cursor, err := c.collection.Find(ctx, filter, findOpts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list traces by autonomous agent: %w", err)
+		return nil, fmt.Errorf("failed to list traces by workflow: %w", err)
 	}
 	defer func() { _ = cursor.Close(ctx) }()
 
@@ -297,17 +297,17 @@ func (c *TracesCollection) DeleteByConversation(ctx context.Context, tenantID, c
 	return nil
 }
 
-// DeleteByAutonomousAgent removes the trace for an autonomous agent.
-func (c *TracesCollection) DeleteByAutonomousAgent(ctx context.Context, tenantID, autonomousAgentID string) error {
+// DeleteByWorkflow removes the trace for an workflow.
+func (c *TracesCollection) DeleteByWorkflow(ctx context.Context, tenantID, workflowID string) error {
 	filter := bson.M{
-		"tenantId":          sanitizeValue(tenantID),
-		"autonomousAgentId": sanitizeValue(autonomousAgentID),
-		"contextType":       models.TraceContextAutonomousAgent,
+		"tenantId":    sanitizeValue(tenantID),
+		"workflowId":  sanitizeValue(workflowID),
+		"contextType": models.TraceContextWorkflow,
 	}
 
 	_, err := c.collection.DeleteOne(ctx, filter)
 	if err != nil {
-		return fmt.Errorf("failed to delete trace by autonomous agent: %w", err)
+		return fmt.Errorf("failed to delete trace by workflow: %w", err)
 	}
 
 	return nil
@@ -344,9 +344,9 @@ func (c *TracesCollection) EnsureIndexes(ctx context.Context) error {
 		{
 			Keys: bson.D{
 				{Key: "tenantId", Value: 1},
-				{Key: "autonomousAgentId", Value: 1},
+				{Key: "workflowId", Value: 1},
 			},
-			Options: options.Index().SetName("idx_tenant_autonomous_agent").SetSparse(true),
+			Options: options.Index().SetName("idx_tenant_workflow").SetSparse(true),
 		},
 		// Context type index for filtering
 		{
@@ -390,8 +390,8 @@ func (c *TracesCollection) buildFilter(opts *docdb.ListTracesOptions) bson.M {
 	if opts.ConversationID != "" {
 		filter["conversationId"] = sanitizeValue(opts.ConversationID)
 	}
-	if opts.AutonomousAgentID != "" {
-		filter["autonomousAgentId"] = sanitizeValue(opts.AutonomousAgentID)
+	if opts.WorkflowID != "" {
+		filter["workflowId"] = sanitizeValue(opts.WorkflowID)
 	}
 	if opts.ContextType != "" {
 		filter["contextType"] = sanitizeValue(string(opts.ContextType))

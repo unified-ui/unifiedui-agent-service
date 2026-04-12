@@ -1,5 +1,16 @@
 basePath: /
 definitions:
+  dto.AICapabilitiesResponse:
+    properties:
+      description_generation:
+        type: boolean
+      summarization:
+        type: boolean
+      title_generation:
+        type: boolean
+      trace_analysis:
+        type: boolean
+    type: object
   dto.AddLogsRequest:
     properties:
       logs:
@@ -19,31 +30,38 @@ definitions:
     required:
     - nodes
     type: object
-  dto.AutonomousAgentImportTraceRequest:
+  dto.AnalyzeTraceRequest:
     properties:
-      executionId:
-        description: |-
-          ExecutionID is the external execution/run identifier (e.g., N8N execution ID).
-          Required for initial import.
+      error:
         type: string
-      sessionId:
-        description: SessionID is an optional session identifier for finding executions.
+      input:
+        additionalProperties: true
+        type: object
+      node_id:
         type: string
-      type:
-        description: |-
-          Type is the agent type for the import (e.g., "N8N", "MICROSOFT_FOUNDRY").
-          This determines which importer to use.
+      node_name:
+        type: string
+      node_type:
+        type: string
+      output:
+        additionalProperties: true
+        type: object
+      trace_id:
         type: string
     required:
-    - executionId
-    - type
+    - error
+    - node_name
+    - node_type
+    type: object
+  dto.AnalyzeTraceResponse:
+    properties:
+      analysis:
+        type: string
     type: object
   dto.CreateTraceRequest:
     properties:
       chatAgentId:
-        description: Context fields - EITHER (chatAgentId + conversationId) OR autonomousAgentId
-        type: string
-      autonomousAgentId:
+        description: Context fields - EITHER (chatAgentId + conversationId) OR workflowId
         type: string
       conversationId:
         type: string
@@ -67,6 +85,8 @@ definitions:
         type: object
       referenceName:
         type: string
+      workflowId:
+        type: string
     type: object
   dto.CreateTraceResponse:
     properties:
@@ -82,6 +102,26 @@ definitions:
       message:
         type: string
     type: object
+  dto.GenerateDescriptionRequest:
+    properties:
+      context:
+        additionalProperties: true
+        type: object
+      entity_name:
+        type: string
+      entity_type:
+        type: string
+      existing_description:
+        type: string
+    required:
+    - entity_name
+    - entity_type
+    type: object
+  dto.GenerateDescriptionResponse:
+    properties:
+      description:
+        type: string
+    type: object
   dto.ImportTraceResponse:
     properties:
       id:
@@ -94,6 +134,15 @@ definitions:
       traces:
         items:
           $ref: '#/definitions/dto.TraceResponse'
+        type: array
+    type: object
+  dto.ListWorkflowRunsResponse:
+    properties:
+      nextCursor:
+        type: string
+      runs:
+        items:
+          $ref: '#/definitions/dto.WorkflowRunResponse'
         type: array
     type: object
   dto.NodeDataIORequest:
@@ -150,6 +199,126 @@ definitions:
         additionalProperties: true
         type: object
       referenceName:
+        type: string
+    type: object
+  dto.SummarizeTraceRequest:
+    properties:
+      detail_level:
+        enum:
+        - short
+        - medium
+        - long
+        type: string
+      nodes:
+        items:
+          additionalProperties: true
+          type: object
+        type: array
+      trace_id:
+        type: string
+    required:
+    - detail_level
+    - nodes
+    type: object
+  dto.SummarizeTraceResponse:
+    properties:
+      summary:
+        type: string
+    type: object
+  dto.TestConnectionRequest:
+    properties:
+      config:
+        additionalProperties: true
+        type: object
+      credential_id:
+        type: string
+      test_type:
+        $ref: '#/definitions/dto.TestConnectionType'
+      url:
+        type: string
+    required:
+    - test_type
+    - url
+    type: object
+  dto.TestConnectionResponse:
+    properties:
+      message:
+        type: string
+      response_time_ms:
+        type: integer
+      success:
+        type: boolean
+    type: object
+  dto.TestConnectionType:
+    enum:
+    - N8N_CHAT_URL
+    - N8N_WORKFLOW
+    - N8N_WEBHOOK
+    - FOUNDRY_AGENT
+    - REST_API_INVOKE
+    - REST_API_CONVERSATION
+    type: string
+    x-enum-varnames:
+    - TestConnectionTypeN8NChatURL
+    - TestConnectionTypeN8NWorkflow
+    - TestConnectionTypeN8NWebhook
+    - TestConnectionTypeFoundryAgent
+    - TestConnectionTypeRestAPIInvoke
+    - TestConnectionTypeRestAPIConversation
+  dto.TestModelRequest:
+    properties:
+      config:
+        additionalProperties: true
+        type: object
+      credential_id:
+        type: string
+      provider:
+        type: string
+    required:
+    - config
+    - provider
+    type: object
+  dto.TestModelResponse:
+    properties:
+      message:
+        type: string
+      response_time_ms:
+        type: integer
+      success:
+        type: boolean
+    type: object
+  dto.TraceChatMessage:
+    properties:
+      content:
+        type: string
+      role:
+        enum:
+        - user
+        - assistant
+        type: string
+    required:
+    - content
+    - role
+    type: object
+  dto.TraceChatRequest:
+    properties:
+      history:
+        items:
+          $ref: '#/definitions/dto.TraceChatMessage'
+        type: array
+      message:
+        type: string
+      selected_node:
+        type: string
+      trace:
+        type: string
+    required:
+    - message
+    - trace
+    type: object
+  dto.TraceChatResponse:
+    properties:
+      reply:
         type: string
     type: object
   dto.TraceNodeRequest:
@@ -233,8 +402,6 @@ definitions:
     properties:
       chatAgentId:
         type: string
-      autonomousAgentId:
-        type: string
       contextType:
         type: string
       conversationId:
@@ -266,9 +433,86 @@ definitions:
         type: string
       updatedBy:
         type: string
+      workflowId:
+        type: string
+    type: object
+  dto.WorkflowImportTraceRequest:
+    properties:
+      executionId:
+        description: |-
+          ExecutionID is the external execution/run identifier (e.g., N8N execution ID).
+          Required for initial import.
+        type: string
+      sessionId:
+        description: SessionID is an optional session identifier for finding executions.
+        type: string
+      type:
+        description: |-
+          Type is the agent type for the import (e.g., "N8N", "MICROSOFT_FOUNDRY").
+          This determines which importer to use.
+        type: string
+    required:
+    - executionId
+    - type
+    type: object
+  dto.WorkflowRunResponse:
+    properties:
+      id:
+        type: string
+      mode:
+        type: string
+      startedAt:
+        type: string
+      status:
+        type: string
+      stoppedAt:
+        type: string
+    type: object
+  handlers.BulkReactionsResponse:
+    properties:
+      reactions:
+        additionalProperties:
+          items:
+            $ref: '#/definitions/handlers.ReactionResponse'
+          type: array
+        type: object
+    type: object
+  handlers.EditMessageRequest:
+    properties:
+      content:
+        maxLength: 32000
+        minLength: 1
+        type: string
+    required:
+    - content
+    type: object
+  handlers.FileAttachment:
+    properties:
+      detail:
+        type: string
+      fileData:
+        type: string
+      fileId:
+        type: string
+      filename:
+        type: string
+      imageUrl:
+        type: string
+      mimeType:
+        type: string
+      type:
+        enum:
+        - image
+        - file
+        - audio
+        type: string
+    required:
+    - type
     type: object
   handlers.GetMessagesResponse:
     properties:
+      hasMore:
+        type: boolean
       messages:
         items:
           $ref: '#/definitions/handlers.MessageResponse'
@@ -292,6 +536,13 @@ definitions:
           type: string
         type: object
     type: object
+  handlers.ListReactionsResponse:
+    properties:
+      reactions:
+        items:
+          $ref: '#/definitions/handlers.ReactionResponse'
+        type: array
+    type: object
   handlers.MessageContent:
     properties:
       attachments:
@@ -302,11 +553,19 @@ definitions:
         maxLength: 32000
         minLength: 1
         type: string
+      files:
+        items:
+          $ref: '#/definitions/handlers.FileAttachment'
+        type: array
     required:
     - content
     type: object
   handlers.MessageResponse:
     properties:
+      attachmentsMetadata:
+        items:
+          $ref: '#/definitions/models.AttachmentMetadata'
+        type: array
       chatAgentId:
         type: string
       content:
@@ -317,6 +576,9 @@ definitions:
         type: string
       errorMessage:
         type: string
+      extra:
+        additionalProperties: true
+        type: object
       id:
         type: string
       metadata:
@@ -336,6 +598,34 @@ definitions:
       userMessageId:
         type: string
     type: object
+  handlers.ReactionResponse:
+    properties:
+      conversationId:
+        type: string
+      createdAt:
+        type: string
+      feedbackText:
+        type: string
+      id:
+        type: string
+      messageId:
+        type: string
+      reaction:
+        $ref: '#/definitions/models.ReactionType'
+      tenantId:
+        type: string
+      updatedAt:
+        type: string
+      userId:
+        type: string
+    type: object
+  handlers.SearchMessagesResponse:
+    properties:
+      messages:
+        items:
+          $ref: '#/definitions/handlers.MessageResponse'
+        type: array
+    type: object
   handlers.SendMessageRequest:
     properties:
       chatAgentId:
@@ -344,6 +634,9 @@ definitions:
         type: string
       extConversationId:
         type: string
+      extra:
+        additionalProperties: true
+        type: object
       invokeConfig:
         $ref: '#/definitions/handlers.InvokeConfig'
       message:
@@ -360,6 +653,15 @@ definitions:
         type: string
       userMessageId:
         type: string
+    type: object
+  handlers.UpsertReactionRequest:
+    properties:
+      feedbackText:
+        type: string
+      reaction:
+        $ref: '#/definitions/models.ReactionType'
+    required:
+    - reaction
     type: object
   models.AssistantMetadata:
     properties:
@@ -381,24 +683,65 @@ definitions:
       tokensOutput:
         type: integer
     type: object
+  models.AttachmentMetadata:
+    properties:
+      fileCategory:
+        type: string
+      fileId:
+        type: string
+      fileName:
+        type: string
+      fileSize:
+        type: integer
+      fileType:
+        type: string
+    type: object
   models.MessageStatus:
     enum:
     - pending
     - success
     - failed
+    - cancelled
     type: string
+    x-enum-comments:
+      MessageStatusCanceled: nolint:misspell // value must stay "cancelled" for external
+        API compatibility
+    x-enum-descriptions:
+    - ""
+    - ""
+    - ""
+    - nolint:misspell // value must stay "cancelled" for external API compatibility
     x-enum-varnames:
     - MessageStatusPending
     - MessageStatusSuccess
     - MessageStatusFailed
+    - MessageStatusCanceled
   models.MessageType:
     enum:
     - user
     - assistant
+    - reasoning
+    - tool_call
+    - tool_result
+    - plan
+    - sub_agent
     type: string
     x-enum-varnames:
     - MessageTypeUser
     - MessageTypeAssistant
+    - MessageTypeReasoning
+    - MessageTypeToolCall
+    - MessageTypeToolResult
+    - MessageTypePlan
+    - MessageTypeSubAgent
+  models.ReactionType:
+    enum:
+    - thumbs_up
+    - thumbs_down
+    type: string
+    x-enum-varnames:
+    - ReactionThumbsUp
+    - ReactionThumbsDown
   models.StatusTrace:
     properties:
       content:
@@ -481,269 +824,37 @@ paths:
       summary: Readiness check
       tags:
       - Health
-  /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/data:
-    delete:
-      description: Deletes all traces associated with an autonomous agent. Requires
-        X-Service-Key authentication.
-      parameters:
-      - description: Tenant ID
-        in: path
-        name: tenantId
-        required: true
-        type: string
-      - description: Autonomous Agent ID
-        in: path
-        name: agentId
-        required: true
-        type: string
-      - description: Service-to-service authentication key
-        in: header
-        name: X-Service-Key
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "204":
-          description: No Content
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-      summary: Delete all data for an autonomous agent
-      tags:
-      - Data
-  /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/traces:
-    get:
+  /api/v1/agent-service/tenants/{tenantId}/ai/analyze-trace:
+    post:
       consumes:
       - application/json
-      description: Retrieves traces for a specific autonomous agent with pagination,
-        sorting, and filtering
+      description: Analyzes a failed trace node and provides root cause analysis and
+        suggested fixes
       parameters:
       - description: Tenant ID
         in: path
         name: tenantId
         required: true
         type: string
-      - description: Autonomous Agent ID
-        in: path
-        name: agentId
-        required: true
-        type: string
-      - description: 'Maximum number of results (default: 20, max: 100)'
-        in: query
-        name: limit
-        type: integer
-      - description: 'Number of results to skip (default: 0)'
-        in: query
-        name: skip
-        type: integer
-      - description: 'Sort order: asc or desc (default: desc)'
-        in: query
-        name: order
-        type: string
-      - description: 'Sort field: created_at or updated_at (default: created_at)'
-        in: query
-        name: order_by
-        type: string
-      - description: 'Filter: traces created after this ISO 8601 timestamp'
-        in: query
-        name: created_after
-        type: string
-      - description: 'Filter: traces created before this ISO 8601 timestamp'
-        in: query
-        name: created_before
-        type: string
-      - description: 'Include nodes and logs in response (default: false)'
-        in: query
-        name: expand
-        type: boolean
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/dto.ListTracesResponse'
-        "400":
-          description: Bad request
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: List traces for an autonomous agent
-      tags:
-      - Traces
-    put:
-      consumes:
-      - application/json
-      description: Replaces the trace for a specific autonomous agent completely
-      parameters:
-      - description: Tenant ID
-        in: path
-        name: tenantId
-        required: true
-        type: string
-      - description: Autonomous Agent ID
-        in: path
-        name: agentId
-        required: true
-        type: string
-      - description: New trace data
+      - description: Trace analysis request
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/dto.RefreshTraceRequest'
+          $ref: '#/definitions/dto.AnalyzeTraceRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.TraceResponse'
-        "400":
-          description: Bad request
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "404":
-          description: Trace not found
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Refresh trace for an autonomous agent
-      tags:
-      - Traces
-  /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/traces/{traceId}/import/refresh:
-    put:
-      consumes:
-      - application/json
-      description: Re-imports traces from the external system using the existing trace's
-        reference ID
-      parameters:
-      - description: Tenant ID
-        in: path
-        name: tenantId
-        required: true
-        type: string
-      - description: Autonomous Agent ID
-        in: path
-        name: agentId
-        required: true
-        type: string
-      - description: Trace ID
-        in: path
-        name: traceId
-        required: true
-        type: string
-      - description: Autonomous Agent API Key
-        in: header
-        name: X-Unified-UI-Autonomous-Agent-API-Key
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/dto.ImportTraceResponse'
-        "400":
-          description: Bad request - trace has no reference ID
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "401":
-          description: Unauthorized - invalid API key
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "404":
-          description: Trace or autonomous agent not found
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-      security:
-      - ApiKeyAuth: []
-      summary: Refresh an imported trace for an autonomous agent
-      tags:
-      - Traces
-  /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/traces/import:
-    put:
-      consumes:
-      - application/json
-      description: Imports traces from an external system (N8N, etc.) for an autonomous
-        agent. If a trace with the same executionId already exists, it will be updated;
-        otherwise a new trace is created.
-      parameters:
-      - description: Tenant ID
-        in: path
-        name: tenantId
-        required: true
-        type: string
-      - description: Autonomous Agent ID
-        in: path
-        name: agentId
-        required: true
-        type: string
-      - description: Autonomous Agent API Key
-        in: header
-        name: X-Unified-UI-Autonomous-Agent-API-Key
-        required: true
-        type: string
-      - description: Import request
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/dto.AutonomousAgentImportTraceRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Trace updated
-          schema:
-            $ref: '#/definitions/dto.ImportTraceResponse'
-        "201":
-          description: Trace created
-          schema:
-            $ref: '#/definitions/dto.ImportTraceResponse'
+            $ref: '#/definitions/dto.AnalyzeTraceResponse'
         "400":
           description: Bad request - validation error
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
         "401":
-          description: Unauthorized - invalid API key
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "404":
-          description: Autonomous agent not found
+          description: Unauthorized
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
         "500":
@@ -751,63 +862,66 @@ paths:
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
       security:
-      - ApiKeyAuth: []
-      summary: Import or update traces for an autonomous agent (upsert by executionId)
+      - BearerAuth: []
+      summary: Analyze a trace error using AI
       tags:
-      - Traces
-  /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/traces:
+      - AI
+  /api/v1/agent-service/tenants/{tenantId}/ai/capabilities:
     get:
-      consumes:
-      - application/json
-      description: Retrieves a list of traces for autonomous agents with pagination,
-        sorting, and filtering
+      description: Returns which AI features are available based on configured models
       parameters:
       - description: Tenant ID
         in: path
         name: tenantId
         required: true
         type: string
-      - description: Filter by autonomous agent ID
-        in: query
-        name: autonomousAgentId
-        type: string
-      - description: 'Maximum number of results (default: 20, max: 100)'
-        in: query
-        name: limit
-        type: integer
-      - description: 'Number of results to skip (default: 0)'
-        in: query
-        name: skip
-        type: integer
-      - description: 'Sort order: asc or desc (default: desc)'
-        in: query
-        name: order
-        type: string
-      - description: 'Sort field: created_at or updated_at (default: created_at)'
-        in: query
-        name: order_by
-        type: string
-      - description: 'Filter: traces created after this ISO 8601 timestamp'
-        in: query
-        name: created_after
-        type: string
-      - description: 'Filter: traces created before this ISO 8601 timestamp'
-        in: query
-        name: created_before
-        type: string
-      - description: 'Include nodes and logs in response (default: false)'
-        in: query
-        name: expand
-        type: boolean
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.ListTracesResponse'
+            $ref: '#/definitions/dto.AICapabilitiesResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get available AI capabilities for a tenant
+      tags:
+      - AI
+  /api/v1/agent-service/tenants/{tenantId}/ai/generate-description:
+    post:
+      consumes:
+      - application/json
+      description: Uses configured LLM models to generate or polish a description
+        for any entity type
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Description generation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.GenerateDescriptionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.GenerateDescriptionResponse'
         "400":
-          description: Bad request
+          description: Bad request - validation error
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
         "401":
@@ -820,9 +934,177 @@ paths:
             $ref: '#/definitions/dto.ErrorResponse'
       security:
       - BearerAuth: []
-      summary: List traces for autonomous agents
+      summary: Generate or improve an entity description using AI
       tags:
-      - Traces
+      - AI
+  /api/v1/agent-service/tenants/{tenantId}/ai/summarize-trace:
+    post:
+      consumes:
+      - application/json
+      description: Summarizes trace nodes at the specified detail level (short, medium,
+        long)
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Trace summarization request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SummarizeTraceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SummarizeTraceResponse'
+        "400":
+          description: Bad request - validation error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Summarize a trace using AI
+      tags:
+      - AI
+  /api/v1/agent-service/tenants/{tenantId}/ai/test-model:
+    post:
+      consumes:
+      - application/json
+      description: Tests LLM connectivity by sending a simple ping message with the
+        provided config and credentials
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Model test request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.TestModelRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.TestModelResponse'
+        "400":
+          description: Bad request - validation error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Test an AI model configuration
+      tags:
+      - AI
+  /api/v1/agent-service/tenants/{tenantId}/ai/trace-chat:
+    post:
+      consumes:
+      - application/json
+      description: Handles conversational questions about a trace, maintaining chat
+        history for context
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Trace chat request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.TraceChatRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.TraceChatResponse'
+        "400":
+          description: Bad request - validation error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Chat about a trace using AI
+      tags:
+      - AI
+  /api/v1/agent-service/tenants/{tenantId}/connections/test:
+    post:
+      consumes:
+      - application/json
+      description: Tests connectivity to an external service (n8n, Foundry, REST API)
+        with the provided URL, credentials and configuration
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Connection test request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.TestConnectionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.TestConnectionResponse'
+        "400":
+          description: Bad request - validation error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Test an external service connection
+      tags:
+      - Connections
   /api/v1/agent-service/tenants/{tenantId}/conversation/messages:
     get:
       consumes:
@@ -922,6 +1204,60 @@ paths:
       summary: Send a message
       tags:
       - Messages
+  /api/v1/agent-service/tenants/{tenantId}/conversation/messages/search:
+    get:
+      consumes:
+      - application/json
+      description: Searches messages by content text using case-insensitive matching
+        across all conversations
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Search query text
+        in: query
+        name: query
+        required: true
+        type: string
+      - default: 20
+        description: Maximum number of messages
+        in: query
+        maximum: 50
+        minimum: 1
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset for pagination
+        in: query
+        minimum: 0
+        name: skip
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.SearchMessagesResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Search messages
+      tags:
+      - Messages
   /api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/data:
     delete:
       description: Deletes all messages and traces associated with a conversation.
@@ -962,6 +1298,290 @@ paths:
       summary: Delete all data for a conversation
       tags:
       - Data
+  /api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/messages/{messageId}:
+    delete:
+      consumes:
+      - application/json
+      description: Deletes a user message and its associated assistant response
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Conversation ID
+        in: path
+        name: conversationId
+        required: true
+        type: string
+      - description: Message ID
+        in: path
+        name: messageId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete a message
+      tags:
+      - Messages
+    put:
+      consumes:
+      - application/json
+      description: Updates the content of an existing user message
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Conversation ID
+        in: path
+        name: conversationId
+        required: true
+        type: string
+      - description: Message ID
+        in: path
+        name: messageId
+        required: true
+        type: string
+      - description: Updated message content
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.EditMessageRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Edit a message
+      tags:
+      - Messages
+  /api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/messages/{messageId}/reactions:
+    delete:
+      consumes:
+      - application/json
+      description: Removes the current user's reaction from a message
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Conversation ID
+        in: path
+        name: conversationId
+        required: true
+        type: string
+      - description: Message ID
+        in: path
+        name: messageId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete a reaction
+      tags:
+      - Reactions
+    get:
+      consumes:
+      - application/json
+      description: Retrieves all reactions for a specific message
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Conversation ID
+        in: path
+        name: conversationId
+        required: true
+        type: string
+      - description: Message ID
+        in: path
+        name: messageId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.ListReactionsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get reactions for a message
+      tags:
+      - Reactions
+    post:
+      consumes:
+      - application/json
+      description: Creates or updates a user's reaction to a message (one per user
+        per message)
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Conversation ID
+        in: path
+        name: conversationId
+        required: true
+        type: string
+      - description: Message ID
+        in: path
+        name: messageId
+        required: true
+        type: string
+      - description: Reaction data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpsertReactionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.ReactionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create or update a reaction
+      tags:
+      - Reactions
+  /api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/reactions:
+    get:
+      consumes:
+      - application/json
+      description: Retrieves reactions for multiple messages in a single request
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Conversation ID
+        in: path
+        name: conversationId
+        required: true
+        type: string
+      - description: Comma-separated message IDs
+        in: query
+        name: messageIds
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.BulkReactionsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get reactions for multiple messages
+      tags:
+      - Reactions
   /api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/traces:
     get:
       consumes:
@@ -1100,8 +1720,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Creates a new trace for a conversation or autonomous agent. Uses
-        Bearer token for conversation context, API key for autonomous agent context.
+      description: Creates a new trace for a conversation or workflow. Uses Bearer
+        token for conversation context, API key for workflow context.
       parameters:
       - description: Tenant ID
         in: path
@@ -1118,9 +1738,9 @@ paths:
         in: header
         name: Authorization
         type: string
-      - description: API key (required for autonomous agent traces)
+      - description: API key (required for workflow traces)
         in: header
-        name: X-Unified-UI-Autonomous-Agent-API-Key
+        name: X-Unified-UI-Workflow-API-Key
         type: string
       produces:
       - application/json
@@ -1138,7 +1758,7 @@ paths:
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
         "404":
-          description: ChatAgent, Conversation, or AutonomousAgent not found
+          description: Application, Conversation, or Workflow not found
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
         "500":
@@ -1254,7 +1874,7 @@ paths:
         type: string
       - description: API key
         in: header
-        name: X-Unified-UI-Autonomous-Agent-API-Key
+        name: X-Unified-UI-Workflow-API-Key
         type: string
       produces:
       - application/json
@@ -1289,7 +1909,7 @@ paths:
       consumes:
       - application/json
       description: Appends nodes to an existing trace. Uses Bearer token for conversation
-        traces, API key for autonomous agent traces.
+        traces, API key for workflow traces.
       parameters:
       - description: Tenant ID
         in: path
@@ -1311,9 +1931,9 @@ paths:
         in: header
         name: Authorization
         type: string
-      - description: API key (required for autonomous agent traces)
+      - description: API key (required for workflow traces)
         in: header
-        name: X-Unified-UI-Autonomous-Agent-API-Key
+        name: X-Unified-UI-Workflow-API-Key
         type: string
       produces:
       - application/json
@@ -1341,6 +1961,419 @@ paths:
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
       summary: Add nodes to a trace
+      tags:
+      - Traces
+  /api/v1/agent-service/tenants/{tenantId}/workflows/{agentId}/data:
+    delete:
+      description: Deletes all traces associated with an workflow. Requires X-Service-Key
+        authentication.
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Autonomous Agent ID
+        in: path
+        name: agentId
+        required: true
+        type: string
+      - description: Service-to-service authentication key
+        in: header
+        name: X-Service-Key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Delete all data for an workflow
+      tags:
+      - Data
+  /api/v1/agent-service/tenants/{tenantId}/workflows/{agentId}/traces:
+    get:
+      consumes:
+      - application/json
+      description: Retrieves traces for a specific workflow with pagination, sorting,
+        and filtering
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Autonomous Agent ID
+        in: path
+        name: agentId
+        required: true
+        type: string
+      - description: 'Maximum number of results (default: 20, max: 100)'
+        in: query
+        name: limit
+        type: integer
+      - description: 'Number of results to skip (default: 0)'
+        in: query
+        name: skip
+        type: integer
+      - description: 'Sort order: asc or desc (default: desc)'
+        in: query
+        name: order
+        type: string
+      - description: 'Sort field: created_at or updated_at (default: created_at)'
+        in: query
+        name: order_by
+        type: string
+      - description: 'Filter: traces created after this ISO 8601 timestamp'
+        in: query
+        name: created_after
+        type: string
+      - description: 'Filter: traces created before this ISO 8601 timestamp'
+        in: query
+        name: created_before
+        type: string
+      - description: 'Include nodes and logs in response (default: false)'
+        in: query
+        name: expand
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ListTracesResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List traces for an workflow
+      tags:
+      - Traces
+    put:
+      consumes:
+      - application/json
+      description: Replaces the trace for a specific workflow completely
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Autonomous Agent ID
+        in: path
+        name: agentId
+        required: true
+        type: string
+      - description: New trace data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.RefreshTraceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.TraceResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Trace not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Refresh trace for an workflow
+      tags:
+      - Traces
+  /api/v1/agent-service/tenants/{tenantId}/workflows/{agentId}/traces/{traceId}/import/refresh:
+    put:
+      consumes:
+      - application/json
+      description: Re-imports traces from the external system using the existing trace's
+        reference ID
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Autonomous Agent ID
+        in: path
+        name: agentId
+        required: true
+        type: string
+      - description: Trace ID
+        in: path
+        name: traceId
+        required: true
+        type: string
+      - description: Bearer token (requires WRITE permission on workflow)
+        in: header
+        name: Authorization
+        type: string
+      - description: Autonomous Agent API Key
+        in: header
+        name: X-Unified-UI-Workflow-API-Key
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ImportTraceResponse'
+        "400":
+          description: Bad request - trace has no reference ID
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized - invalid credentials
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden - insufficient permissions
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Trace or workflow not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      - ApiKeyAuth: []
+      summary: Refresh an imported trace for an workflow
+      tags:
+      - Traces
+  /api/v1/agent-service/tenants/{tenantId}/workflows/{agentId}/traces/import:
+    put:
+      consumes:
+      - application/json
+      description: Imports traces from an external system (N8N, etc.) for an workflow.
+        If a trace with the same executionId already exists, it will be updated; otherwise
+        a new trace is created.
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Autonomous Agent ID
+        in: path
+        name: agentId
+        required: true
+        type: string
+      - description: Bearer token (requires WRITE permission on workflow)
+        in: header
+        name: Authorization
+        type: string
+      - description: Autonomous Agent API Key
+        in: header
+        name: X-Unified-UI-Workflow-API-Key
+        type: string
+      - description: Import request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.WorkflowImportTraceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Trace updated
+          schema:
+            $ref: '#/definitions/dto.ImportTraceResponse'
+        "201":
+          description: Trace created
+          schema:
+            $ref: '#/definitions/dto.ImportTraceResponse'
+        "400":
+          description: Bad request - validation error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized - invalid credentials
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden - insufficient permissions
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Autonomous agent not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      - ApiKeyAuth: []
+      summary: Import or update traces for an workflow (upsert by executionId)
+      tags:
+      - Traces
+  /api/v1/agent-service/tenants/{tenantId}/workflows/{agentId}/workflow-runs:
+    get:
+      description: Lists recent workflow executions from the external system (e.g.,
+        N8N) for an workflow
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Autonomous Agent ID
+        in: path
+        name: agentId
+        required: true
+        type: string
+      - description: 'Maximum number of runs to return (default: 50, max: 100)'
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination cursor from previous response
+        in: query
+        name: cursor
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ListWorkflowRunsResponse'
+        "400":
+          description: Bad request - unsupported agent type
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Autonomous agent not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List workflow runs for an workflow
+      tags:
+      - Traces
+  /api/v1/agent-service/tenants/{tenantId}/workflows/traces:
+    get:
+      consumes:
+      - application/json
+      description: Retrieves a list of traces for workflows with pagination, sorting,
+        and filtering
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Filter by workflow ID
+        in: query
+        name: workflowId
+        type: string
+      - description: 'Maximum number of results (default: 20, max: 100)'
+        in: query
+        name: limit
+        type: integer
+      - description: 'Number of results to skip (default: 0)'
+        in: query
+        name: skip
+        type: integer
+      - description: 'Sort order: asc or desc (default: desc)'
+        in: query
+        name: order
+        type: string
+      - description: 'Sort field: created_at or updated_at (default: created_at)'
+        in: query
+        name: order_by
+        type: string
+      - description: 'Filter: traces created after this ISO 8601 timestamp'
+        in: query
+        name: created_after
+        type: string
+      - description: 'Filter: traces created before this ISO 8601 timestamp'
+        in: query
+        name: created_before
+        type: string
+      - description: 'Include nodes and logs in response (default: false)'
+        in: query
+        name: expand
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ListTracesResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List traces for workflows
       tags:
       - Traces
 schemes:

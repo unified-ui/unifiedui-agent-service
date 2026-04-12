@@ -63,6 +63,21 @@ func (s *ImportService) Import(ctx context.Context, agentType platform.AgentType
 	return importer.Import(ctx, req)
 }
 
+// ListExecutions lists recent workflow executions from the specified backend.
+func (s *ImportService) ListExecutions(ctx context.Context, agentType platform.AgentType, config map[string]interface{}, limit int, cursor string) (WorkflowRunListResult, error) {
+	importer, err := s.factory.GetImporter(agentType)
+	if err != nil {
+		return WorkflowRunListResult{}, err
+	}
+
+	listable, ok := importer.(WorkflowRunListable)
+	if !ok {
+		return WorkflowRunListResult{}, fmt.Errorf("agent type %s does not support listing executions", agentType)
+	}
+
+	return listable.ListExecutions(ctx, config, limit, cursor)
+}
+
 // EnqueueImport adds an import job to the background queue.
 func (s *ImportService) EnqueueImport(agentType platform.AgentType, req *ImportRequest) error {
 	if !s.factory.HasImporter(agentType) {

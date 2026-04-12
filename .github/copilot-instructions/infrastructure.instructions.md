@@ -339,6 +339,53 @@ writer.WriteDone()
 | `TITLE_GENERATION` | AI-generated conversation title (streamed after first message) |
 | `ERROR` | Error in stream |
 
+### ReACT / Reasoning Stream Types
+
+These types support reasoning, tool calls, sub-agents, and synthesis display in the frontend:
+
+| Type | Writer Method | Purpose |
+|------|---------------|---------|
+| `REASONING_START` | `WriteReasoningStart()` | Reasoning phase begins |
+| `REASONING_STREAM` | `WriteReasoningStream(content)` | Reasoning content chunk |
+| `REASONING_END` | `WriteReasoningEnd()` | Reasoning phase ends |
+| `TOOL_CALL_START` | `WriteToolCallStart(toolName, config)` | Tool invocation begins |
+| `TOOL_CALL_STREAM` | `WriteToolCallStream(content)` | Tool execution output chunk |
+| `TOOL_CALL_END` | `WriteToolCallEnd(config)` | Tool invocation completes |
+| `SUB_AGENT_START` | `WriteSubAgentStart(agentName, config)` | Sub-agent delegation begins |
+| `SUB_AGENT_STREAM` | `WriteSubAgentStream(content)` | Sub-agent output chunk |
+| `SUB_AGENT_END` | `WriteSubAgentEnd(config)` | Sub-agent delegation completes |
+| `PLAN_START` | `WritePlanStart()` | Plan phase begins |
+| `PLAN_STREAM` | `WritePlanStream(content)` | Plan content chunk |
+| `PLAN_COMPLETE` | `WritePlanComplete(config)` | Plan phase completes |
+| `SYNTHESIS_START` | `WriteSynthesisStart()` | Final synthesis begins |
+| `SYNTHESIS_STREAM` | `WriteSynthesisStream(content)` | Synthesis content chunk |
+| `STREAM_TRACE` | `WriteStreamTrace(traceID)` | Trace ID for frontend linking |
+
+### Config Key Mapping Convention
+
+The SSE writer is the **translation layer** between backend snake_case keys (from the SDK / Foundry) and frontend camelCase keys. Writer methods explicitly map keys:
+
+| Backend Key (snake_case) | Frontend Key (camelCase) | Writer Method |
+|---|---|---|
+| `tool_name` | `toolName` | `WriteToolCallStart`, `WriteToolCallEnd` |
+| `tool_arguments` | `toolInput` | `WriteToolCallStart` |
+| `tool_result` | `toolResult` | `WriteToolCallEnd` |
+| `call_type` | `callType` | `WriteToolCallStart`, `WriteToolCallEnd` |
+| `agent_name` / `sub_agent_name` | `agentName` | `WriteSubAgentStart` |
+| `sub_agent_id` | `agentId` | `WriteSubAgentStart` |
+
+The writer adds camelCase keys to the config map. The original snake_case keys from the SDK are also forwarded in the config for backward compatibility.
+
+### Foundry Tool Call Detection
+
+Foundry streams use a **generic suffix pattern** to detect tool calls (see ADR 006):
+
+- `*_call` items (e.g. `openapi_call`, `mcp_call`) → `TOOL_CALL_START` / `TOOL_CALL_STREAM`
+- `*_call_output` items (e.g. `openapi_call_output`) → `TOOL_CALL_END`
+- `workflow_action` with `InvokeAzureAgent` kind → `SUB_AGENT_START` / `SUB_AGENT_END`
+- `workflow_action` with other kinds → `TOOL_CALL_START` / `TOOL_CALL_END`
+- The original Foundry item type is forwarded as `callType` in config
+
 ---
 
 ## Encryption

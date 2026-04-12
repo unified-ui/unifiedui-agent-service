@@ -108,7 +108,7 @@ Retrieve in handlers: `middleware.GetToken(c)`
 
 ### `AuthenticateAutonomousAgentAPIKey()` — API Key Only
 
-Extracts `X-Unified-UI-Autonomous-Agent-API-Key` header. Stores API key in context.
+Extracts `X-Unified-UI-Workflow-API-Key` header. Stores API key in context.
 
 Retrieve in handlers: `middleware.GetAutonomousAgentAPIKey(c)`
 

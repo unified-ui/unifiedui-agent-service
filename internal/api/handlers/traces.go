@@ -40,18 +40,18 @@ func (h *TracesHandler) GetImportService() *traceimport.ImportService {
 
 // CreateTrace handles POST /tenants/{tenantId}/traces
 // @Summary Create a new trace
-// @Description Creates a new trace for a conversation or autonomous agent. Uses Bearer token for conversation context, API key for autonomous agent context.
+// @Description Creates a new trace for a conversation or workflow. Uses Bearer token for conversation context, API key for workflow context.
 // @Tags Traces
 // @Accept json
 // @Produce json
 // @Param tenantId path string true "Tenant ID"
 // @Param request body dto.CreateTraceRequest true "Trace creation request"
 // @Param Authorization header string false "Bearer token (required for conversation traces)"
-// @Param X-Unified-UI-Autonomous-Agent-API-Key header string false "API key (required for autonomous agent traces)"
+// @Param X-Unified-UI-Workflow-API-Key header string false "API key (required for workflow traces)"
 // @Success 201 {object} dto.CreateTraceResponse
 // @Failure 400 {object} dto.ErrorResponse "Bad request - validation error"
 // @Failure 401 {object} dto.ErrorResponse "Unauthorized"
-// @Failure 404 {object} dto.ErrorResponse "Application, Conversation, or AutonomousAgent not found"
+// @Failure 404 {object} dto.ErrorResponse "Application, Conversation, or Workflow not found"
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Router /api/v1/agent-service/tenants/{tenantId}/traces [post]
 func (h *TracesHandler) CreateTrace(c *gin.Context) {
@@ -65,12 +65,12 @@ func (h *TracesHandler) CreateTrace(c *gin.Context) {
 	}
 
 	hasConversationContext := req.ChatAgentID != "" && req.ConversationID != ""
-	hasAgentContext := req.AutonomousAgentID != ""
+	hasAgentContext := req.WorkflowID != ""
 
 	if hasConversationContext && hasAgentContext {
 		middleware.HandleError(c, errors.NewValidationError(
 			"invalid context",
-			"cannot specify both conversation context and autonomous agent context",
+			"cannot specify both conversation context and workflow context",
 		))
 		return
 	}
@@ -78,7 +78,7 @@ func (h *TracesHandler) CreateTrace(c *gin.Context) {
 	if !hasConversationContext && !hasAgentContext {
 		middleware.HandleError(c, errors.NewValidationError(
 			"missing context",
-			"must specify either (chatAgentId + conversationId) or autonomousAgentId",
+			"must specify either (chatAgentId + conversationId) or workflowId",
 		))
 		return
 	}
@@ -118,11 +118,11 @@ func (h *TracesHandler) CreateTrace(c *gin.Context) {
 		}
 	} else {
 		authToken := middleware.GetToken(c)
-		apiKey := middleware.GetAutonomousAgentAPIKey(c)
+		apiKey := middleware.GetWorkflowAPIKey(c)
 
 		switch {
 		case authToken != "":
-			if domainErr := h.resolveAutonomousAgentFromBearer(ctx, tenantID, req.AutonomousAgentID, authToken); domainErr != nil {
+			if domainErr := h.resolveWorkflowFromBearer(ctx, tenantID, req.WorkflowID, authToken); domainErr != nil {
 				middleware.HandleError(c, domainErr)
 				return
 			}
@@ -134,13 +134,13 @@ func (h *TracesHandler) CreateTrace(c *gin.Context) {
 			}
 			userID = uid
 		case apiKey != "":
-			if domainErr := h.resolveUserIDFromAPIKey(ctx, tenantID, req.AutonomousAgentID, apiKey); domainErr != nil {
+			if domainErr := h.resolveUserIDFromAPIKey(ctx, tenantID, req.WorkflowID, apiKey); domainErr != nil {
 				middleware.HandleError(c, domainErr)
 				return
 			}
-			userID = "autonomous-agent-" + req.AutonomousAgentID
+			userID = "workflow-" + req.WorkflowID
 		default:
-			middleware.HandleError(c, errors.NewUnauthorizedError("Bearer token or X-Unified-UI-Autonomous-Agent-API-Key header required for autonomous agent traces"))
+			middleware.HandleError(c, errors.NewUnauthorizedError("Bearer token or X-Unified-UI-Workflow-API-Key header required for workflow traces"))
 			return
 		}
 	}
@@ -169,8 +169,8 @@ func (h *TracesHandler) CreateTrace(c *gin.Context) {
 		trace.ConversationID = req.ConversationID
 		trace.ContextType = models.TraceContextConversation
 	} else {
-		trace.AutonomousAgentID = req.AutonomousAgentID
-		trace.ContextType = models.TraceContextAutonomousAgent
+		trace.WorkflowID = req.WorkflowID
+		trace.ContextType = models.TraceContextWorkflow
 	}
 
 	if len(req.Nodes) > 0 {
@@ -195,7 +195,7 @@ func (h *TracesHandler) CreateTrace(c *gin.Context) {
 
 // AddNodes handles POST /tenants/{tenantId}/traces/{traceId}/nodes
 // @Summary Add nodes to a trace
-// @Description Appends nodes to an existing trace. Uses Bearer token for conversation traces, API key for autonomous agent traces.
+// @Description Appends nodes to an existing trace. Uses Bearer token for conversation traces, API key for workflow traces.
 // @Tags Traces
 // @Accept json
 // @Produce json
@@ -203,7 +203,7 @@ func (h *TracesHandler) CreateTrace(c *gin.Context) {
 // @Param traceId path string true "Trace ID"
 // @Param request body dto.AddNodesRequest true "Nodes to add"
 // @Param Authorization header string false "Bearer token (required for conversation traces)"
-// @Param X-Unified-UI-Autonomous-Agent-API-Key header string false "API key (required for autonomous agent traces)"
+// @Param X-Unified-UI-Workflow-API-Key header string false "API key (required for workflow traces)"
 // @Success 200 {object} map[string]string "Success"
 // @Failure 400 {object} dto.ErrorResponse "Bad request"
 // @Failure 401 {object} dto.ErrorResponse "Unauthorized"
@@ -257,7 +257,7 @@ func (h *TracesHandler) AddNodes(c *gin.Context) {
 // @Param traceId path string true "Trace ID"
 // @Param request body dto.AddLogsRequest true "Logs to add"
 // @Param Authorization header string false "Bearer token"
-// @Param X-Unified-UI-Autonomous-Agent-API-Key header string false "API key"
+// @Param X-Unified-UI-Workflow-API-Key header string false "API key"
 // @Success 200 {object} map[string]string "Success"
 // @Failure 400 {object} dto.ErrorResponse "Bad request"
 // @Failure 401 {object} dto.ErrorResponse "Unauthorized"
@@ -386,9 +386,9 @@ func (h *TracesHandler) RefreshConversationTrace(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.TraceToResponse(trace))
 }
 
-// GetAutonomousAgentTraces handles GET /tenants/{tenantId}/autonomous-agents/{agentId}/traces
-// @Summary List traces for an autonomous agent
-// @Description Retrieves traces for a specific autonomous agent with pagination, sorting, and filtering
+// GetWorkflowTraces handles GET /tenants/{tenantId}/workflows/{agentId}/traces
+// @Summary List traces for an workflow
+// @Description Retrieves traces for a specific workflow with pagination, sorting, and filtering
 // @Tags Traces
 // @Accept json
 // @Produce json
@@ -406,8 +406,8 @@ func (h *TracesHandler) RefreshConversationTrace(c *gin.Context) {
 // @Failure 401 {object} dto.ErrorResponse "Unauthorized"
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/traces [get]
-func (h *TracesHandler) GetAutonomousAgentTraces(c *gin.Context) {
+// @Router /api/v1/agent-service/tenants/{tenantId}/workflows/{agentId}/traces [get]
+func (h *TracesHandler) GetWorkflowTraces(c *gin.Context) {
 	ctx := c.Request.Context()
 	tenantID := middleware.SanitizePathParam(c, "tenantId")
 	agentID := middleware.SanitizePathParam(c, "agentId")
@@ -418,8 +418,8 @@ func (h *TracesHandler) GetAutonomousAgentTraces(c *gin.Context) {
 		return
 	}
 	opts.TenantID = tenantID
-	opts.AutonomousAgentID = agentID
-	opts.ContextType = models.TraceContextAutonomousAgent
+	opts.WorkflowID = agentID
+	opts.ContextType = models.TraceContextWorkflow
 
 	traces, err2 := h.docDBClient.Traces().List(ctx, opts)
 	if err2 != nil {
@@ -439,9 +439,9 @@ func (h *TracesHandler) GetAutonomousAgentTraces(c *gin.Context) {
 	})
 }
 
-// RefreshAutonomousAgentTrace handles PUT /tenants/{tenantId}/autonomous-agents/{agentId}/traces
-// @Summary Refresh trace for an autonomous agent
-// @Description Replaces the trace for a specific autonomous agent completely
+// RefreshWorkflowTrace handles PUT /tenants/{tenantId}/workflows/{agentId}/traces
+// @Summary Refresh trace for an workflow
+// @Description Replaces the trace for a specific workflow completely
 // @Tags Traces
 // @Accept json
 // @Produce json
@@ -454,8 +454,8 @@ func (h *TracesHandler) GetAutonomousAgentTraces(c *gin.Context) {
 // @Failure 404 {object} dto.ErrorResponse "Trace not found"
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/traces [put]
-func (h *TracesHandler) RefreshAutonomousAgentTrace(c *gin.Context) {
+// @Router /api/v1/agent-service/tenants/{tenantId}/workflows/{agentId}/traces [put]
+func (h *TracesHandler) RefreshWorkflowTrace(c *gin.Context) {
 	ctx := c.Request.Context()
 	tenantID := middleware.SanitizePathParam(c, "tenantId")
 	agentID := middleware.SanitizePathParam(c, "agentId")
@@ -467,7 +467,7 @@ func (h *TracesHandler) RefreshAutonomousAgentTrace(c *gin.Context) {
 		return
 	}
 
-	trace, err := h.docDBClient.Traces().GetByAutonomousAgent(ctx, tenantID, agentID)
+	trace, err := h.docDBClient.Traces().GetByWorkflow(ctx, tenantID, agentID)
 	if err != nil {
 		middleware.HandleError(c, errors.NewInternalError("failed to get trace", err))
 		return
@@ -503,14 +503,14 @@ func (h *TracesHandler) RefreshAutonomousAgentTrace(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.TraceToResponse(trace))
 }
 
-// ListAutonomousAgentTraces handles GET /tenants/{tenantId}/autonomous-agents/traces
-// @Summary List traces for autonomous agents
-// @Description Retrieves a list of traces for autonomous agents with pagination, sorting, and filtering
+// ListWorkflowTraces handles GET /tenants/{tenantId}/workflows/traces
+// @Summary List traces for workflows
+// @Description Retrieves a list of traces for workflows with pagination, sorting, and filtering
 // @Tags Traces
 // @Accept json
 // @Produce json
 // @Param tenantId path string true "Tenant ID"
-// @Param autonomousAgentId query string false "Filter by autonomous agent ID"
+// @Param workflowId query string false "Filter by workflow ID"
 // @Param limit query int false "Maximum number of results (default: 20, max: 100)"
 // @Param skip query int false "Number of results to skip (default: 0)"
 // @Param order query string false "Sort order: asc or desc (default: desc)"
@@ -523,8 +523,8 @@ func (h *TracesHandler) RefreshAutonomousAgentTrace(c *gin.Context) {
 // @Failure 401 {object} dto.ErrorResponse "Unauthorized"
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/traces [get]
-func (h *TracesHandler) ListAutonomousAgentTraces(c *gin.Context) {
+// @Router /api/v1/agent-service/tenants/{tenantId}/workflows/traces [get]
+func (h *TracesHandler) ListWorkflowTraces(c *gin.Context) {
 	ctx := c.Request.Context()
 	tenantID := middleware.SanitizePathParam(c, "tenantId")
 
@@ -534,11 +534,11 @@ func (h *TracesHandler) ListAutonomousAgentTraces(c *gin.Context) {
 		return
 	}
 	opts.TenantID = tenantID
-	opts.ContextType = models.TraceContextAutonomousAgent
+	opts.ContextType = models.TraceContextWorkflow
 
-	autonomousAgentID := c.Query("autonomousAgentId")
-	if autonomousAgentID != "" {
-		opts.AutonomousAgentID = autonomousAgentID
+	workflowID := c.Query("workflowId")
+	if workflowID != "" {
+		opts.WorkflowID = workflowID
 	}
 
 	traces, err2 := h.docDBClient.Traces().List(ctx, opts)

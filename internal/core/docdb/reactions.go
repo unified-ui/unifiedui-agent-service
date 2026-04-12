@@ -30,6 +30,13 @@ type ListReactionsOptions struct {
 	MessageID      string
 }
 
+// ListBulkReactionsOptions contains options for listing reactions for multiple messages.
+type ListBulkReactionsOptions struct {
+	TenantID       string
+	ConversationID string
+	MessageIDs     []string
+}
+
 // ReactionsCollection defines the interface for reaction collection operations.
 type ReactionsCollection interface {
 	// Upsert creates or updates a reaction (one per user per message).
@@ -40,6 +47,9 @@ type ReactionsCollection interface {
 
 	// ListByMessage retrieves all reactions for a message.
 	ListByMessage(ctx context.Context, opts *ListReactionsOptions) ([]*models.MessageReaction, error)
+
+	// ListByMessages retrieves all reactions for multiple messages in a single query.
+	ListByMessages(ctx context.Context, opts *ListBulkReactionsOptions) ([]*models.MessageReaction, error)
 
 	// Delete removes a user's reaction from a message.
 	Delete(ctx context.Context, opts *DeleteReactionOptions) error

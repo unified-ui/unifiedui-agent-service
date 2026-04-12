@@ -247,7 +247,7 @@ func TestTraceToHierarchicalText_RootFieldsOnly(t *testing.T) {
 func TestTraceToHierarchicalText_WithNodesAndMetadata(t *testing.T) {
 	trace := map[string]interface{}{
 		"id":          "trace-123",
-		"contextType": "autonomous",
+		"contextType": "workflow",
 		"logs": []interface{}{
 			map[string]interface{}{"level": "info", "message": "started"},
 		},
@@ -269,7 +269,7 @@ func TestTraceToHierarchicalText_WithNodesAndMetadata(t *testing.T) {
 
 	result := ai.TraceToHierarchicalText(trace)
 
-	assert.Contains(t, result, `contextType = "autonomous"`)
+	assert.Contains(t, result, `contextType = "workflow"`)
 	assert.Contains(t, result, `id = "trace-123"`)
 	assert.Contains(t, result, "logs:")
 	assert.Contains(t, result, "Nodes (1):")

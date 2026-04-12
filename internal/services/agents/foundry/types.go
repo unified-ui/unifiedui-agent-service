@@ -47,11 +47,16 @@ type ChunkType string
 
 // ChunkType constants define the types of stream chunks.
 const (
-	ChunkTypeContent    ChunkType = "content"
-	ChunkTypeMetadata   ChunkType = "metadata"
-	ChunkTypeError      ChunkType = "error"
-	ChunkTypeDone       ChunkType = "done"
-	ChunkTypeNewMessage ChunkType = "new_message"
+	ChunkTypeContent        ChunkType = "content"
+	ChunkTypeMetadata       ChunkType = "metadata"
+	ChunkTypeError          ChunkType = "error"
+	ChunkTypeDone           ChunkType = "done"
+	ChunkTypeNewMessage     ChunkType = "new_message"
+	ChunkTypeToolCallStart  ChunkType = "tool_call_start"
+	ChunkTypeToolCallStream ChunkType = "tool_call_stream"
+	ChunkTypeToolCallEnd    ChunkType = "tool_call_end"
+	ChunkTypeSubAgentStart  ChunkType = "sub_agent_start"
+	ChunkTypeSubAgentEnd    ChunkType = "sub_agent_end"
 )
 
 // StreamChunk represents a chunk of streamed content.
@@ -60,6 +65,7 @@ type StreamChunk struct {
 	Content     string
 	ExecutionID string
 	Metadata    map[string]interface{}
+	Config      map[string]interface{}
 	Error       error
 }
 
@@ -146,6 +152,11 @@ type OutputItem struct {
 	Role      string        `json:"role,omitempty"`
 	Content   []ContentPart `json:"content,omitempty"`
 	CreatedBy *CreatedBy    `json:"created_by,omitempty"`
+	// Tool call fields (openapi_call, function_call, mcp_call, etc.)
+	CallID    string `json:"call_id,omitempty"`
+	Name      string `json:"name,omitempty"`
+	Arguments string `json:"arguments,omitempty"`
+	Output    string `json:"output,omitempty"`
 	// Workflow action specific fields
 	Kind             string `json:"kind,omitempty"`
 	ActionID         string `json:"action_id,omitempty"`
@@ -194,7 +205,7 @@ type Error struct {
 // RequestPayload represents the request payload to Foundry.
 type RequestPayload struct {
 	Agent        AgentPayload `json:"agent"`
-	Conversation string       `json:"conversation,omitempty"` // Omit when empty to create new conversation
+	Conversation *string      `json:"conversation,omitempty"` // omitted for new conversations, set for existing
 	Input        interface{}  `json:"input"`                  // string or []InputMessage for multimodal
 	Stream       bool         `json:"stream"`
 }

@@ -9,8 +9,10 @@ import (
 	"github.com/unifiedui/agent-service/internal/domain/models"
 	"github.com/unifiedui/agent-service/internal/pkg/contextformat"
 	"github.com/unifiedui/agent-service/internal/services/agents/foundry"
+	"github.com/unifiedui/agent-service/internal/services/agents/llm"
 	"github.com/unifiedui/agent-service/internal/services/agents/n8n"
 	"github.com/unifiedui/agent-service/internal/services/agents/react"
+	"github.com/unifiedui/agent-service/internal/services/agents/restapi"
 	"github.com/unifiedui/agent-service/internal/services/platform"
 )
 
@@ -48,6 +50,8 @@ func (f *Factory) CreateClients(config *platform.AgentConfig) (*AgentClients, er
 		return nil, fmt.Errorf("copilot agent type not yet implemented")
 	case platform.AgentTypeCustom:
 		return nil, fmt.Errorf("custom agent type not yet implemented")
+	case platform.AgentTypeRestAPI:
+		return nil, fmt.Errorf("REST API requires auth token - use CreateRestAPIClients instead")
 	default:
 		return nil, fmt.Errorf("unsupported agent type: %s", config.Type)
 	}
@@ -461,8 +465,54 @@ func convertFoundryChunk(foundryChunk *foundry.StreamChunk) *StreamChunk {
 		Content:     foundryChunk.Content,
 		ExecutionID: foundryChunk.ExecutionID,
 		Metadata:    foundryChunk.Metadata,
+		Config:      foundryChunk.Config,
 		Error:       foundryChunk.Error,
 	}
+}
+
+// CreateRestAPIClients creates REST API agent clients with the user token for auth forwarding.
+func (f *Factory) CreateRestAPIClients(config *platform.AgentConfig, userToken string) (*AgentClients, error) {
+	if config == nil {
+		return nil, fmt.Errorf("config is required")
+	}
+
+	restFactory := restapi.NewFactory()
+
+	workflowClient, err := restFactory.CreateWorkflowClient(config, userToken)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create REST API workflow client: %w", err)
+	}
+
+	return &AgentClients{
+		WorkflowClient: &restAPIWorkflowAdapter{
+			client: workflowClient,
+		},
+		APIClient: nil,
+		Config:    config,
+	}, nil
+}
+
+// CreateLLMClients creates LLM agent clients for direct model chat streaming.
+func (f *Factory) CreateLLMClients(config *platform.AgentConfig) (*AgentClients, error) {
+	if config == nil {
+		return nil, fmt.Errorf("config is required")
+	}
+
+	aiModel := config.Settings.AIModel
+	if aiModel == nil {
+		return nil, fmt.Errorf("LLM agent requires a resolved AI model in config")
+	}
+
+	streamClient, err := llm.NewStreamingClient(aiModel.Provider, aiModel.Config, aiModel.CredentialSecret)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create LLM streaming client: %w", err)
+	}
+
+	return &AgentClients{
+		WorkflowClient: &llmWorkflowAdapter{client: streamClient, settings: config.Settings},
+		APIClient:      nil,
+		Config:         config,
+	}, nil
 }
 
 // createReActClients creates ReACT agent clients.
@@ -647,5 +697,104 @@ func convertReActChunk(reactChunk *react.StreamChunk) *StreamChunk {
 		Content: reactChunk.Content,
 		Config:  reactChunk.Config,
 		Error:   reactChunk.Error,
+	}
+}
+
+// restAPIWorkflowAdapter adapts restapi.WorkflowClient to agents.WorkflowClient interface.
+type restAPIWorkflowAdapter struct {
+	client *restapi.WorkflowClient
+}
+
+func (a *restAPIWorkflowAdapter) Invoke(ctx context.Context, req *InvokeRequest) (*InvokeResponse, error) {
+	message := contextformat.PrependContextToMessage(req.ContextData, req.Message)
+
+	reader, err := a.client.InvokeStreamReader(ctx, req.ConversationID, req.SessionID, message, req.ChatHistory)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = reader.Close() }()
+
+	var fullContent string
+	for {
+		chunk, readErr := reader.Read()
+		if readErr != nil {
+			break
+		}
+		if chunk.Type == restapi.ChunkTypeContent {
+			fullContent += chunk.Content
+		}
+	}
+
+	return &InvokeResponse{
+		Content: fullContent,
+	}, nil
+}
+
+func (a *restAPIWorkflowAdapter) InvokeStream(ctx context.Context, req *InvokeRequest) (<-chan *StreamChunk, error) {
+	reader, err := a.InvokeStreamReader(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	ch := make(chan *StreamChunk, 100)
+	go func() {
+		defer close(ch)
+		for {
+			chunk, readErr := reader.Read()
+			if readErr != nil {
+				_ = reader.Close()
+				return
+			}
+			ch <- chunk
+		}
+	}()
+
+	return ch, nil
+}
+
+func (a *restAPIWorkflowAdapter) InvokeStreamReader(ctx context.Context, req *InvokeRequest) (StreamReader, error) {
+	message := contextformat.PrependContextToMessage(req.ContextData, req.Message)
+
+	reader, err := a.client.InvokeStreamReader(ctx, req.ConversationID, req.SessionID, message, req.ChatHistory)
+	if err != nil {
+		return nil, err
+	}
+
+	return &restAPIStreamReaderAdapter{reader: reader}, nil
+}
+
+func (a *restAPIWorkflowAdapter) Close() error {
+	return a.client.Close()
+}
+
+// CreateConversation calls the external conversation creation endpoint.
+func (a *restAPIWorkflowAdapter) CreateConversation(ctx context.Context) (string, error) {
+	return a.client.CreateConversation(ctx)
+}
+
+// restAPIStreamReaderAdapter adapts restapi.streamReader to agents.StreamReader.
+type restAPIStreamReaderAdapter struct {
+	reader *restapi.StreamReader
+}
+
+func (a *restAPIStreamReaderAdapter) Read() (*StreamChunk, error) {
+	chunk, err := a.reader.Read()
+	if err != nil {
+		return nil, err
+	}
+	return convertRestAPIChunk(chunk), nil
+}
+
+func (a *restAPIStreamReaderAdapter) Close() error {
+	return a.reader.Close()
+}
+
+// convertRestAPIChunk converts restapi.StreamChunk to agents.StreamChunk.
+func convertRestAPIChunk(restChunk *restapi.StreamChunk) *StreamChunk {
+	return &StreamChunk{
+		Type:    ChunkType(restChunk.Type),
+		Content: restChunk.Content,
+		Config:  restChunk.Config,
+		Error:   restChunk.Error,
 	}
 }

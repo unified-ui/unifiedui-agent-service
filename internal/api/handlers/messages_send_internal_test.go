@@ -462,7 +462,7 @@ func TestSendMessage_LoadsChatHistory(t *testing.T) {
 // Config Cache Behavior Tests
 // =============================================================================
 
-func TestSendMessage_ConfigCacheHit_SkipsPlatformCall(t *testing.T) {
+func TestSendMessage_FirstMessage_AlwaysFetchesFreshConfig(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 	mockSession := &mocks.MockSessionService{}
@@ -495,61 +495,6 @@ func TestSendMessage_ConfigCacheHit_SkipsPlatformCall(t *testing.T) {
 
 	mockSession.On("GetSession", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return(nil, errors.New("not found"))
-
-	cachedConfig := &platform.AgentConfig{
-		Type:        platform.AgentTypeN8N,
-		TenantID:    "test-tenant",
-		ChatAgentID: "agent-456",
-		Settings:    platform.AgentSettings{UseUnifiedChatHistory: false},
-	}
-	mockConfigCache.On("Get", mock.Anything, "test-tenant", "test-user", "agent-456").
-		Return(cachedConfig, nil)
-
-	mockDocDB.GetMessagesCollection().On("Add", mock.Anything, mock.Anything).Return(nil)
-
-	handler.SendMessage(c)
-
-	mockConfigCache.AssertCalled(t, "Get", mock.Anything, "test-tenant", "test-user", "agent-456")
-	mockPlatform.AssertNotCalled(t, "GetAgentConfig", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
-	mockConfigCache.AssertNotCalled(t, "Set", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
-}
-
-func TestSendMessage_ConfigCacheMiss_CallsPlatformAndWritesCache(t *testing.T) {
-	mockDocDB := mocks.NewMockDocDBClient()
-	mockPlatform := &mocks.MockPlatformClient{}
-	mockSession := &mocks.MockSessionService{}
-	mockConfigCache := &mocks.MockConfigCacheService{}
-
-	handler := &MessagesHandler{
-		docDBClient:    mockDocDB,
-		platformClient: mockPlatform,
-		sessionService: mockSession,
-		configCache:    mockConfigCache,
-		agentFactory:   agents.NewFactory(),
-	}
-
-	gin.SetMode(gin.TestMode)
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-
-	c.Params = gin.Params{{Key: "tenantId", Value: "test-tenant"}}
-	c.Set("user_id", "test-user")
-	c.Set("auth_token", "auth-token")
-
-	reqBody := SendMessageRequest{
-		ConversationID: "conv-123",
-		ChatAgentID:    "agent-456",
-		Message:        MessageContent{Content: "Hello!"},
-	}
-	bodyBytes, _ := json.Marshal(reqBody)
-	c.Request = httptest.NewRequest(http.MethodPost, "/messages", bytes.NewBuffer(bodyBytes))
-	c.Request.Header.Set("Content-Type", "application/json")
-
-	mockSession.On("GetSession", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-		Return(nil, errors.New("not found"))
-
-	mockConfigCache.On("Get", mock.Anything, "test-tenant", "test-user", "agent-456").
-		Return(nil, nil)
 
 	agentConfig := &platform.AgentConfig{
 		Type:        platform.AgentTypeN8N,
@@ -567,7 +512,62 @@ func TestSendMessage_ConfigCacheMiss_CallsPlatformAndWritesCache(t *testing.T) {
 
 	handler.SendMessage(c)
 
-	mockConfigCache.AssertCalled(t, "Get", mock.Anything, "test-tenant", "test-user", "agent-456")
+	mockConfigCache.AssertNotCalled(t, "Get", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	mockPlatform.AssertCalled(t, "GetAgentConfig", mock.Anything, "test-tenant", "agent-456", "conv-123", mock.Anything, true)
+	mockConfigCache.AssertCalled(t, "Set", mock.Anything, "test-tenant", "test-user", "agent-456", agentConfig)
+}
+
+func TestSendMessage_NoSession_CallsPlatformAndWritesCache(t *testing.T) {
+	mockDocDB := mocks.NewMockDocDBClient()
+	mockPlatform := &mocks.MockPlatformClient{}
+	mockSession := &mocks.MockSessionService{}
+	mockConfigCache := &mocks.MockConfigCacheService{}
+
+	handler := &MessagesHandler{
+		docDBClient:    mockDocDB,
+		platformClient: mockPlatform,
+		sessionService: mockSession,
+		configCache:    mockConfigCache,
+		agentFactory:   agents.NewFactory(),
+	}
+
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+
+	c.Params = gin.Params{{Key: "tenantId", Value: "test-tenant"}}
+	c.Set("user_id", "test-user")
+	c.Set("auth_token", "auth-token")
+
+	reqBody := SendMessageRequest{
+		ConversationID: "conv-123",
+		ChatAgentID:    "agent-456",
+		Message:        MessageContent{Content: "Hello!"},
+	}
+	bodyBytes, _ := json.Marshal(reqBody)
+	c.Request = httptest.NewRequest(http.MethodPost, "/messages", bytes.NewBuffer(bodyBytes))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	mockSession.On("GetSession", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return(nil, errors.New("not found"))
+
+	agentConfig := &platform.AgentConfig{
+		Type:        platform.AgentTypeN8N,
+		TenantID:    "test-tenant",
+		ChatAgentID: "agent-456",
+		Settings:    platform.AgentSettings{UseUnifiedChatHistory: false},
+	}
+	mockPlatform.On("GetAgentConfig", mock.Anything, "test-tenant", "agent-456", "conv-123", mock.Anything, true).
+		Return(agentConfig, nil)
+
+	mockConfigCache.On("Set", mock.Anything, "test-tenant", "test-user", "agent-456", agentConfig).
+		Return(nil)
+
+	mockDocDB.GetMessagesCollection().On("Add", mock.Anything, mock.Anything).Return(nil)
+
+	handler.SendMessage(c)
+
+	mockConfigCache.AssertNotCalled(t, "Get", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 	mockPlatform.AssertCalled(t, "GetAgentConfig", mock.Anything, "test-tenant", "agent-456", "conv-123", mock.Anything, true)
 	mockConfigCache.AssertCalled(t, "Set", mock.Anything, "test-tenant", "test-user", "agent-456", agentConfig)
 }

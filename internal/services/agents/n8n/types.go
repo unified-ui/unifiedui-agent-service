@@ -99,6 +99,13 @@ type ExecutionsListResponse struct {
 	NextCursor string               `json:"nextCursor,omitempty"`
 }
 
+// WorkflowInfo represents basic information about an N8N workflow.
+type WorkflowInfo struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Active bool   `json:"active"`
+}
+
 // BuildChatHistoryMarkdown converts chat history entries to a markdown-formatted string.
 // This is specifically for N8N workflows that expect chat history in markdown format.
 // Format:

@@ -69,16 +69,16 @@ func (m *mockPlatformClient) GetConversation(_ context.Context, _, _, _ string) 
 func (m *mockPlatformClient) ValidateConversation(_ context.Context, _, _, _ string) error {
 	return nil
 }
-func (m *mockPlatformClient) ValidateAutonomousAgent(_ context.Context, _, _, _ string) error {
+func (m *mockPlatformClient) ValidateWorkflow(_ context.Context, _, _, _ string) error {
 	return nil
 }
-func (m *mockPlatformClient) GetAutonomousAgentConfig(_ context.Context, _, _, _ string) (*platform.AutonomousAgentConfigResponse, error) {
+func (m *mockPlatformClient) GetWorkflowConfig(_ context.Context, _, _, _ string) (*platform.WorkflowConfigResponse, error) {
 	return nil, nil
 }
-func (m *mockPlatformClient) GetAutonomousAgentConfigWithBearer(_ context.Context, _, _, _ string) (*platform.AutonomousAgentConfigResponse, error) {
+func (m *mockPlatformClient) GetWorkflowConfigWithBearer(_ context.Context, _, _, _ string) (*platform.WorkflowConfigResponse, error) {
 	return nil, nil
 }
-func (m *mockPlatformClient) ValidateAutonomousAgentAPIKey(_ context.Context, _, _, _ string) error {
+func (m *mockPlatformClient) ValidateWorkflowAPIKey(_ context.Context, _, _, _ string) error {
 	return nil
 }
 func (m *mockPlatformClient) GetAIModelsByPurpose(_ context.Context, _, _, _ string) ([]platform.AIModelWithSecretResponse, error) {
@@ -208,7 +208,7 @@ func TestSetup_RegistersTenantRoutes(t *testing.T) {
 		{"conversation messages GET", "/api/v1/agent-service/tenants/test-tenant/conversation/messages", http.MethodGet},
 		{"conversation messages POST", "/api/v1/agent-service/tenants/test-tenant/conversation/messages", http.MethodPost},
 		{"conversation traces", "/api/v1/agent-service/tenants/test-tenant/conversations/conv-123/traces", http.MethodGet},
-		{"autonomous agent traces list", "/api/v1/agent-service/tenants/test-tenant/autonomous-agents/traces", http.MethodGet},
+		{"workflow traces list", "/api/v1/agent-service/tenants/test-tenant/workflows/traces", http.MethodGet},
 	}
 
 	for _, tc := range testCases {
@@ -254,7 +254,7 @@ func TestSetup_RegistersTraceRoutes(t *testing.T) {
 	}
 }
 
-func TestSetup_RegistersAutonomousAgentRoutes(t *testing.T) {
+func TestSetup_RegistersWorkflowRoutes(t *testing.T) {
 	router := setupTestRouter()
 	cfg := createTestConfig()
 	routes.Setup(router, cfg)
@@ -264,9 +264,9 @@ func TestSetup_RegistersAutonomousAgentRoutes(t *testing.T) {
 		path   string
 		method string
 	}{
-		{"agent traces GET", "/api/v1/agent-service/tenants/test-tenant/autonomous-agents/agent-123/traces", http.MethodGet},
-		{"agent traces PUT", "/api/v1/agent-service/tenants/test-tenant/autonomous-agents/agent-123/traces", http.MethodPut},
-		{"agent import traces", "/api/v1/agent-service/tenants/test-tenant/autonomous-agents/agent-123/traces/import", http.MethodPut},
+		{"agent traces GET", "/api/v1/agent-service/tenants/test-tenant/workflows/agent-123/traces", http.MethodGet},
+		{"agent traces PUT", "/api/v1/agent-service/tenants/test-tenant/workflows/agent-123/traces", http.MethodPut},
+		{"agent import traces", "/api/v1/agent-service/tenants/test-tenant/workflows/agent-123/traces/import", http.MethodPut},
 	}
 
 	for _, tc := range testCases {
@@ -559,7 +559,7 @@ func TestSetup_RegistersServiceKeyRoutesWhenProvided(t *testing.T) {
 		method string
 	}{
 		{"delete conversation data", "/api/v1/agent-service/tenants/test-tenant/conversations/conv-123/data", http.MethodDelete},
-		{"delete agent data", "/api/v1/agent-service/tenants/test-tenant/autonomous-agents/agent-123/data", http.MethodDelete},
+		{"delete agent data", "/api/v1/agent-service/tenants/test-tenant/workflows/agent-123/data", http.MethodDelete},
 	}
 
 	for _, tc := range testCases {

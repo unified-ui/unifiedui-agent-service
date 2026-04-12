@@ -230,7 +230,7 @@ func flexibleAuthTestMiddleware() gin.HandlerFunc {
         if token := c.GetHeader("Authorization"); token != "" {
             c.Set("auth_token", strings.TrimPrefix(token, "Bearer "))
         }
-        if apiKey := c.GetHeader("X-Unified-UI-Autonomous-Agent-API-Key"); apiKey != "" {
+        if apiKey := c.GetHeader("X-Unified-UI-Workflow-API-Key"); apiKey != "" {
             c.Set("autonomous_agent_api_key", apiKey)
         }
         c.Next()
@@ -239,7 +239,7 @@ func flexibleAuthTestMiddleware() gin.HandlerFunc {
 
 func autonomousAgentAPIKeyMiddleware() gin.HandlerFunc {
     return func(c *gin.Context) {
-        apiKey := c.GetHeader("X-Unified-UI-Autonomous-Agent-API-Key")
+        apiKey := c.GetHeader("X-Unified-UI-Workflow-API-Key")
         c.Set("autonomous_agent_api_key", apiKey)
         c.Next()
     }
