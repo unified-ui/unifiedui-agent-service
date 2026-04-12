@@ -16,7 +16,7 @@ type MockConnectionService struct {
 }
 
 // TestConnection mocks the TestConnection method.
-func (m *MockConnectionService) TestConnection(ctx context.Context, testType string, rawURL string, config map[string]interface{}, credential *platform.Credentials, userToken string) (*connections.TestResult, error) {
+func (m *MockConnectionService) TestConnection(ctx context.Context, testType, rawURL string, config map[string]interface{}, credential *platform.Credentials, userToken string) (*connections.TestResult, error) {
 	args := m.Called(ctx, testType, rawURL, config, credential, userToken)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)

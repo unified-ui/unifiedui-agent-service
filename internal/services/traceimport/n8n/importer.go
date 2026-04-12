@@ -384,7 +384,8 @@ func (n *TraceImporter) ListExecutions(ctx context.Context, backendConfig map[st
 	}
 
 	runs := make([]traceimport.WorkflowRun, 0, len(execList.Data))
-	for _, exec := range execList.Data {
+	for i := range execList.Data {
+		exec := &execList.Data[i]
 		runs = append(runs, traceimport.WorkflowRun{
 			ID:         exec.ID,
 			Status:     string(exec.Status),

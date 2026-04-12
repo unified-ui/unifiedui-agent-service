@@ -74,8 +74,8 @@ func (d *Database) ListCollectionNames(ctx context.Context) ([]string, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to list containers: %w", err)
 		}
-		for _, container := range resp.Containers {
-			names = append(names, container.ID)
+		for i := range resp.Containers {
+			names = append(names, resp.Containers[i].ID)
 		}
 	}
 
@@ -197,7 +197,7 @@ func (c *Collection) Find(ctx context.Context, filter interface{}, opts *docdb.F
 }
 
 // UpdateOne updates a single document.
-func (c *Collection) UpdateOne(ctx context.Context, filter interface{}, update interface{}) (*docdb.UpdateResult, error) {
+func (c *Collection) UpdateOne(ctx context.Context, filter, update interface{}) (*docdb.UpdateResult, error) {
 	if c.err != nil {
 		return nil, c.err
 	}
@@ -247,7 +247,7 @@ func (c *Collection) UpdateOne(ctx context.Context, filter interface{}, update i
 }
 
 // UpdateMany updates multiple documents.
-func (c *Collection) UpdateMany(ctx context.Context, filter interface{}, update interface{}) (*docdb.UpdateResult, error) {
+func (c *Collection) UpdateMany(ctx context.Context, filter, update interface{}) (*docdb.UpdateResult, error) {
 	if c.err != nil {
 		return nil, c.err
 	}
@@ -543,9 +543,10 @@ func (c *Collection) applyUpdate(doc map[string]interface{}, update interface{})
 		if incMap, ok := incOp.(map[string]interface{}); ok {
 			for key, value := range incMap {
 				existing, _ := doc[key].(float64)
-				if incVal, ok := value.(float64); ok {
+				switch incVal := value.(type) {
+				case float64:
 					doc[key] = existing + incVal
-				} else if incVal, ok := value.(int); ok {
+				case int:
 					doc[key] = existing + float64(incVal)
 				}
 			}

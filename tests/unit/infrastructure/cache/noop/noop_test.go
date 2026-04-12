@@ -78,6 +78,4 @@ func TestNoOpCache_GetCache_ReturnsCache(t *testing.T) {
 
 	underlyingCache := client.GetCache()
 	assert.NotNil(t, underlyingCache)
-
-	var _ cache.Cache = underlyingCache
 }

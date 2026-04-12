@@ -32,7 +32,7 @@ type TestResult struct {
 
 // Service defines the interface for connection testing.
 type Service interface {
-	TestConnection(ctx context.Context, testType string, rawURL string, config map[string]interface{}, credential *platform.Credentials, userToken string) (*TestResult, error)
+	TestConnection(ctx context.Context, testType, rawURL string, config map[string]interface{}, credential *platform.Credentials, userToken string) (*TestResult, error)
 }
 
 type service struct{}
@@ -43,7 +43,7 @@ func NewService() Service {
 }
 
 // TestConnection dispatches to the appropriate test method based on test type.
-func (s *service) TestConnection(ctx context.Context, testType string, rawURL string, config map[string]interface{}, credential *platform.Credentials, userToken string) (*TestResult, error) {
+func (s *service) TestConnection(ctx context.Context, testType, rawURL string, config map[string]interface{}, credential *platform.Credentials, userToken string) (*TestResult, error) {
 	validatedURL, validationErr := validateHTTPURL(rawURL)
 	if validationErr != nil {
 		return &TestResult{Success: false, Message: fmt.Sprintf("Invalid URL: %s", validationErr.Error())}, nil
@@ -62,7 +62,7 @@ func (s *service) TestConnection(ctx context.Context, testType string, rawURL st
 	return result, nil
 }
 
-func (s *service) dispatchTest(ctx context.Context, testType string, validatedURL string, config map[string]interface{}, credential *platform.Credentials, userToken string) (*TestResult, error) {
+func (s *service) dispatchTest(ctx context.Context, testType, validatedURL string, config map[string]interface{}, credential *platform.Credentials, userToken string) (*TestResult, error) {
 	switch testType {
 	case "N8N_CHAT_URL":
 		return s.testN8NChatURL(ctx, validatedURL, credential)

@@ -133,19 +133,20 @@ func (h *MessagesHandler) SendMessage(c *gin.Context) {
 	var agentClients *agents.AgentClients
 	var createErr error
 
-	if agentConfig.Type == platform.AgentTypeFoundry {
+	switch agentConfig.Type {
+	case platform.AgentTypeFoundry:
 		foundryAPIKey := c.GetHeader("X-Microsoft-Foundry-API-Key")
 		if foundryAPIKey == "" {
 			middleware.HandleError(c, errors.NewValidationError("X-Microsoft-Foundry-API-Key header is required for Foundry agents", ""))
 			return
 		}
 		agentClients, createErr = h.agentFactory.CreateFoundryClients(agentConfig, foundryAPIKey)
-	} else if agentConfig.Type == platform.AgentTypeRestAPI {
+	case platform.AgentTypeRestAPI:
 		authToken := middleware.GetToken(c)
 		agentClients, createErr = h.agentFactory.CreateRestAPIClients(agentConfig, authToken)
-	} else if agentConfig.Type == platform.AgentTypeLLM {
+	case platform.AgentTypeLLM:
 		agentClients, createErr = h.agentFactory.CreateLLMClients(agentConfig)
-	} else {
+	default:
 		agentClients, createErr = h.agentFactory.CreateClients(agentConfig)
 	}
 

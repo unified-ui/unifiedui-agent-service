@@ -133,8 +133,10 @@ func (c *ReactionsCollection) ListByMessages(ctx context.Context, opts *docdb.Li
 	// Build IN clause with parameters
 	inParts := make([]string, 0, len(opts.MessageIDs))
 	params := make([]azcosmos.QueryParameter, 0, len(opts.MessageIDs)+2)
-	params = append(params, azcosmos.QueryParameter{Name: "@tenantId", Value: sanitizeValue(opts.TenantID)})
-	params = append(params, azcosmos.QueryParameter{Name: "@conversationId", Value: sanitizeValue(opts.ConversationID)})
+	params = append(params,
+		azcosmos.QueryParameter{Name: "@tenantId", Value: sanitizeValue(opts.TenantID)},
+		azcosmos.QueryParameter{Name: "@conversationId", Value: sanitizeValue(opts.ConversationID)},
+	)
 
 	for i, id := range opts.MessageIDs {
 		paramName := fmt.Sprintf("@msgId%d", i)
