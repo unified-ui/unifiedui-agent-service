@@ -42,11 +42,11 @@ func TestCreateTraceRequest_JSONSerialization(t *testing.T) {
 	require.Len(t, parsed.Nodes, 1)
 }
 
-func TestCreateTraceRequest_AutonomousAgent(t *testing.T) {
-	jsonStr := `{"autonomousAgentId":"aa-1","referenceId":"exec-123"}`
+func TestCreateTraceRequest_Workflow(t *testing.T) {
+	jsonStr := `{"workflowId":"aa-1","referenceId":"exec-123"}`
 	var req dto.CreateTraceRequest
 	require.NoError(t, json.Unmarshal([]byte(jsonStr), &req))
-	require.Equal(t, "aa-1", req.AutonomousAgentID)
+	require.Equal(t, "aa-1", req.WorkflowID)
 	require.Empty(t, req.ChatAgentID)
 	require.Empty(t, req.ConversationID)
 }
@@ -358,25 +358,25 @@ func TestTraceToResponse_ChatContext(t *testing.T) {
 	require.Equal(t, "conversation", resp.ContextType)
 	require.NotEmpty(t, resp.ChatAgentID)
 	require.NotEmpty(t, resp.ConversationID)
-	require.Empty(t, resp.AutonomousAgentID)
+	require.Empty(t, resp.WorkflowID)
 }
 
 func TestTraceToResponse_AutonomousContext(t *testing.T) {
 	now := time.Now().UTC()
 	trace := &models.Trace{
-		ID:                "t2",
-		TenantID:          "ten-1",
-		AutonomousAgentID: "aa-1",
-		ContextType:       models.TraceContextAutonomousAgent,
-		CreatedAt:         now,
-		UpdatedAt:         now,
+		ID:          "t2",
+		TenantID:    "ten-1",
+		WorkflowID:  "aa-1",
+		ContextType: models.TraceContextWorkflow,
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	}
 
 	resp := dto.TraceToResponse(trace)
-	require.Equal(t, "autonomous_agent", resp.ContextType)
+	require.Equal(t, "workflow", resp.ContextType)
 	require.Empty(t, resp.ChatAgentID)
 	require.Empty(t, resp.ConversationID)
-	require.NotEmpty(t, resp.AutonomousAgentID)
+	require.NotEmpty(t, resp.WorkflowID)
 }
 
 func TestTraceToResponse_WithReferenceMetadata(t *testing.T) {
@@ -425,8 +425,8 @@ func TestTraceToResponse_EmptyNodes(t *testing.T) {
 // Autonomous Agent Import DTOs
 // ============================================
 
-func TestAutonomousAgentImportTraceRequest_JSONSerialization(t *testing.T) {
-	req := dto.AutonomousAgentImportTraceRequest{
+func TestWorkflowImportTraceRequest_JSONSerialization(t *testing.T) {
+	req := dto.WorkflowImportTraceRequest{
 		Type:        "N8N",
 		ExecutionID: "exec-456",
 		SessionID:   "session-789",
@@ -435,16 +435,16 @@ func TestAutonomousAgentImportTraceRequest_JSONSerialization(t *testing.T) {
 	data, err := json.Marshal(req)
 	require.NoError(t, err)
 
-	var parsed dto.AutonomousAgentImportTraceRequest
+	var parsed dto.WorkflowImportTraceRequest
 	require.NoError(t, json.Unmarshal(data, &parsed))
 	require.Equal(t, req.Type, parsed.Type)
 	require.Equal(t, req.ExecutionID, parsed.ExecutionID)
 	require.Equal(t, req.SessionID, parsed.SessionID)
 }
 
-func TestAutonomousAgentImportTraceRequest_WithoutSessionID(t *testing.T) {
+func TestWorkflowImportTraceRequest_WithoutSessionID(t *testing.T) {
 	jsonStr := `{"type":"MICROSOFT_FOUNDRY","executionId":"exec-123"}`
-	var req dto.AutonomousAgentImportTraceRequest
+	var req dto.WorkflowImportTraceRequest
 	require.NoError(t, json.Unmarshal([]byte(jsonStr), &req))
 	require.Equal(t, "MICROSOFT_FOUNDRY", req.Type)
 	require.Empty(t, req.SessionID)

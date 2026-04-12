@@ -43,10 +43,10 @@ type CreateTraceRequest struct {
 	// ID is optional; if not provided, one will be generated.
 	ID string `json:"id,omitempty"`
 
-	// Context fields - EITHER (chatAgentId + conversationId) OR autonomousAgentId
-	ChatAgentID       string `json:"chatAgentId,omitempty"`
-	ConversationID    string `json:"conversationId,omitempty"`
-	AutonomousAgentID string `json:"autonomousAgentId,omitempty"`
+	// Context fields - EITHER (chatAgentId + conversationId) OR workflowId
+	ChatAgentID    string `json:"chatAgentId,omitempty"`
+	ConversationID string `json:"conversationId,omitempty"`
+	WorkflowID     string `json:"workflowId,omitempty"`
 
 	// Reference fields for external system linkage.
 	ReferenceID       string                 `json:"referenceId,omitempty"`
@@ -125,7 +125,7 @@ type TraceResponse struct {
 	TenantID          string                 `json:"tenantId"`
 	ChatAgentID       string                 `json:"chatAgentId,omitempty"`
 	ConversationID    string                 `json:"conversationId,omitempty"`
-	AutonomousAgentID string                 `json:"autonomousAgentId,omitempty"`
+	WorkflowID        string                 `json:"workflowId,omitempty"`
 	ContextType       string                 `json:"contextType"`
 	ReferenceID       string                 `json:"referenceId,omitempty"`
 	ReferenceName     string                 `json:"referenceName,omitempty"`
@@ -154,9 +154,9 @@ type ImportTraceResponse struct {
 	ID string `json:"id"`
 }
 
-// AutonomousAgentImportTraceRequest represents the request body for importing traces for an autonomous agent.
-// This is used with PUT /autonomous-agents/{agentId}/traces/import (upsert by executionId)
-type AutonomousAgentImportTraceRequest struct {
+// WorkflowImportTraceRequest represents the request body for importing traces for an workflow.
+// This is used with PUT /workflows/{agentId}/traces/import (upsert by executionId)
+type WorkflowImportTraceRequest struct {
 	// Type is the agent type for the import (e.g., "N8N", "MICROSOFT_FOUNDRY").
 	// This determines which importer to use.
 	Type string `json:"type" binding:"required"`
@@ -169,11 +169,26 @@ type AutonomousAgentImportTraceRequest struct {
 	SessionID string `json:"sessionId,omitempty"`
 }
 
-// AutonomousAgentRefreshTraceRequest represents the request body for refreshing an existing trace.
-// This is used with PUT /autonomous-agents/{agentId}/traces/{traceId}/import/refresh
+// WorkflowRefreshTraceRequest represents the request body for refreshing an existing trace.
+// This is used with PUT /workflows/{agentId}/traces/{traceId}/import/refresh
 // No body is required as the executionId is retrieved from the existing trace's referenceId.
-type AutonomousAgentRefreshTraceRequest struct {
+type WorkflowRefreshTraceRequest struct {
 	// No fields needed - uses existing trace's referenceId as executionId
+}
+
+// WorkflowRunResponse represents a single workflow execution in the list.
+type WorkflowRunResponse struct {
+	ID        string `json:"id"`
+	Status    string `json:"status"`
+	StartedAt string `json:"startedAt"`
+	StoppedAt string `json:"stoppedAt,omitempty"`
+	Mode      string `json:"mode"`
+}
+
+// ListWorkflowRunsResponse represents the response for listing workflow runs.
+type ListWorkflowRunsResponse struct {
+	Runs       []WorkflowRunResponse `json:"runs"`
+	NextCursor string                `json:"nextCursor,omitempty"`
 }
 
 // --- Transformation Functions ---
@@ -286,7 +301,7 @@ func TraceToResponse(trace *models.Trace) *TraceResponse {
 		TenantID:          trace.TenantID,
 		ChatAgentID:       trace.ChatAgentID,
 		ConversationID:    trace.ConversationID,
-		AutonomousAgentID: trace.AutonomousAgentID,
+		WorkflowID:        trace.WorkflowID,
 		ContextType:       string(trace.ContextType),
 		ReferenceID:       trace.ReferenceID,
 		ReferenceName:     trace.ReferenceName,

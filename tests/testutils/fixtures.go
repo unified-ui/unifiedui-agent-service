@@ -202,16 +202,16 @@ func NewTestTraces(count int) []*models.Trace {
 	return traces
 }
 
-// NewTestAutonomousAgentTrace creates a test trace for autonomous agent context.
-func NewTestAutonomousAgentTrace() *models.Trace {
+// NewTestWorkflowTrace creates a test trace for workflow context.
+func NewTestWorkflowTrace() *models.Trace {
 	now := time.Now().UTC()
 	return &models.Trace{
-		ID:                TestTraceID + "-auto",
-		TenantID:          TestTenantID,
-		AutonomousAgentID: "auto-agent-123",
-		ContextType:       models.TraceContextAutonomousAgent,
-		ReferenceID:       "scheduled-run-123",
-		ReferenceName:     "Scheduled Agent Run",
+		ID:            TestTraceID + "-auto",
+		TenantID:      TestTenantID,
+		WorkflowID:    "auto-agent-123",
+		ContextType:   models.TraceContextWorkflow,
+		ReferenceID:   "scheduled-run-123",
+		ReferenceName: "Scheduled Agent Run",
 		Nodes: []models.TraceNode{
 			{
 				ID:        "node-auto-1",

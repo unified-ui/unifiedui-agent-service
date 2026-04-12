@@ -24,7 +24,7 @@ func TestNewConversationTrace(t *testing.T) {
 	assert.Equal(t, tenantID, trace.TenantID)
 	assert.Equal(t, chatAgentID, trace.ChatAgentID)
 	assert.Equal(t, conversationID, trace.ConversationID)
-	assert.Equal(t, "", trace.AutonomousAgentID)
+	assert.Equal(t, "", trace.WorkflowID)
 	assert.Equal(t, models.TraceContextConversation, trace.ContextType)
 	assert.Equal(t, createdBy, trace.CreatedBy)
 	assert.Equal(t, createdBy, trace.UpdatedBy)
@@ -34,21 +34,21 @@ func TestNewConversationTrace(t *testing.T) {
 	assert.Empty(t, trace.Logs)
 }
 
-func TestNewAutonomousAgentTrace(t *testing.T) {
+func TestNewWorkflowTrace(t *testing.T) {
 	// Arrange
 	tenantID := "tenant-123"
-	autonomousAgentID := "auto-agent-456"
+	workflowID := "auto-agent-456"
 	createdBy := "user-abc"
 
 	// Act
-	trace := models.NewAutonomousAgentTrace(tenantID, autonomousAgentID, createdBy)
+	trace := models.NewWorkflowTrace(tenantID, workflowID, createdBy)
 
 	// Assert
 	assert.Equal(t, tenantID, trace.TenantID)
 	assert.Equal(t, "", trace.ChatAgentID)
 	assert.Equal(t, "", trace.ConversationID)
-	assert.Equal(t, autonomousAgentID, trace.AutonomousAgentID)
-	assert.Equal(t, models.TraceContextAutonomousAgent, trace.ContextType)
+	assert.Equal(t, workflowID, trace.WorkflowID)
+	assert.Equal(t, models.TraceContextWorkflow, trace.ContextType)
 	assert.Equal(t, createdBy, trace.CreatedBy)
 	assert.NotZero(t, trace.CreatedAt)
 	assert.Empty(t, trace.Nodes)
@@ -65,9 +65,9 @@ func TestTrace_Validate_ConversationContext_Success(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestTrace_Validate_AutonomousAgentContext_Success(t *testing.T) {
+func TestTrace_Validate_WorkflowContext_Success(t *testing.T) {
 	// Arrange
-	trace := models.NewAutonomousAgentTrace("tenant", "auto-agent", "user")
+	trace := models.NewWorkflowTrace("tenant", "auto-agent", "user")
 
 	// Act
 	err := trace.Validate()
@@ -91,11 +91,11 @@ func TestTrace_Validate_MissingTenantID_Error(t *testing.T) {
 func TestTrace_Validate_MixedContext_Error(t *testing.T) {
 	// Arrange
 	trace := &models.Trace{
-		TenantID:          "tenant",
-		ChatAgentID:       "app",
-		ConversationID:    "conv",
-		AutonomousAgentID: "auto-agent", // Both contexts set - invalid
-		ContextType:       models.TraceContextConversation,
+		TenantID:       "tenant",
+		ChatAgentID:    "app",
+		ConversationID: "conv",
+		WorkflowID:     "auto-agent", // Both contexts set - invalid
+		ContextType:    models.TraceContextConversation,
 	}
 
 	// Act
@@ -103,7 +103,7 @@ func TestTrace_Validate_MixedContext_Error(t *testing.T) {
 
 	// Assert
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "cannot have both conversation and autonomous agent context")
+	assert.Contains(t, err.Error(), "cannot have both conversation and workflow context")
 }
 
 func TestTrace_Validate_ConversationMissingChatAgentID_Error(t *testing.T) {
@@ -122,11 +122,11 @@ func TestTrace_Validate_ConversationMissingChatAgentID_Error(t *testing.T) {
 	assert.Contains(t, err.Error(), "chatAgentId is required for conversation context")
 }
 
-func TestTrace_Validate_AutonomousAgentMissingAgentID_Error(t *testing.T) {
+func TestTrace_Validate_WorkflowMissingAgentID_Error(t *testing.T) {
 	// Arrange
 	trace := &models.Trace{
 		TenantID:    "tenant",
-		ContextType: models.TraceContextAutonomousAgent,
+		ContextType: models.TraceContextWorkflow,
 	}
 
 	// Act
@@ -134,7 +134,7 @@ func TestTrace_Validate_AutonomousAgentMissingAgentID_Error(t *testing.T) {
 
 	// Assert
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "autonomousAgentId is required for autonomous agent context")
+	assert.Contains(t, err.Error(), "workflowId is required for workflow context")
 }
 
 func TestTrace_AddNode(t *testing.T) {

@@ -69,9 +69,9 @@ func (h *DataHandler) DeleteConversationData(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// DeleteAutonomousAgentData handles DELETE /tenants/{tenantId}/autonomous-agents/{agentId}/data
-// @Summary Delete all data for an autonomous agent
-// @Description Deletes all traces associated with an autonomous agent. Requires X-Service-Key authentication.
+// DeleteWorkflowData handles DELETE /tenants/{tenantId}/workflows/{agentId}/data
+// @Summary Delete all data for an workflow
+// @Description Deletes all traces associated with an workflow. Requires X-Service-Key authentication.
 // @Tags Data
 // @Produce json
 // @Param tenantId path string true "Tenant ID"
@@ -81,8 +81,8 @@ func (h *DataHandler) DeleteConversationData(c *gin.Context) {
 // @Failure 401 {object} dto.ErrorResponse "Unauthorized"
 // @Failure 403 {object} dto.ErrorResponse "Forbidden"
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
-// @Router /api/v1/agent-service/tenants/{tenantId}/autonomous-agents/{agentId}/data [delete]
-func (h *DataHandler) DeleteAutonomousAgentData(c *gin.Context) {
+// @Router /api/v1/agent-service/tenants/{tenantId}/workflows/{agentId}/data [delete]
+func (h *DataHandler) DeleteWorkflowData(c *gin.Context) {
 	ctx := c.Request.Context()
 	tenantID := middleware.SanitizePathParam(c, "tenantId")
 	agentID := middleware.SanitizePathParam(c, "agentId")
@@ -94,10 +94,10 @@ func (h *DataHandler) DeleteAutonomousAgentData(c *gin.Context) {
 		return
 	}
 
-	tracesErr := h.docDBClient.Traces().DeleteByAutonomousAgent(ctx, tenantID, agentID)
+	tracesErr := h.docDBClient.Traces().DeleteByWorkflow(ctx, tenantID, agentID)
 	if tracesErr != nil {
 		middleware.HandleError(c, errors.NewInternalError(
-			"failed to delete autonomous agent traces", tracesErr,
+			"failed to delete workflow traces", tracesErr,
 		))
 		return
 	}

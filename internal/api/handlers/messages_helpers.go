@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 
 	"github.com/unifiedui/agent-service/internal/api/middleware"
 	"github.com/unifiedui/agent-service/internal/domain/models"
@@ -221,15 +222,25 @@ func (h *MessagesHandler) enqueueN8NTraceImport(
 	}
 
 	if apiKey == "" {
+		log.Warn().
+			Str("chatAgentID", userMessage.ChatAgentID).
+			Msg("N8N trace import: skipped - no API key configured")
 		return
 	}
 
 	baseURL := extractBaseURL(agentConfig.Settings.ChatURL)
 	if baseURL == "" {
+		log.Warn().
+			Str("chatAgentID", userMessage.ChatAgentID).
+			Str("chatURL", agentConfig.Settings.ChatURL).
+			Msg("N8N trace import: skipped - could not extract base URL")
 		return
 	}
 
 	if executionID == "" && userMessage.ConversationID == "" {
+		log.Warn().
+			Str("chatAgentID", userMessage.ChatAgentID).
+			Msg("N8N trace import: skipped - no executionID or conversationID")
 		return
 	}
 

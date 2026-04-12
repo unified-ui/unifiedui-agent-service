@@ -68,27 +68,27 @@ func GetToken(c *gin.Context) string {
 	return ""
 }
 
-// GetAutonomousAgentAPIKey retrieves the autonomous agent API key from the gin context.
-func GetAutonomousAgentAPIKey(c *gin.Context) string {
-	if key, exists := c.Get("autonomous_agent_api_key"); exists {
+// GetWorkflowAPIKey retrieves the workflow API key from the gin context.
+func GetWorkflowAPIKey(c *gin.Context) string {
+	if key, exists := c.Get("workflow_api_key"); exists {
 		return key.(string)
 	}
 	return ""
 }
 
 // AuthenticateFlexible returns a gin middleware that accepts EITHER a Bearer token OR
-// an X-Unified-UI-Autonomous-Agent-API-Key header. This enables endpoints like POST /traces
+// an X-Unified-UI-Workflow-API-Key header. This enables endpoints like POST /traces
 // to serve both user-initiated requests (Bearer) and external agent requests (API key).
 // The handler is responsible for checking which auth type was provided and validating accordingly.
 func (m *AuthMiddleware) AuthenticateFlexible() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
-		apiKey := c.GetHeader("X-Unified-UI-Autonomous-Agent-API-Key")
+		apiKey := c.GetHeader("X-Unified-UI-Workflow-API-Key")
 
 		if authHeader == "" && apiKey == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"code":    "UNAUTHORIZED",
-				"message": "missing authentication: provide either Authorization header or X-Unified-UI-Autonomous-Agent-API-Key header",
+				"message": "missing authentication: provide either Authorization header or X-Unified-UI-Workflow-API-Key header",
 			})
 			return
 		}
@@ -105,7 +105,7 @@ func (m *AuthMiddleware) AuthenticateFlexible() gin.HandlerFunc {
 
 		// Fall back to API key
 		if apiKey != "" {
-			c.Set("autonomous_agent_api_key", apiKey)
+			c.Set("workflow_api_key", apiKey)
 			c.Next()
 			return
 		}
@@ -117,23 +117,23 @@ func (m *AuthMiddleware) AuthenticateFlexible() gin.HandlerFunc {
 	}
 }
 
-// AuthenticateAutonomousAgentAPIKey returns a gin middleware that validates the autonomous agent API key.
-// It extracts the X-Unified-UI-Autonomous-Agent-API-Key header and stores it in the context.
+// AuthenticateWorkflowAPIKey returns a gin middleware that validates the workflow API key.
+// It extracts the X-Unified-UI-Workflow-API-Key header and stores it in the context.
 // Unlike Bearer token auth, this API key will be validated against the platform service's
-// autonomous agent config endpoint (which validates against primary/secondary keys).
-func (m *AuthMiddleware) AuthenticateAutonomousAgentAPIKey() gin.HandlerFunc {
+// workflow config endpoint (which validates against primary/secondary keys).
+func (m *AuthMiddleware) AuthenticateWorkflowAPIKey() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		apiKey := c.GetHeader("X-Unified-UI-Autonomous-Agent-API-Key")
+		apiKey := c.GetHeader("X-Unified-UI-Workflow-API-Key")
 		if apiKey == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"code":    "UNAUTHORIZED",
-				"message": "missing X-Unified-UI-Autonomous-Agent-API-Key header",
+				"message": "missing X-Unified-UI-Workflow-API-Key header",
 			})
 			return
 		}
 
 		// Store API key in context for downstream handlers
-		c.Set("autonomous_agent_api_key", apiKey)
+		c.Set("workflow_api_key", apiKey)
 
 		c.Next()
 	}

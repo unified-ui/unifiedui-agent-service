@@ -238,17 +238,17 @@ func TestTracesHandler_CreateTrace_ConversationContext_CreateDBError(t *testing.
 	testutils.AssertStatusCode(t, http.StatusInternalServerError, w)
 }
 
-func TestTracesHandler_CreateTrace_AutonomousAgent_WithBearerToken(t *testing.T) {
+func TestTracesHandler_CreateTrace_Workflow_WithBearerToken(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
 	createReq := dto.CreateTraceRequest{
-		AutonomousAgentID: "auto-agent-123",
-		ReferenceID:       "scheduled-run-456",
+		WorkflowID:  "auto-agent-123",
+		ReferenceID: "scheduled-run-456",
 	}
 
-	// Bearer token auth flow for autonomous agent
-	mockPlatform.On("ValidateAutonomousAgent", mock.Anything, testutils.TestTenantID, "auto-agent-123", "test-bearer-token").Return(nil)
+	// Bearer token auth flow for workflow
+	mockPlatform.On("ValidateWorkflow", mock.Anything, testutils.TestTenantID, "auto-agent-123", "test-bearer-token").Return(nil)
 	mockPlatform.On("GetMe", mock.Anything, mock.Anything).Return(&platform.UserInfo{ID: testutils.TestUserID}, nil)
 	mockDocDB.GetTracesCollection().On("Create", mock.Anything, mock.Anything).Return(nil)
 
@@ -265,15 +265,15 @@ func TestTracesHandler_CreateTrace_AutonomousAgent_WithBearerToken(t *testing.T)
 	mockPlatform.AssertExpectations(t)
 }
 
-func TestTracesHandler_CreateTrace_AutonomousAgent_BearerToken_Unauthorized(t *testing.T) {
+func TestTracesHandler_CreateTrace_Workflow_BearerToken_Unauthorized(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
 	createReq := dto.CreateTraceRequest{
-		AutonomousAgentID: "auto-agent-123",
+		WorkflowID: "auto-agent-123",
 	}
 
-	mockPlatform.On("ValidateAutonomousAgent", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New("unauthorized: invalid token"))
+	mockPlatform.On("ValidateWorkflow", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New("unauthorized: invalid token"))
 
 	handler := createTracesHandler(mockDocDB, mockPlatform)
 
@@ -287,15 +287,15 @@ func TestTracesHandler_CreateTrace_AutonomousAgent_BearerToken_Unauthorized(t *t
 	testutils.AssertStatusCode(t, http.StatusUnauthorized, w)
 }
 
-func TestTracesHandler_CreateTrace_AutonomousAgent_BearerToken_Forbidden(t *testing.T) {
+func TestTracesHandler_CreateTrace_Workflow_BearerToken_Forbidden(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
 	createReq := dto.CreateTraceRequest{
-		AutonomousAgentID: "auto-agent-123",
+		WorkflowID: "auto-agent-123",
 	}
 
-	mockPlatform.On("ValidateAutonomousAgent", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New("forbidden: no permission"))
+	mockPlatform.On("ValidateWorkflow", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New("forbidden: no permission"))
 
 	handler := createTracesHandler(mockDocDB, mockPlatform)
 
@@ -309,15 +309,15 @@ func TestTracesHandler_CreateTrace_AutonomousAgent_BearerToken_Forbidden(t *test
 	testutils.AssertStatusCode(t, http.StatusForbidden, w)
 }
 
-func TestTracesHandler_CreateTrace_AutonomousAgent_BearerToken_NotFound(t *testing.T) {
+func TestTracesHandler_CreateTrace_Workflow_BearerToken_NotFound(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
 	createReq := dto.CreateTraceRequest{
-		AutonomousAgentID: "non-existent-agent",
+		WorkflowID: "non-existent-agent",
 	}
 
-	mockPlatform.On("ValidateAutonomousAgent", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New("not_found: agent not found"))
+	mockPlatform.On("ValidateWorkflow", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New("not_found: agent not found"))
 
 	handler := createTracesHandler(mockDocDB, mockPlatform)
 
@@ -331,15 +331,15 @@ func TestTracesHandler_CreateTrace_AutonomousAgent_BearerToken_NotFound(t *testi
 	testutils.AssertStatusCode(t, http.StatusNotFound, w)
 }
 
-func TestTracesHandler_CreateTrace_AutonomousAgent_BearerToken_InternalError(t *testing.T) {
+func TestTracesHandler_CreateTrace_Workflow_BearerToken_InternalError(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
 	createReq := dto.CreateTraceRequest{
-		AutonomousAgentID: "auto-agent-123",
+		WorkflowID: "auto-agent-123",
 	}
 
-	mockPlatform.On("ValidateAutonomousAgent", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New("database error"))
+	mockPlatform.On("ValidateWorkflow", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New("database error"))
 
 	handler := createTracesHandler(mockDocDB, mockPlatform)
 
@@ -353,15 +353,15 @@ func TestTracesHandler_CreateTrace_AutonomousAgent_BearerToken_InternalError(t *
 	testutils.AssertStatusCode(t, http.StatusInternalServerError, w)
 }
 
-func TestTracesHandler_CreateTrace_AutonomousAgent_APIKey_Unauthorized(t *testing.T) {
+func TestTracesHandler_CreateTrace_Workflow_APIKey_Unauthorized(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
 	createReq := dto.CreateTraceRequest{
-		AutonomousAgentID: "auto-agent-123",
+		WorkflowID: "auto-agent-123",
 	}
 
-	mockPlatform.On("ValidateAutonomousAgentAPIKey", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New("unauthorized: invalid api key"))
+	mockPlatform.On("ValidateWorkflowAPIKey", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New("unauthorized: invalid api key"))
 
 	handler := createTracesHandler(mockDocDB, mockPlatform)
 
@@ -369,21 +369,21 @@ func TestTracesHandler_CreateTrace_AutonomousAgent_APIKey_Unauthorized(t *testin
 	router.Use(testFlexibleAuthMiddleware())
 	router.POST("/tenants/:tenantId/traces", handler.CreateTrace)
 
-	headers := map[string]string{"X-Unified-UI-Autonomous-Agent-API-Key": "invalid-key"}
+	headers := map[string]string{"X-Unified-UI-Workflow-API-Key": "invalid-key"}
 	w := testutils.PerformRequest(router, "POST", "/tenants/"+testutils.TestTenantID+"/traces", createReq, headers)
 
 	testutils.AssertStatusCode(t, http.StatusUnauthorized, w)
 }
 
-func TestTracesHandler_CreateTrace_AutonomousAgent_APIKey_NotFound(t *testing.T) {
+func TestTracesHandler_CreateTrace_Workflow_APIKey_NotFound(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
 	createReq := dto.CreateTraceRequest{
-		AutonomousAgentID: "non-existent-agent",
+		WorkflowID: "non-existent-agent",
 	}
 
-	mockPlatform.On("ValidateAutonomousAgentAPIKey", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New("not_found: agent not found"))
+	mockPlatform.On("ValidateWorkflowAPIKey", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New("not_found: agent not found"))
 
 	handler := createTracesHandler(mockDocDB, mockPlatform)
 
@@ -391,21 +391,21 @@ func TestTracesHandler_CreateTrace_AutonomousAgent_APIKey_NotFound(t *testing.T)
 	router.Use(testFlexibleAuthMiddleware())
 	router.POST("/tenants/:tenantId/traces", handler.CreateTrace)
 
-	headers := map[string]string{"X-Unified-UI-Autonomous-Agent-API-Key": "test-key"}
+	headers := map[string]string{"X-Unified-UI-Workflow-API-Key": "test-key"}
 	w := testutils.PerformRequest(router, "POST", "/tenants/"+testutils.TestTenantID+"/traces", createReq, headers)
 
 	testutils.AssertStatusCode(t, http.StatusNotFound, w)
 }
 
-func TestTracesHandler_CreateTrace_AutonomousAgent_APIKey_InternalError(t *testing.T) {
+func TestTracesHandler_CreateTrace_Workflow_APIKey_InternalError(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
 	createReq := dto.CreateTraceRequest{
-		AutonomousAgentID: "auto-agent-123",
+		WorkflowID: "auto-agent-123",
 	}
 
-	mockPlatform.On("ValidateAutonomousAgentAPIKey", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New("database connection failed"))
+	mockPlatform.On("ValidateWorkflowAPIKey", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New("database connection failed"))
 
 	handler := createTracesHandler(mockDocDB, mockPlatform)
 
@@ -413,18 +413,18 @@ func TestTracesHandler_CreateTrace_AutonomousAgent_APIKey_InternalError(t *testi
 	router.Use(testFlexibleAuthMiddleware())
 	router.POST("/tenants/:tenantId/traces", handler.CreateTrace)
 
-	headers := map[string]string{"X-Unified-UI-Autonomous-Agent-API-Key": "test-key"}
+	headers := map[string]string{"X-Unified-UI-Workflow-API-Key": "test-key"}
 	w := testutils.PerformRequest(router, "POST", "/tenants/"+testutils.TestTenantID+"/traces", createReq, headers)
 
 	testutils.AssertStatusCode(t, http.StatusInternalServerError, w)
 }
 
-func TestTracesHandler_CreateTrace_AutonomousAgent_NoAuth(t *testing.T) {
+func TestTracesHandler_CreateTrace_Workflow_NoAuth(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
 	createReq := dto.CreateTraceRequest{
-		AutonomousAgentID: "auto-agent-123",
+		WorkflowID: "auto-agent-123",
 	}
 
 	handler := createTracesHandler(mockDocDB, mockPlatform)
@@ -445,11 +445,11 @@ func TestTracesHandler_CreateTrace_WithProvidedID(t *testing.T) {
 
 	customID := "custom-trace-id-12345"
 	createReq := dto.CreateTraceRequest{
-		ID:                customID,
-		AutonomousAgentID: "auto-agent-123",
+		ID:         customID,
+		WorkflowID: "auto-agent-123",
 	}
 
-	mockPlatform.On("ValidateAutonomousAgentAPIKey", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	mockPlatform.On("ValidateWorkflowAPIKey", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	mockDocDB.GetTracesCollection().On("Create", mock.Anything, mock.MatchedBy(func(trace *models.Trace) bool {
 		return trace.ID == customID
 	})).Return(nil)
@@ -460,7 +460,7 @@ func TestTracesHandler_CreateTrace_WithProvidedID(t *testing.T) {
 	router.Use(testFlexibleAuthMiddleware())
 	router.POST("/tenants/:tenantId/traces", handler.CreateTrace)
 
-	headers := map[string]string{"X-Unified-UI-Autonomous-Agent-API-Key": "test-key"}
+	headers := map[string]string{"X-Unified-UI-Workflow-API-Key": "test-key"}
 	w := testutils.PerformRequest(router, "POST", "/tenants/"+testutils.TestTenantID+"/traces", createReq, headers)
 
 	testutils.AssertStatusCode(t, http.StatusCreated, w)
@@ -590,11 +590,11 @@ func TestTracesHandler_AddNodes_DBErrorOnAddNodes(t *testing.T) {
 	testutils.AssertStatusCode(t, http.StatusInternalServerError, w)
 }
 
-func TestTracesHandler_AddNodes_WithAPIKeyForAutonomousAgent(t *testing.T) {
+func TestTracesHandler_AddNodes_WithAPIKeyForWorkflow(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
-	existingTrace := testutils.NewTestAutonomousAgentTrace()
+	existingTrace := testutils.NewTestWorkflowTrace()
 
 	addNodesReq := dto.AddNodesRequest{
 		Nodes: []dto.TraceNodeRequest{
@@ -602,7 +602,7 @@ func TestTracesHandler_AddNodes_WithAPIKeyForAutonomousAgent(t *testing.T) {
 		},
 	}
 
-	mockPlatform.On("ValidateAutonomousAgentAPIKey", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	mockPlatform.On("ValidateWorkflowAPIKey", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	mockDocDB.GetTracesCollection().On("Get", mock.Anything, mock.Anything).Return(existingTrace, nil)
 	mockDocDB.GetTracesCollection().On("AddNodes", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
@@ -612,7 +612,7 @@ func TestTracesHandler_AddNodes_WithAPIKeyForAutonomousAgent(t *testing.T) {
 	router.Use(testFlexibleAuthMiddleware())
 	router.POST("/tenants/:tenantId/traces/:traceId/nodes", handler.AddNodes)
 
-	headers := map[string]string{"X-Unified-UI-Autonomous-Agent-API-Key": "test-api-key"}
+	headers := map[string]string{"X-Unified-UI-Workflow-API-Key": "test-api-key"}
 	w := testutils.PerformRequest(router, "POST", "/tenants/"+testutils.TestTenantID+"/traces/"+existingTrace.ID+"/nodes", addNodesReq, headers)
 
 	testutils.AssertStatusCode(t, http.StatusOK, w)
@@ -622,7 +622,7 @@ func TestTracesHandler_AddNodes_APIKeyForbiddenForConversationTrace(t *testing.T
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
-	// Conversation trace (not autonomous agent)
+	// Conversation trace (not workflow)
 	existingTrace := testutils.NewTestTrace()
 	existingTrace.ContextType = models.TraceContextConversation
 
@@ -641,7 +641,7 @@ func TestTracesHandler_AddNodes_APIKeyForbiddenForConversationTrace(t *testing.T
 	router.POST("/tenants/:tenantId/traces/:traceId/nodes", handler.AddNodes)
 
 	// API key for conversation trace should fail
-	headers := map[string]string{"X-Unified-UI-Autonomous-Agent-API-Key": "test-api-key"}
+	headers := map[string]string{"X-Unified-UI-Workflow-API-Key": "test-api-key"}
 	w := testutils.PerformRequest(router, "POST", "/tenants/"+testutils.TestTenantID+"/traces/"+existingTrace.ID+"/nodes", addNodesReq, headers)
 
 	testutils.AssertStatusCode(t, http.StatusForbidden, w)
@@ -905,10 +905,10 @@ func TestTracesHandler_RefreshConversationTrace_DBErrorOnUpdate(t *testing.T) {
 }
 
 // =============================================================================
-// GetAutonomousAgentTraces - Extended Tests for Error Paths
+// GetWorkflowTraces - Extended Tests for Error Paths
 // =============================================================================
 
-func TestTracesHandler_GetAutonomousAgentTraces_DBErrorOnList(t *testing.T) {
+func TestTracesHandler_GetWorkflowTraces_DBErrorOnList(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
@@ -917,14 +917,14 @@ func TestTracesHandler_GetAutonomousAgentTraces_DBErrorOnList(t *testing.T) {
 	handler := createTracesHandler(mockDocDB, mockPlatform)
 
 	router := testutils.SetupTestRouter()
-	router.GET("/tenants/:tenantId/autonomous-agents/:agentId/traces", handler.GetAutonomousAgentTraces)
+	router.GET("/tenants/:tenantId/workflows/:agentId/traces", handler.GetWorkflowTraces)
 
-	w := testutils.PerformRequest(router, "GET", "/tenants/"+testutils.TestTenantID+"/autonomous-agents/agent-123/traces", nil, nil)
+	w := testutils.PerformRequest(router, "GET", "/tenants/"+testutils.TestTenantID+"/workflows/agent-123/traces", nil, nil)
 
 	testutils.AssertStatusCode(t, http.StatusInternalServerError, w)
 }
 
-func TestTracesHandler_GetAutonomousAgentTraces_DBErrorOnCount(t *testing.T) {
+func TestTracesHandler_GetWorkflowTraces_DBErrorOnCount(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
@@ -935,29 +935,29 @@ func TestTracesHandler_GetAutonomousAgentTraces_DBErrorOnCount(t *testing.T) {
 	handler := createTracesHandler(mockDocDB, mockPlatform)
 
 	router := testutils.SetupTestRouter()
-	router.GET("/tenants/:tenantId/autonomous-agents/:agentId/traces", handler.GetAutonomousAgentTraces)
+	router.GET("/tenants/:tenantId/workflows/:agentId/traces", handler.GetWorkflowTraces)
 
-	w := testutils.PerformRequest(router, "GET", "/tenants/"+testutils.TestTenantID+"/autonomous-agents/agent-123/traces", nil, nil)
+	w := testutils.PerformRequest(router, "GET", "/tenants/"+testutils.TestTenantID+"/workflows/agent-123/traces", nil, nil)
 
 	testutils.AssertStatusCode(t, http.StatusInternalServerError, w)
 }
 
-func TestTracesHandler_GetAutonomousAgentTraces_InvalidCreatedBeforeDate(t *testing.T) {
+func TestTracesHandler_GetWorkflowTraces_InvalidCreatedBeforeDate(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
 	handler := createTracesHandler(mockDocDB, mockPlatform)
 
 	router := testutils.SetupTestRouter()
-	router.GET("/tenants/:tenantId/autonomous-agents/:agentId/traces", handler.GetAutonomousAgentTraces)
+	router.GET("/tenants/:tenantId/workflows/:agentId/traces", handler.GetWorkflowTraces)
 
-	path := "/tenants/" + testutils.TestTenantID + "/autonomous-agents/agent-123/traces?created_before=invalid-date"
+	path := "/tenants/" + testutils.TestTenantID + "/workflows/agent-123/traces?created_before=invalid-date"
 	w := testutils.PerformRequest(router, "GET", path, nil, nil)
 
 	testutils.AssertStatusCode(t, http.StatusBadRequest, w)
 }
 
-func TestTracesHandler_GetAutonomousAgentTraces_WithLimitExceeded(t *testing.T) {
+func TestTracesHandler_GetWorkflowTraces_WithLimitExceeded(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
@@ -969,19 +969,19 @@ func TestTracesHandler_GetAutonomousAgentTraces_WithLimitExceeded(t *testing.T) 
 	handler := createTracesHandler(mockDocDB, mockPlatform)
 
 	router := testutils.SetupTestRouter()
-	router.GET("/tenants/:tenantId/autonomous-agents/:agentId/traces", handler.GetAutonomousAgentTraces)
+	router.GET("/tenants/:tenantId/workflows/:agentId/traces", handler.GetWorkflowTraces)
 
-	path := "/tenants/" + testutils.TestTenantID + "/autonomous-agents/agent-123/traces?limit=500"
+	path := "/tenants/" + testutils.TestTenantID + "/workflows/agent-123/traces?limit=500"
 	w := testutils.PerformRequest(router, "GET", path, nil, nil)
 
 	testutils.AssertStatusCode(t, http.StatusOK, w)
 }
 
 // =============================================================================
-// ListAutonomousAgentTraces - Extended Tests for Error Paths
+// ListWorkflowTraces - Extended Tests for Error Paths
 // =============================================================================
 
-func TestTracesHandler_ListAutonomousAgentTraces_DBErrorOnList(t *testing.T) {
+func TestTracesHandler_ListWorkflowTraces_DBErrorOnList(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
@@ -990,14 +990,14 @@ func TestTracesHandler_ListAutonomousAgentTraces_DBErrorOnList(t *testing.T) {
 	handler := createTracesHandler(mockDocDB, mockPlatform)
 
 	router := testutils.SetupTestRouter()
-	router.GET("/tenants/:tenantId/autonomous-agents/traces", handler.ListAutonomousAgentTraces)
+	router.GET("/tenants/:tenantId/workflows/traces", handler.ListWorkflowTraces)
 
-	w := testutils.PerformRequest(router, "GET", "/tenants/"+testutils.TestTenantID+"/autonomous-agents/traces", nil, nil)
+	w := testutils.PerformRequest(router, "GET", "/tenants/"+testutils.TestTenantID+"/workflows/traces", nil, nil)
 
 	testutils.AssertStatusCode(t, http.StatusInternalServerError, w)
 }
 
-func TestTracesHandler_ListAutonomousAgentTraces_DBErrorOnCount(t *testing.T) {
+func TestTracesHandler_ListWorkflowTraces_DBErrorOnCount(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
@@ -1008,21 +1008,21 @@ func TestTracesHandler_ListAutonomousAgentTraces_DBErrorOnCount(t *testing.T) {
 	handler := createTracesHandler(mockDocDB, mockPlatform)
 
 	router := testutils.SetupTestRouter()
-	router.GET("/tenants/:tenantId/autonomous-agents/traces", handler.ListAutonomousAgentTraces)
+	router.GET("/tenants/:tenantId/workflows/traces", handler.ListWorkflowTraces)
 
-	w := testutils.PerformRequest(router, "GET", "/tenants/"+testutils.TestTenantID+"/autonomous-agents/traces", nil, nil)
+	w := testutils.PerformRequest(router, "GET", "/tenants/"+testutils.TestTenantID+"/workflows/traces", nil, nil)
 
 	testutils.AssertStatusCode(t, http.StatusInternalServerError, w)
 }
 
-func TestTracesHandler_ListAutonomousAgentTraces_WithAgentIDFilter(t *testing.T) {
+func TestTracesHandler_ListWorkflowTraces_WithAgentIDFilter(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
 	traces := testutils.NewTestTraces(2)
 	for _, trace := range traces {
-		trace.ContextType = models.TraceContextAutonomousAgent
-		trace.AutonomousAgentID = "specific-agent"
+		trace.ContextType = models.TraceContextWorkflow
+		trace.WorkflowID = "specific-agent"
 	}
 
 	mockDocDB.GetTracesCollection().On("List", mock.Anything, mock.Anything).Return(traces, nil)
@@ -1031,9 +1031,9 @@ func TestTracesHandler_ListAutonomousAgentTraces_WithAgentIDFilter(t *testing.T)
 	handler := createTracesHandler(mockDocDB, mockPlatform)
 
 	router := testutils.SetupTestRouter()
-	router.GET("/tenants/:tenantId/autonomous-agents/traces", handler.ListAutonomousAgentTraces)
+	router.GET("/tenants/:tenantId/workflows/traces", handler.ListWorkflowTraces)
 
-	path := "/tenants/" + testutils.TestTenantID + "/autonomous-agents/traces?autonomousAgentId=specific-agent"
+	path := "/tenants/" + testutils.TestTenantID + "/workflows/traces?workflowId=specific-agent"
 	w := testutils.PerformRequest(router, "GET", path, nil, nil)
 
 	testutils.AssertStatusCode(t, http.StatusOK, w)
@@ -1043,7 +1043,7 @@ func TestTracesHandler_ListAutonomousAgentTraces_WithAgentIDFilter(t *testing.T)
 	assert.Len(t, response.Traces, 2)
 }
 
-func TestTracesHandler_ListAutonomousAgentTraces_InvalidPagination(t *testing.T) {
+func TestTracesHandler_ListWorkflowTraces_InvalidPagination(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
@@ -1054,10 +1054,10 @@ func TestTracesHandler_ListAutonomousAgentTraces_InvalidPagination(t *testing.T)
 	handler := createTracesHandler(mockDocDB, mockPlatform)
 
 	router := testutils.SetupTestRouter()
-	router.GET("/tenants/:tenantId/autonomous-agents/traces", handler.ListAutonomousAgentTraces)
+	router.GET("/tenants/:tenantId/workflows/traces", handler.ListWorkflowTraces)
 
 	// Invalid skip and limit values - should use defaults
-	path := "/tenants/" + testutils.TestTenantID + "/autonomous-agents/traces?skip=-10&limit=-5"
+	path := "/tenants/" + testutils.TestTenantID + "/workflows/traces?skip=-10&limit=-5"
 	w := testutils.PerformRequest(router, "GET", path, nil, nil)
 
 	testutils.AssertStatusCode(t, http.StatusOK, w)
@@ -1177,24 +1177,24 @@ func TestTracesHandler_DeleteTrace_DBErrorOnDelete(t *testing.T) {
 }
 
 // =============================================================================
-// RefreshAutonomousAgentTrace - Extended Tests for Error Paths
+// RefreshWorkflowTrace - Extended Tests for Error Paths
 // =============================================================================
 
-func TestTracesHandler_RefreshAutonomousAgentTrace_InvalidRequestBody(t *testing.T) {
+func TestTracesHandler_RefreshWorkflowTrace_InvalidRequestBody(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
 	handler := createTracesHandler(mockDocDB, mockPlatform)
 
 	router := testutils.SetupTestRouter()
-	router.PUT("/tenants/:tenantId/autonomous-agents/:agentId/traces", handler.RefreshAutonomousAgentTrace)
+	router.PUT("/tenants/:tenantId/workflows/:agentId/traces", handler.RefreshWorkflowTrace)
 
-	w := testutils.PerformRequest(router, "PUT", "/tenants/"+testutils.TestTenantID+"/autonomous-agents/agent-123/traces", "invalid json", nil)
+	w := testutils.PerformRequest(router, "PUT", "/tenants/"+testutils.TestTenantID+"/workflows/agent-123/traces", "invalid json", nil)
 
 	testutils.AssertStatusCode(t, http.StatusBadRequest, w)
 }
 
-func TestTracesHandler_RefreshAutonomousAgentTrace_DBErrorOnGet(t *testing.T) {
+func TestTracesHandler_RefreshWorkflowTrace_DBErrorOnGet(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
@@ -1203,19 +1203,19 @@ func TestTracesHandler_RefreshAutonomousAgentTrace_DBErrorOnGet(t *testing.T) {
 		ReferenceName: "Updated",
 	}
 
-	mockDocDB.GetTracesCollection().On("GetByAutonomousAgent", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("db error"))
+	mockDocDB.GetTracesCollection().On("GetByWorkflow", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("db error"))
 
 	handler := createTracesHandler(mockDocDB, mockPlatform)
 
 	router := testutils.SetupTestRouter()
-	router.PUT("/tenants/:tenantId/autonomous-agents/:agentId/traces", handler.RefreshAutonomousAgentTrace)
+	router.PUT("/tenants/:tenantId/workflows/:agentId/traces", handler.RefreshWorkflowTrace)
 
-	w := testutils.PerformRequest(router, "PUT", "/tenants/"+testutils.TestTenantID+"/autonomous-agents/agent-123/traces", refreshReq, nil)
+	w := testutils.PerformRequest(router, "PUT", "/tenants/"+testutils.TestTenantID+"/workflows/agent-123/traces", refreshReq, nil)
 
 	testutils.AssertStatusCode(t, http.StatusInternalServerError, w)
 }
 
-func TestTracesHandler_RefreshAutonomousAgentTrace_TraceNotFound(t *testing.T) {
+func TestTracesHandler_RefreshWorkflowTrace_TraceNotFound(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
@@ -1224,23 +1224,23 @@ func TestTracesHandler_RefreshAutonomousAgentTrace_TraceNotFound(t *testing.T) {
 		ReferenceName: "Updated",
 	}
 
-	mockDocDB.GetTracesCollection().On("GetByAutonomousAgent", mock.Anything, mock.Anything, mock.Anything).Return(nil, nil)
+	mockDocDB.GetTracesCollection().On("GetByWorkflow", mock.Anything, mock.Anything, mock.Anything).Return(nil, nil)
 
 	handler := createTracesHandler(mockDocDB, mockPlatform)
 
 	router := testutils.SetupTestRouter()
-	router.PUT("/tenants/:tenantId/autonomous-agents/:agentId/traces", handler.RefreshAutonomousAgentTrace)
+	router.PUT("/tenants/:tenantId/workflows/:agentId/traces", handler.RefreshWorkflowTrace)
 
-	w := testutils.PerformRequest(router, "PUT", "/tenants/"+testutils.TestTenantID+"/autonomous-agents/agent-123/traces", refreshReq, nil)
+	w := testutils.PerformRequest(router, "PUT", "/tenants/"+testutils.TestTenantID+"/workflows/agent-123/traces", refreshReq, nil)
 
 	testutils.AssertStatusCode(t, http.StatusNotFound, w)
 }
 
-func TestTracesHandler_RefreshAutonomousAgentTrace_DBErrorOnUpdate(t *testing.T) {
+func TestTracesHandler_RefreshWorkflowTrace_DBErrorOnUpdate(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
-	existingTrace := testutils.NewTestAutonomousAgentTrace()
+	existingTrace := testutils.NewTestWorkflowTrace()
 
 	refreshReq := dto.RefreshTraceRequest{
 		ReferenceID:   "updated-ref",
@@ -1248,26 +1248,26 @@ func TestTracesHandler_RefreshAutonomousAgentTrace_DBErrorOnUpdate(t *testing.T)
 	}
 
 	mockPlatform.On("GetMe", mock.Anything, mock.Anything).Return(&platform.UserInfo{ID: testutils.TestUserID}, nil)
-	mockDocDB.GetTracesCollection().On("GetByAutonomousAgent", mock.Anything, mock.Anything, mock.Anything).Return(existingTrace, nil)
+	mockDocDB.GetTracesCollection().On("GetByWorkflow", mock.Anything, mock.Anything, mock.Anything).Return(existingTrace, nil)
 	mockDocDB.GetTracesCollection().On("Update", mock.Anything, mock.Anything).Return(errors.New("db write error"))
 
 	handler := createTracesHandler(mockDocDB, mockPlatform)
 
 	router := testutils.SetupTestRouter()
 	router.Use(testFlexibleAuthMiddleware())
-	router.PUT("/tenants/:tenantId/autonomous-agents/:agentId/traces", handler.RefreshAutonomousAgentTrace)
+	router.PUT("/tenants/:tenantId/workflows/:agentId/traces", handler.RefreshWorkflowTrace)
 
 	headers := map[string]string{"Authorization": "Bearer test-token"}
-	w := testutils.PerformRequest(router, "PUT", "/tenants/"+testutils.TestTenantID+"/autonomous-agents/agent-123/traces", refreshReq, headers)
+	w := testutils.PerformRequest(router, "PUT", "/tenants/"+testutils.TestTenantID+"/workflows/agent-123/traces", refreshReq, headers)
 
 	testutils.AssertStatusCode(t, http.StatusInternalServerError, w)
 }
 
-func TestTracesHandler_RefreshAutonomousAgentTrace_Success(t *testing.T) {
+func TestTracesHandler_RefreshWorkflowTrace_Success(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
-	existingTrace := testutils.NewTestAutonomousAgentTrace()
+	existingTrace := testutils.NewTestWorkflowTrace()
 
 	refreshReq := dto.RefreshTraceRequest{
 		ReferenceID:   "updated-ref",
@@ -1278,17 +1278,17 @@ func TestTracesHandler_RefreshAutonomousAgentTrace_Success(t *testing.T) {
 	}
 
 	mockPlatform.On("GetMe", mock.Anything, mock.Anything).Return(&platform.UserInfo{ID: testutils.TestUserID}, nil)
-	mockDocDB.GetTracesCollection().On("GetByAutonomousAgent", mock.Anything, mock.Anything, mock.Anything).Return(existingTrace, nil)
+	mockDocDB.GetTracesCollection().On("GetByWorkflow", mock.Anything, mock.Anything, mock.Anything).Return(existingTrace, nil)
 	mockDocDB.GetTracesCollection().On("Update", mock.Anything, mock.Anything).Return(nil)
 
 	handler := createTracesHandler(mockDocDB, mockPlatform)
 
 	router := testutils.SetupTestRouter()
 	router.Use(testFlexibleAuthMiddleware())
-	router.PUT("/tenants/:tenantId/autonomous-agents/:agentId/traces", handler.RefreshAutonomousAgentTrace)
+	router.PUT("/tenants/:tenantId/workflows/:agentId/traces", handler.RefreshWorkflowTrace)
 
 	headers := map[string]string{"Authorization": "Bearer test-token"}
-	w := testutils.PerformRequest(router, "PUT", "/tenants/"+testutils.TestTenantID+"/autonomous-agents/agent-123/traces", refreshReq, headers)
+	w := testutils.PerformRequest(router, "PUT", "/tenants/"+testutils.TestTenantID+"/workflows/agent-123/traces", refreshReq, headers)
 
 	testutils.AssertStatusCode(t, http.StatusOK, w)
 }
@@ -1301,7 +1301,7 @@ func TestTracesHandler_ResolveUserIDForTrace_APIKeyWithInvalidAPIKey(t *testing.
 	mockDocDB := mocks.NewMockDocDBClient()
 	mockPlatform := &mocks.MockPlatformClient{}
 
-	existingTrace := testutils.NewTestAutonomousAgentTrace()
+	existingTrace := testutils.NewTestWorkflowTrace()
 
 	addNodesReq := dto.AddNodesRequest{
 		Nodes: []dto.TraceNodeRequest{
@@ -1310,7 +1310,7 @@ func TestTracesHandler_ResolveUserIDForTrace_APIKeyWithInvalidAPIKey(t *testing.
 	}
 
 	mockDocDB.GetTracesCollection().On("Get", mock.Anything, mock.Anything).Return(existingTrace, nil)
-	mockPlatform.On("ValidateAutonomousAgentAPIKey", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(fmt.Errorf("unauthorized: invalid API key"))
+	mockPlatform.On("ValidateWorkflowAPIKey", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(fmt.Errorf("unauthorized: invalid API key"))
 
 	handler := createTracesHandler(mockDocDB, mockPlatform)
 
@@ -1318,7 +1318,7 @@ func TestTracesHandler_ResolveUserIDForTrace_APIKeyWithInvalidAPIKey(t *testing.
 	router.Use(testFlexibleAuthMiddleware())
 	router.POST("/tenants/:tenantId/traces/:traceId/nodes", handler.AddNodes)
 
-	headers := map[string]string{"X-Unified-UI-Autonomous-Agent-API-Key": "invalid-key"}
+	headers := map[string]string{"X-Unified-UI-Workflow-API-Key": "invalid-key"}
 	w := testutils.PerformRequest(router, "POST", "/tenants/"+testutils.TestTenantID+"/traces/"+existingTrace.ID+"/nodes", addNodesReq, headers)
 
 	testutils.AssertStatusCode(t, http.StatusUnauthorized, w)
@@ -1341,9 +1341,9 @@ func testFlexibleAuthMiddleware() gin.HandlerFunc {
 		if authHeader != "" && len(authHeader) > 7 {
 			c.Set("auth_token", authHeader[7:])
 		}
-		apiKey := c.GetHeader("X-Unified-UI-Autonomous-Agent-API-Key")
+		apiKey := c.GetHeader("X-Unified-UI-Workflow-API-Key")
 		if apiKey != "" {
-			c.Set("autonomous_agent_api_key", apiKey)
+			c.Set("workflow_api_key", apiKey)
 		}
 		c.Next()
 	}

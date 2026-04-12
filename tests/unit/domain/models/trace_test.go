@@ -22,13 +22,13 @@ func TestNewConversationTrace(t *testing.T) {
 	require.False(t, trace.CreatedAt.IsZero())
 }
 
-func TestNewAutonomousAgentTrace(t *testing.T) {
-	trace := models.NewAutonomousAgentTrace("tenant-1", "auto-1", "user-1")
+func TestNewWorkflowTrace(t *testing.T) {
+	trace := models.NewWorkflowTrace("tenant-1", "auto-1", "user-1")
 
 	require.Equal(t, "tenant-1", trace.TenantID)
-	require.Equal(t, "auto-1", trace.AutonomousAgentID)
+	require.Equal(t, "auto-1", trace.WorkflowID)
 	require.Empty(t, trace.ChatAgentID)
-	require.Equal(t, models.TraceContextAutonomousAgent, trace.ContextType)
+	require.Equal(t, models.TraceContextWorkflow, trace.ContextType)
 }
 
 func TestNewTraceNode(t *testing.T) {
@@ -98,13 +98,13 @@ func TestTrace_IsConversationContext(t *testing.T) {
 	conv := models.NewConversationTrace("t", "a", "c", "u")
 
 	require.True(t, conv.IsConversationContext())
-	require.False(t, conv.IsAutonomousAgentContext())
+	require.False(t, conv.IsWorkflowContext())
 }
 
-func TestTrace_IsAutonomousAgentContext(t *testing.T) {
-	auto := models.NewAutonomousAgentTrace("t", "a", "u")
+func TestTrace_IsWorkflowContext(t *testing.T) {
+	auto := models.NewWorkflowTrace("t", "a", "u")
 
-	require.True(t, auto.IsAutonomousAgentContext())
+	require.True(t, auto.IsWorkflowContext())
 	require.False(t, auto.IsConversationContext())
 }
 
@@ -114,8 +114,8 @@ func TestTrace_ValidateContext_Conversation(t *testing.T) {
 	require.True(t, trace.ValidateContext())
 }
 
-func TestTrace_ValidateContext_AutonomousAgent(t *testing.T) {
-	trace := models.NewAutonomousAgentTrace("t", "auto-1", "u")
+func TestTrace_ValidateContext_Workflow(t *testing.T) {
+	trace := models.NewWorkflowTrace("t", "auto-1", "u")
 
 	require.True(t, trace.ValidateContext())
 }
@@ -132,8 +132,8 @@ func TestTrace_Validate_Valid_Conversation(t *testing.T) {
 	require.NoError(t, trace.Validate())
 }
 
-func TestTrace_Validate_Valid_AutonomousAgent(t *testing.T) {
-	trace := models.NewAutonomousAgentTrace("t", "auto-1", "u")
+func TestTrace_Validate_Valid_Workflow(t *testing.T) {
+	trace := models.NewWorkflowTrace("t", "auto-1", "u")
 
 	require.NoError(t, trace.Validate())
 }
@@ -146,11 +146,11 @@ func TestTrace_Validate_MissingTenantID(t *testing.T) {
 
 func TestTrace_Validate_BothContexts(t *testing.T) {
 	trace := &models.Trace{
-		TenantID:          "t",
-		ChatAgentID:       "a",
-		ConversationID:    "c",
-		AutonomousAgentID: "auto",
-		ContextType:       models.TraceContextConversation,
+		TenantID:       "t",
+		ChatAgentID:    "a",
+		ConversationID: "c",
+		WorkflowID:     "auto",
+		ContextType:    models.TraceContextConversation,
 	}
 
 	require.Error(t, trace.Validate())
@@ -179,7 +179,7 @@ func TestTrace_Validate_ConversationMissingConversation(t *testing.T) {
 func TestTrace_Validate_AutonomousMissingAgent(t *testing.T) {
 	trace := &models.Trace{
 		TenantID:    "t",
-		ContextType: models.TraceContextAutonomousAgent,
+		ContextType: models.TraceContextWorkflow,
 	}
 
 	require.Error(t, trace.Validate())

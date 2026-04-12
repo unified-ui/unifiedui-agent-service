@@ -557,7 +557,7 @@ func TestGetTracesResponse_JSONSerialization(t *testing.T) {
 	resp := dto.GetTracesResponse{
 		Traces: []*dto.TraceResponse{
 			{ID: "t1", TenantID: "ten-1", ContextType: "conversation", CreatedAt: now, UpdatedAt: now},
-			{ID: "t2", TenantID: "ten-1", ContextType: "autonomous_agent", CreatedAt: now, UpdatedAt: now},
+			{ID: "t2", TenantID: "ten-1", ContextType: "workflow", CreatedAt: now, UpdatedAt: now},
 		},
 		Total: 2,
 	}

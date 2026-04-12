@@ -109,24 +109,24 @@ func (h *TracesHandler) validateConversationContext(ctx context.Context, tenantI
 	return nil
 }
 
-func (h *TracesHandler) resolveAutonomousAgentFromBearer(ctx context.Context, tenantID, agentID, authToken string) *errors.DomainError {
+func (h *TracesHandler) resolveWorkflowFromBearer(ctx context.Context, tenantID, agentID, authToken string) *errors.DomainError {
 	if h.platformClient == nil {
 		return nil
 	}
 
-	err := h.platformClient.ValidateAutonomousAgent(ctx, tenantID, agentID, authToken)
+	err := h.platformClient.ValidateWorkflow(ctx, tenantID, agentID, authToken)
 	if err != nil {
 		errStr := err.Error()
 		if strings.HasPrefix(errStr, "unauthorized") {
-			return errors.NewUnauthorizedError("unauthorized access to autonomous agent")
+			return errors.NewUnauthorizedError("unauthorized access to workflow")
 		}
 		if strings.HasPrefix(errStr, "forbidden") {
-			return errors.NewForbiddenError("no permission to access autonomous agent")
+			return errors.NewForbiddenError("no permission to access workflow")
 		}
 		if strings.HasPrefix(errStr, "not_found") {
-			return errors.NewNotFoundError("autonomous agent", agentID)
+			return errors.NewNotFoundError("workflow", agentID)
 		}
-		return errors.NewInternalError("failed to validate autonomous agent access", err)
+		return errors.NewInternalError("failed to validate workflow access", err)
 	}
 
 	return nil
@@ -137,16 +137,19 @@ func (h *TracesHandler) resolveUserIDFromAPIKey(ctx context.Context, tenantID, a
 		return nil
 	}
 
-	err := h.platformClient.ValidateAutonomousAgentAPIKey(ctx, tenantID, agentID, apiKey)
+	err := h.platformClient.ValidateWorkflowAPIKey(ctx, tenantID, agentID, apiKey)
 	if err != nil {
 		errStr := err.Error()
 		if strings.HasPrefix(errStr, "unauthorized") {
 			return errors.NewUnauthorizedError("invalid API key")
 		}
-		if strings.HasPrefix(errStr, "not_found") {
-			return errors.NewNotFoundError("autonomous agent", agentID)
+		if strings.HasPrefix(errStr, "forbidden") {
+			return errors.NewForbiddenError("invalid API key")
 		}
-		return errors.NewInternalError("failed to validate autonomous agent API key", err)
+		if strings.HasPrefix(errStr, "not_found") {
+			return errors.NewNotFoundError("workflow", agentID)
+		}
+		return errors.NewInternalError("failed to validate workflow API key", err)
 	}
 
 	return nil
@@ -154,7 +157,7 @@ func (h *TracesHandler) resolveUserIDFromAPIKey(ctx context.Context, tenantID, a
 
 func (h *TracesHandler) resolveUserIDForTrace(ctx context.Context, c *gin.Context, tenantID string, trace *models.Trace) (string, *errors.DomainError) {
 	authToken := middleware.GetToken(c)
-	apiKey := middleware.GetAutonomousAgentAPIKey(c)
+	apiKey := middleware.GetWorkflowAPIKey(c)
 
 	if authToken != "" {
 		uid, err := h.getUserID(ctx, authToken)
@@ -165,14 +168,14 @@ func (h *TracesHandler) resolveUserIDForTrace(ctx context.Context, c *gin.Contex
 	}
 
 	if apiKey != "" {
-		if trace.ContextType != models.TraceContextAutonomousAgent || trace.AutonomousAgentID == "" {
-			return "", errors.NewForbiddenError("API key authentication is only allowed for autonomous agent traces")
+		if trace.ContextType != models.TraceContextWorkflow || trace.WorkflowID == "" {
+			return "", errors.NewForbiddenError("API key authentication is only allowed for workflow traces")
 		}
 
-		if domainErr := h.resolveUserIDFromAPIKey(ctx, tenantID, trace.AutonomousAgentID, apiKey); domainErr != nil {
+		if domainErr := h.resolveUserIDFromAPIKey(ctx, tenantID, trace.WorkflowID, apiKey); domainErr != nil {
 			return "", domainErr
 		}
-		return "autonomous-agent-" + trace.AutonomousAgentID, nil
+		return "workflow-" + trace.WorkflowID, nil
 	}
 
 	return "", errors.NewUnauthorizedError("no valid authentication provided")

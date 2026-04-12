@@ -4,6 +4,7 @@ package handlers
 import (
 	"context"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -199,6 +200,87 @@ func (h *ReactionsHandler) GetReactions(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, ListReactionsResponse{Reactions: response})
+}
+
+// BulkReactionsRequest represents the query parameters for getting bulk reactions.
+type BulkReactionsRequest struct {
+	MessageIDs string `form:"messageIds" binding:"required"`
+}
+
+// BulkReactionsResponse represents the response for getting reactions for multiple messages.
+type BulkReactionsResponse struct {
+	Reactions map[string][]ReactionResponse `json:"reactions"`
+}
+
+// GetBulkReactions handles GET /tenants/{tenantId}/conversations/{conversationId}/reactions
+// @Summary Get reactions for multiple messages
+// @Description Retrieves reactions for multiple messages in a single request
+// @Tags Reactions
+// @Accept json
+// @Produce json
+// @Param tenantId path string true "Tenant ID"
+// @Param conversationId path string true "Conversation ID"
+// @Param messageIds query string true "Comma-separated message IDs"
+// @Success 200 {object} BulkReactionsResponse
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 401 {object} dto.ErrorResponse
+// @Failure 500 {object} dto.ErrorResponse
+// @Security BearerAuth
+// @Router /api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/reactions [get]
+func (h *ReactionsHandler) GetBulkReactions(c *gin.Context) {
+	ctx := c.Request.Context()
+	tenantCtx := middleware.GetTenantContext(c)
+	conversationID := middleware.SanitizePathParam(c, "conversationId")
+
+	var req BulkReactionsRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		middleware.HandleError(c, errors.NewValidationError("invalid query parameters", err.Error()))
+		return
+	}
+
+	messageIDs := splitAndTrim(req.MessageIDs)
+	if len(messageIDs) == 0 {
+		middleware.HandleError(c, errors.NewValidationError("messageIds is required", "provide at least one message ID"))
+		return
+	}
+
+	const maxBulkMessageIDs = 100
+	if len(messageIDs) > maxBulkMessageIDs {
+		middleware.HandleError(c, errors.NewValidationError("too many message IDs", "maximum 100 message IDs allowed"))
+		return
+	}
+
+	opts := &docdb.ListBulkReactionsOptions{
+		TenantID:       tenantCtx.TenantID,
+		ConversationID: conversationID,
+		MessageIDs:     messageIDs,
+	}
+
+	reactions, err := h.docDBClient.Reactions().ListByMessages(ctx, opts)
+	if err != nil {
+		middleware.HandleError(c, errors.NewInternalError("failed to list bulk reactions", err))
+		return
+	}
+
+	grouped := make(map[string][]ReactionResponse, len(messageIDs))
+	for _, r := range reactions {
+		grouped[r.MessageID] = append(grouped[r.MessageID], h.toReactionResponse(r))
+	}
+
+	c.JSON(http.StatusOK, BulkReactionsResponse{Reactions: grouped})
+}
+
+// splitAndTrim splits a comma-separated string and trims whitespace.
+func splitAndTrim(s string) []string {
+	parts := strings.Split(s, ",")
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		trimmed := strings.TrimSpace(p)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
 }
 
 // toReactionResponse converts a MessageReaction to ReactionResponse.

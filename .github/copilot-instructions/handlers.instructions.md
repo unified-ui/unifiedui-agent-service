@@ -36,7 +36,7 @@ func NewTracesHandler(docDB docdb.Client, platformClient platform.Client, import
 // @Param tenantId path string true "Tenant ID"
 // @Param request body dto.CreateTraceRequest true "Trace data"
 // @Param Authorization header string false "Bearer token (conversation context)"
-// @Param X-Unified-UI-Autonomous-Agent-API-Key header string false "API key (agent context)"
+// @Param X-Unified-UI-Workflow-API-Key header string false "API key (agent context)"
 // @Success 201 {object} dto.TraceResponse
 // @Failure 400 {object} dto.ErrorResponse "Bad request"
 // @Failure 401 {object} dto.ErrorResponse "Unauthorized"

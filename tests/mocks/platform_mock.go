@@ -57,9 +57,9 @@ func (m *MockPlatformClient) ValidateConversation(ctx context.Context, tenantID,
 	return args.Error(0)
 }
 
-// ValidateAutonomousAgent mocks the ValidateAutonomousAgent method.
-func (m *MockPlatformClient) ValidateAutonomousAgent(ctx context.Context, tenantID, autonomousAgentID, authToken string) error {
-	args := m.Called(ctx, tenantID, autonomousAgentID, authToken)
+// ValidateWorkflow mocks the ValidateWorkflow method.
+func (m *MockPlatformClient) ValidateWorkflow(ctx context.Context, tenantID, workflowID, authToken string) error {
+	args := m.Called(ctx, tenantID, workflowID, authToken)
 	return args.Error(0)
 }
 
@@ -72,27 +72,27 @@ func (m *MockPlatformClient) GetConversation(ctx context.Context, tenantID, conv
 	return args.Get(0).(*platform.ConversationResponse), args.Error(1)
 }
 
-// GetAutonomousAgentConfig mocks the GetAutonomousAgentConfig method.
-func (m *MockPlatformClient) GetAutonomousAgentConfig(ctx context.Context, tenantID, autonomousAgentID, apiKey string) (*platform.AutonomousAgentConfigResponse, error) {
-	args := m.Called(ctx, tenantID, autonomousAgentID, apiKey)
+// GetWorkflowConfig mocks the GetWorkflowConfig method.
+func (m *MockPlatformClient) GetWorkflowConfig(ctx context.Context, tenantID, workflowID, apiKey string) (*platform.WorkflowConfigResponse, error) {
+	args := m.Called(ctx, tenantID, workflowID, apiKey)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*platform.AutonomousAgentConfigResponse), args.Error(1)
+	return args.Get(0).(*platform.WorkflowConfigResponse), args.Error(1)
 }
 
-// GetAutonomousAgentConfigWithBearer mocks the GetAutonomousAgentConfigWithBearer method.
-func (m *MockPlatformClient) GetAutonomousAgentConfigWithBearer(ctx context.Context, tenantID, autonomousAgentID, authToken string) (*platform.AutonomousAgentConfigResponse, error) {
-	args := m.Called(ctx, tenantID, autonomousAgentID, authToken)
+// GetWorkflowConfigWithBearer mocks the GetWorkflowConfigWithBearer method.
+func (m *MockPlatformClient) GetWorkflowConfigWithBearer(ctx context.Context, tenantID, workflowID, authToken string) (*platform.WorkflowConfigResponse, error) {
+	args := m.Called(ctx, tenantID, workflowID, authToken)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*platform.AutonomousAgentConfigResponse), args.Error(1)
+	return args.Get(0).(*platform.WorkflowConfigResponse), args.Error(1)
 }
 
-// ValidateAutonomousAgentAPIKey mocks the ValidateAutonomousAgentAPIKey method.
-func (m *MockPlatformClient) ValidateAutonomousAgentAPIKey(ctx context.Context, tenantID, autonomousAgentID, apiKey string) error {
-	args := m.Called(ctx, tenantID, autonomousAgentID, apiKey)
+// ValidateWorkflowAPIKey mocks the ValidateWorkflowAPIKey method.
+func (m *MockPlatformClient) ValidateWorkflowAPIKey(ctx context.Context, tenantID, workflowID, apiKey string) error {
+	args := m.Called(ctx, tenantID, workflowID, apiKey)
 	return args.Error(0)
 }
 

@@ -60,7 +60,7 @@ func TestWriter_WriteToolCallStart(t *testing.T) {
 	require.NoError(t, err)
 	msg := parseSSEDataLine(t, f.Body.String())
 	require.Equal(t, sse.StreamTypeToolCallStart, msg.Type)
-	require.Equal(t, "search_web", msg.Config["tool_name"])
+	require.Equal(t, "search_web", msg.Config["toolName"])
 }
 
 func TestWriter_WriteToolCallStart_WithConfig(t *testing.T) {
@@ -71,7 +71,7 @@ func TestWriter_WriteToolCallStart_WithConfig(t *testing.T) {
 	require.NoError(t, err)
 	msg := parseSSEDataLine(t, f.Body.String())
 	require.Equal(t, sse.StreamTypeToolCallStart, msg.Type)
-	require.Equal(t, "calculator", msg.Config["tool_name"])
+	require.Equal(t, "calculator", msg.Config["toolName"])
 	require.Equal(t, float64(30), msg.Config["timeout"])
 }
 
@@ -151,7 +151,7 @@ func TestWriter_WriteSubAgentStart(t *testing.T) {
 	require.NoError(t, err)
 	msg := parseSSEDataLine(t, f.Body.String())
 	require.Equal(t, sse.StreamTypeSubAgentStart, msg.Type)
-	require.Equal(t, "research_agent", msg.Config["agent_name"])
+	require.Equal(t, "research_agent", msg.Config["agentName"])
 }
 
 func TestWriter_WriteSubAgentStart_WithConfig(t *testing.T) {
@@ -162,7 +162,7 @@ func TestWriter_WriteSubAgentStart_WithConfig(t *testing.T) {
 	require.NoError(t, err)
 	msg := parseSSEDataLine(t, f.Body.String())
 	require.Equal(t, sse.StreamTypeSubAgentStart, msg.Type)
-	require.Equal(t, "code_agent", msg.Config["agent_name"])
+	require.Equal(t, "code_agent", msg.Config["agentName"])
 	require.Equal(t, "search", msg.Config["delegated_task"])
 }
 

@@ -62,6 +62,32 @@ func ExtractConfig(backendConfig map[string]interface{}) (*Config, bool) {
 	return config, true
 }
 
+// ExtractListConfig extracts N8N configuration needed for listing executions.
+// Only BaseURL and APIKey are required; WorkflowID is optional.
+func ExtractListConfig(backendConfig map[string]interface{}) (*Config, bool) {
+	if backendConfig == nil {
+		return nil, false
+	}
+
+	config := &Config{}
+
+	if v, ok := backendConfig[ConfigKeyBaseURL].(string); ok {
+		config.BaseURL = v
+	}
+	if v, ok := backendConfig[ConfigKeyAPIKey].(string); ok {
+		config.APIKey = v
+	}
+	if v, ok := backendConfig[ConfigKeyWorkflowID].(string); ok {
+		config.WorkflowID = v
+	}
+
+	if config.BaseURL == "" || config.APIKey == "" {
+		return nil, false
+	}
+
+	return config, true
+}
+
 // ExecutionStatus represents the status of an N8N execution.
 type ExecutionStatus string
 

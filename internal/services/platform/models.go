@@ -11,6 +11,8 @@ const (
 	AgentTypeReactAgent AgentType = "REACT_AGENT"
 	AgentTypeCopilot    AgentType = "COPILOT"
 	AgentTypeCustom     AgentType = "CUSTOM"
+	AgentTypeRestAPI    AgentType = "REST_API"
+	AgentTypeLLM        AgentType = "LLM"
 )
 
 // CredentialType represents the type of credentials.
@@ -91,6 +93,18 @@ type AgentSettings struct {
 	SystemPrompt string            `json:"system_prompt,omitempty"`
 	AIModelIDs   []string          `json:"ai_model_ids,omitempty"`
 	AIModels     []ResolvedAIModel `json:"ai_models,omitempty"`
+
+	// REST API specific settings
+	AuthType                   string       `json:"auth_type,omitempty"`
+	InvokeEndpoint             string       `json:"invoke_endpoint,omitempty"`
+	CreateConversationEndpoint string       `json:"create_conversation_endpoint,omitempty"`
+	Credential                 *Credentials `json:"credential,omitempty"`
+	AccessToken                string       `json:"access_token,omitempty"`
+	APIKeyHeaderName           string       `json:"api_key_header_name,omitempty"`
+
+	// LLM specific settings
+	AIModelID string           `json:"ai_model_id,omitempty"`
+	AIModel   *ResolvedAIModel `json:"ai_model,omitempty"`
 }
 
 // ResolvedAIModel represents a fully resolved AI model with decrypted credentials
@@ -155,20 +169,20 @@ type ConversationResponse struct {
 	ExtConversationID string `json:"ext_conversation_id,omitempty"`
 }
 
-// AutonomousAgentConfigResponse represents the config response from platform service
-// for autonomous agents. This is the response from GET /tenants/{tenant_id}/autonomous-agents/{id}/config
+// WorkflowConfigResponse represents the config response from platform service
+// for workflows. This is the response from GET /tenants/{tenant_id}/workflows/{id}/config
 // and uses API key authentication (not Bearer token).
-type AutonomousAgentConfigResponse struct {
-	DocVersion        string                        `json:"docversion"`
-	Type              AgentType                     `json:"type"`
-	TenantID          string                        `json:"tenant_id"`
-	AutonomousAgentID string                        `json:"autonomous_agent_id"`
-	Settings          AutonomousAgentConfigSettings `json:"settings"`
+type WorkflowConfigResponse struct {
+	DocVersion string                 `json:"docversion"`
+	Type       AgentType              `json:"type"`
+	TenantID   string                 `json:"tenant_id"`
+	WorkflowID string                 `json:"workflow_id"`
+	Settings   WorkflowConfigSettings `json:"settings"`
 }
 
-// AutonomousAgentConfigSettings contains the autonomous agent-specific settings.
-type AutonomousAgentConfigSettings struct {
-	// API version for the autonomous agent config format
+// WorkflowConfigSettings contains the workflow-specific settings.
+type WorkflowConfigSettings struct {
+	// API version for the workflow config format
 	APIVersion string `json:"api_version"`
 
 	// N8N specific settings
@@ -195,4 +209,30 @@ func (c *Credentials) GetSecretAsBasicAuth() *BasicAuthSecret {
 		}
 	}
 	return nil
+}
+
+// EntraIDAppRegistrationSecret represents Entra ID app registration credentials.
+type EntraIDAppRegistrationSecret struct {
+	TenantID     string `json:"tenant_id"`
+	ClientID     string `json:"client_id"`
+	ClientSecret string `json:"client_secret"`
+}
+
+// GetSecretAsEntraIDAppReg returns the secret as EntraIDAppRegistrationSecret.
+func (c *Credentials) GetSecretAsEntraIDAppReg() *EntraIDAppRegistrationSecret {
+	m, ok := c.Secret.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	tID, _ := m["tenant_id"].(string)
+	cID, _ := m["client_id"].(string)
+	cSecret, _ := m["client_secret"].(string)
+	if tID == "" || cID == "" || cSecret == "" {
+		return nil
+	}
+	return &EntraIDAppRegistrationSecret{
+		TenantID:     tID,
+		ClientID:     cID,
+		ClientSecret: cSecret,
+	}
 }

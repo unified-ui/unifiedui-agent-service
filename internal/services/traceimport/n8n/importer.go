@@ -132,7 +132,7 @@ func (n *TraceImporter) Import(ctx context.Context, req *traceimport.ImportReque
 		return existingTrace.ID, nil
 	}
 
-	// If ExistingTraceID is provided, we need to update that trace (autonomous agent upsert)
+	// If ExistingTraceID is provided, we need to update that trace (workflow upsert)
 	if req.ExistingTraceID != "" {
 		// Fetch the existing trace and update it
 		existingTraceByID, err := n.docDB.Traces().Get(ctx, req.ExistingTraceID)
@@ -160,8 +160,8 @@ func (n *TraceImporter) Import(ctx context.Context, req *traceimport.ImportReque
 
 	// Determine context type
 	contextType := models.TraceContextConversation
-	if req.AutonomousAgentID != "" {
-		contextType = models.TraceContextAutonomousAgent
+	if req.WorkflowID != "" {
+		contextType = models.TraceContextWorkflow
 	}
 
 	// Create new trace
@@ -170,7 +170,7 @@ func (n *TraceImporter) Import(ctx context.Context, req *traceimport.ImportReque
 		TenantID:          req.TenantID,
 		ChatAgentID:       req.ChatAgentID,
 		ConversationID:    req.ConversationID,
-		AutonomousAgentID: req.AutonomousAgentID,
+		WorkflowID:        req.WorkflowID,
 		ContextType:       contextType,
 		ReferenceID:       n8nConfig.ExecutionID,
 		ReferenceName:     "N8N Workflow Execution",
@@ -321,6 +321,85 @@ func (n *TraceImporter) getWorkflowName(execution *ExecutionResponse) string {
 // GetTransformer returns the transformer for testing purposes.
 func (n *TraceImporter) GetTransformer() *Transformer {
 	return n.transformer
+}
+
+// ListExecutions lists recent workflow executions from the N8N API.
+func (n *TraceImporter) ListExecutions(ctx context.Context, backendConfig map[string]interface{}, limit int, cursor string) (traceimport.WorkflowRunListResult, error) {
+	config, ok := ExtractListConfig(backendConfig)
+	if !ok {
+		return traceimport.WorkflowRunListResult{}, fmt.Errorf("invalid or missing N8N configuration for listing executions")
+	}
+
+	baseURL, err := validateHTTPURL(config.BaseURL)
+	if err != nil {
+		return traceimport.WorkflowRunListResult{}, fmt.Errorf("invalid base URL: %w", err)
+	}
+
+	u, err := url.Parse(baseURL + "/api/v1/executions")
+	if err != nil {
+		return traceimport.WorkflowRunListResult{}, fmt.Errorf("failed to construct request URL: %w", err)
+	}
+
+	if limit <= 0 || limit > 100 {
+		limit = 100
+	}
+
+	q := u.Query()
+	q.Set("limit", fmt.Sprintf("%d", limit))
+	if config.WorkflowID != "" {
+		q.Set("workflowId", validateIdentifier(config.WorkflowID))
+	}
+	if cursor != "" {
+		q.Set("cursor", cursor)
+	}
+	u.RawQuery = q.Encode()
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), http.NoBody)
+	if err != nil {
+		return traceimport.WorkflowRunListResult{}, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "application/json")
+	httpReq.Header.Set("X-N8N-API-KEY", config.APIKey)
+
+	resp, err := n.httpClient.Do(httpReq)
+	if err != nil {
+		return traceimport.WorkflowRunListResult{}, fmt.Errorf("failed to call N8N API: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return traceimport.WorkflowRunListResult{}, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return traceimport.WorkflowRunListResult{}, fmt.Errorf("N8N API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var execList ExecutionsListResponse
+	if err := json.Unmarshal(body, &execList); err != nil {
+		return traceimport.WorkflowRunListResult{}, fmt.Errorf("failed to parse N8N response: %w", err)
+	}
+
+	runs := make([]traceimport.WorkflowRun, 0, len(execList.Data))
+	for i := range execList.Data {
+		exec := &execList.Data[i]
+		runs = append(runs, traceimport.WorkflowRun{
+			ID:         exec.ID,
+			Status:     string(exec.Status),
+			StartedAt:  exec.StartedAt,
+			StoppedAt:  exec.StoppedAt,
+			Mode:       exec.Mode,
+			WorkflowID: exec.WorkflowID,
+		})
+	}
+
+	return traceimport.WorkflowRunListResult{
+		Runs:       runs,
+		NextCursor: execList.NextCursor,
+	}, nil
 }
 
 func validateHTTPURL(rawURL string) (string, error) {

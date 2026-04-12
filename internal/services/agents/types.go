@@ -137,6 +137,12 @@ type StreamReader interface {
 	Close() error
 }
 
+// ConversationCreator defines an optional interface for clients that can create external conversations.
+type ConversationCreator interface {
+	// CreateConversation creates a new conversation/session on the external agent service.
+	CreateConversation(ctx context.Context) (string, error)
+}
+
 // WorkflowClient defines the interface for invoking agent workflows.
 type WorkflowClient interface {
 	// Invoke sends a message to the agent and returns the complete response.

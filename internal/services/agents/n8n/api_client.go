@@ -94,6 +94,35 @@ func (c *APIClient) GetExecutionsBySession(ctx context.Context, sessionID string
 	return []*ExecutionInfo{}, nil
 }
 
+// GetWorkflow retrieves workflow details by ID.
+func (c *APIClient) GetWorkflow(ctx context.Context, workflowID string) (*WorkflowInfo, error) {
+	url := fmt.Sprintf("%s/api/v1/workflows/%s", c.baseURL, workflowID)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	c.setHeaders(req)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	var workflow WorkflowInfo
+	if err := json.NewDecoder(resp.Body).Decode(&workflow); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return &workflow, nil
+}
+
 // Close releases any resources held by the client.
 func (c *APIClient) Close() error {
 	return nil

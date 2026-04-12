@@ -44,7 +44,9 @@ import (
 	"github.com/unifiedui/agent-service/internal/core/cache"
 	"github.com/unifiedui/agent-service/internal/core/docdb"
 	"github.com/unifiedui/agent-service/internal/core/vault"
+	noopcache "github.com/unifiedui/agent-service/internal/infrastructure/cache/noop"
 	rediscache "github.com/unifiedui/agent-service/internal/infrastructure/cache/redis"
+	"github.com/unifiedui/agent-service/internal/infrastructure/docdb/cosmosdb"
 	"github.com/unifiedui/agent-service/internal/infrastructure/docdb/mongodb"
 	azurekeyvault "github.com/unifiedui/agent-service/internal/infrastructure/vault/azurekeyvault"
 	dotenvvault "github.com/unifiedui/agent-service/internal/infrastructure/vault/dotenv"
@@ -53,6 +55,7 @@ import (
 	"github.com/unifiedui/agent-service/internal/services/agents"
 	"github.com/unifiedui/agent-service/internal/services/ai"
 	"github.com/unifiedui/agent-service/internal/services/configcache"
+	"github.com/unifiedui/agent-service/internal/services/connections"
 	"github.com/unifiedui/agent-service/internal/services/platform"
 	"github.com/unifiedui/agent-service/internal/services/session"
 	"github.com/unifiedui/agent-service/internal/services/traceimport"
@@ -202,16 +205,23 @@ func createCacheClient(cfg config.CacheConfig) (cache.Client, error) {
 
 	switch cacheType {
 	case cache.TypeRedis:
-		return rediscache.NewClient(rediscache.Config{
+		client, err := rediscache.NewClient(rediscache.Config{
 			Host:       cfg.Host,
 			Port:       cfg.Port,
 			Password:   cfg.Password,
 			DB:         cfg.DB,
 			DefaultTTL: cfg.TTL,
 		})
+		if err != nil {
+			log.Printf("warning: cache unavailable, using NoOp fallback: %v", err)
+			return noopcache.NewClient(), nil
+		}
+		return client, nil
+	case cache.TypeNone, "":
+		log.Printf("cache disabled, using NoOp cache")
+		return noopcache.NewClient(), nil
 	default:
-		log.Fatalf("unsupported cache type: %s", cfg.Type)
-		return nil, nil
+		return nil, fmt.Errorf("unsupported cache type: %s", cfg.Type)
 	}
 }
 
@@ -226,10 +236,11 @@ func createDocDBClient(ctx context.Context, cfg config.DocDBConfig) (docdb.Clien
 			DatabaseName: cfg.Database,
 		})
 	case docdb.TypeCosmosDB:
-		// CosmosDB uses MongoDB protocol, so we can use the same client
-		return mongodb.NewClient(ctx, &mongodb.ClientConfig{
-			URI:          cfg.URI,
-			DatabaseName: cfg.Database,
+		return cosmosdb.NewClient(ctx, &cosmosdb.ClientConfig{
+			Endpoint:           cfg.CosmosDBEndpoint,
+			Key:                cfg.CosmosDBKey,
+			DatabaseName:       cfg.Database,
+			UseManagedIdentity: cfg.UseManagedIdentity,
 		})
 	default:
 		log.Fatalf("unsupported docdb type: %s", cfg.Type)
@@ -262,10 +273,11 @@ func createEncryptor(cfg config.VaultsConfig, vaultClient vault.Client) (encrypt
 func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb.Client, appVaultClient vault.Client, sessionService session.Service, configCacheService configcache.Service, importService *traceimport.ImportService) *gin.Engine {
 	router := gin.New()
 
-	// Create CORS config
+	// Create CORS config with origins from environment or defaults
 	corsConfig := middleware.DefaultCORSConfig()
+	corsConfig.AllowOrigins = cfg.CORS.AllowOrigins
 
-	// Create CORS middleware with default config
+	// Create CORS middleware with config-based origins
 	corsMw := middleware.NewCORSMiddleware(corsConfig)
 
 	// Apply CORS middleware globally (must be first)
@@ -304,16 +316,20 @@ func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb
 	reactionsHandler := handlers.NewReactionsHandler(docDBClient, platformClient)
 	dataHandler := handlers.NewDataHandler(docDBClient)
 
+	connectionService := connections.NewService()
+	connectionsHandler := handlers.NewConnectionsHandler(connectionService, platformClient)
+
 	// Setup routes
 	routesCfg := &routes.Config{
-		HealthHandler:    healthHandler,
-		MessagesHandler:  messagesHandler,
-		TracesHandler:    tracesHandler,
-		ReactionsHandler: reactionsHandler,
-		DataHandler:      dataHandler,
-		AIHandler:        aiHandler,
-		AuthMiddleware:   authMw,
-		ServiceKeyMw:     serviceKeyMw,
+		HealthHandler:      healthHandler,
+		MessagesHandler:    messagesHandler,
+		TracesHandler:      tracesHandler,
+		ReactionsHandler:   reactionsHandler,
+		DataHandler:        dataHandler,
+		AIHandler:          aiHandler,
+		ConnectionsHandler: connectionsHandler,
+		AuthMiddleware:     authMw,
+		ServiceKeyMw:       serviceKeyMw,
 	}
 
 	routes.SetupWithMiddleware(router, routesCfg, loggingMw, errorMw)

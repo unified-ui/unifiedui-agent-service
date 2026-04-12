@@ -36,6 +36,9 @@ linters:
           - errcheck
           - gosec
           - gocritic
+      - path: docs/
+        linters:
+          - misspell
 
   settings:
     misspell:

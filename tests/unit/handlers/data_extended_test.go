@@ -195,51 +195,51 @@ func TestDataHandler_DeleteConversationData_MessagesDeleteSuccessTracesDeleteErr
 }
 
 // ===========================================================================
-// DeleteAutonomousAgentData Extended Tests
+// DeleteWorkflowData Extended Tests
 // ===========================================================================
 
-func TestDataHandler_DeleteAutonomousAgentData_MissingTenantID(t *testing.T) {
+func TestDataHandler_DeleteWorkflowData_MissingTenantID(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	handler := handlers.NewDataHandler(mockDocDB)
 
 	router := testutils.SetupTestRouter()
 	// Route without tenantId parameter
-	router.DELETE("/autonomous-agents/:agentId/data", handler.DeleteAutonomousAgentData)
+	router.DELETE("/workflows/:agentId/data", handler.DeleteWorkflowData)
 
 	w := testutils.PerformRequest(router, "DELETE",
-		"/autonomous-agents/agent-123/data",
+		"/workflows/agent-123/data",
 		nil, nil,
 	)
 
 	testutils.AssertStatusCode(t, http.StatusBadRequest, w)
 }
 
-func TestDataHandler_DeleteAutonomousAgentData_MissingAgentID(t *testing.T) {
+func TestDataHandler_DeleteWorkflowData_MissingAgentID(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	handler := handlers.NewDataHandler(mockDocDB)
 
 	router := testutils.SetupTestRouter()
 	// Route without agentId parameter
-	router.DELETE("/tenants/:tenantId/autonomous-agents-data", handler.DeleteAutonomousAgentData)
+	router.DELETE("/tenants/:tenantId/workflows-data", handler.DeleteWorkflowData)
 
 	w := testutils.PerformRequest(router, "DELETE",
-		"/tenants/"+testutils.TestTenantID+"/autonomous-agents-data",
+		"/tenants/"+testutils.TestTenantID+"/workflows-data",
 		nil, nil,
 	)
 
 	testutils.AssertStatusCode(t, http.StatusBadRequest, w)
 }
 
-func TestDataHandler_DeleteAutonomousAgentData_EmptyTenantID(t *testing.T) {
+func TestDataHandler_DeleteWorkflowData_EmptyTenantID(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	handler := handlers.NewDataHandler(mockDocDB)
 
 	router := testutils.SetupTestRouter()
-	router.DELETE("/tenants/:tenantId/autonomous-agents/:agentId/data", handler.DeleteAutonomousAgentData)
+	router.DELETE("/tenants/:tenantId/workflows/:agentId/data", handler.DeleteWorkflowData)
 
 	// Provide empty tenant ID via path
 	w := testutils.PerformRequest(router, "DELETE",
-		"/tenants//autonomous-agents/agent-123/data",
+		"/tenants//workflows/agent-123/data",
 		nil, nil,
 	)
 
@@ -247,16 +247,16 @@ func TestDataHandler_DeleteAutonomousAgentData_EmptyTenantID(t *testing.T) {
 	testutils.AssertStatusCode(t, http.StatusBadRequest, w)
 }
 
-func TestDataHandler_DeleteAutonomousAgentData_EmptyAgentID(t *testing.T) {
+func TestDataHandler_DeleteWorkflowData_EmptyAgentID(t *testing.T) {
 	mockDocDB := mocks.NewMockDocDBClient()
 	handler := handlers.NewDataHandler(mockDocDB)
 
 	router := testutils.SetupTestRouter()
-	router.DELETE("/tenants/:tenantId/autonomous-agents/:agentId/data", handler.DeleteAutonomousAgentData)
+	router.DELETE("/tenants/:tenantId/workflows/:agentId/data", handler.DeleteWorkflowData)
 
 	// Provide empty agent ID via path
 	w := testutils.PerformRequest(router, "DELETE",
-		"/tenants/"+testutils.TestTenantID+"/autonomous-agents//data",
+		"/tenants/"+testutils.TestTenantID+"/workflows//data",
 		nil, nil,
 	)
 
@@ -264,7 +264,7 @@ func TestDataHandler_DeleteAutonomousAgentData_EmptyAgentID(t *testing.T) {
 	testutils.AssertStatusCode(t, http.StatusBadRequest, w)
 }
 
-func TestDataHandler_DeleteAutonomousAgentData_MultipleAgents(t *testing.T) {
+func TestDataHandler_DeleteWorkflowData_MultipleAgents(t *testing.T) {
 	testCases := []struct {
 		name    string
 		agentID string
@@ -277,15 +277,15 @@ func TestDataHandler_DeleteAutonomousAgentData_MultipleAgents(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			mockDocDB := mocks.NewMockDocDBClient()
-			mockDocDB.GetTracesCollection().On("DeleteByAutonomousAgent", mock.Anything, testutils.TestTenantID, tc.agentID).Return(nil)
+			mockDocDB.GetTracesCollection().On("DeleteByWorkflow", mock.Anything, testutils.TestTenantID, tc.agentID).Return(nil)
 
 			handler := handlers.NewDataHandler(mockDocDB)
 
 			router := testutils.SetupTestRouter()
-			router.DELETE("/tenants/:tenantId/autonomous-agents/:agentId/data", handler.DeleteAutonomousAgentData)
+			router.DELETE("/tenants/:tenantId/workflows/:agentId/data", handler.DeleteWorkflowData)
 
 			w := testutils.PerformRequest(router, "DELETE",
-				"/tenants/"+testutils.TestTenantID+"/autonomous-agents/"+tc.agentID+"/data",
+				"/tenants/"+testutils.TestTenantID+"/workflows/"+tc.agentID+"/data",
 				nil, nil,
 			)
 
@@ -295,7 +295,7 @@ func TestDataHandler_DeleteAutonomousAgentData_MultipleAgents(t *testing.T) {
 	}
 }
 
-func TestDataHandler_DeleteAutonomousAgentData_DifferentTenants(t *testing.T) {
+func TestDataHandler_DeleteWorkflowData_DifferentTenants(t *testing.T) {
 	testCases := []struct {
 		name     string
 		tenantID string
@@ -308,15 +308,15 @@ func TestDataHandler_DeleteAutonomousAgentData_DifferentTenants(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			mockDocDB := mocks.NewMockDocDBClient()
-			mockDocDB.GetTracesCollection().On("DeleteByAutonomousAgent", mock.Anything, tc.tenantID, "agent-123").Return(nil)
+			mockDocDB.GetTracesCollection().On("DeleteByWorkflow", mock.Anything, tc.tenantID, "agent-123").Return(nil)
 
 			handler := handlers.NewDataHandler(mockDocDB)
 
 			router := testutils.SetupTestRouter()
-			router.DELETE("/tenants/:tenantId/autonomous-agents/:agentId/data", handler.DeleteAutonomousAgentData)
+			router.DELETE("/tenants/:tenantId/workflows/:agentId/data", handler.DeleteWorkflowData)
 
 			w := testutils.PerformRequest(router, "DELETE",
-				"/tenants/"+tc.tenantID+"/autonomous-agents/agent-123/data",
+				"/tenants/"+tc.tenantID+"/workflows/agent-123/data",
 				nil, nil,
 			)
 
@@ -326,18 +326,18 @@ func TestDataHandler_DeleteAutonomousAgentData_DifferentTenants(t *testing.T) {
 	}
 }
 
-func TestDataHandler_DeleteAutonomousAgentData_NonExistentAgent(t *testing.T) {
+func TestDataHandler_DeleteWorkflowData_NonExistentAgent(t *testing.T) {
 	// Deleting data for non-existent agent should still succeed (no-op)
 	mockDocDB := mocks.NewMockDocDBClient()
-	mockDocDB.GetTracesCollection().On("DeleteByAutonomousAgent", mock.Anything, testutils.TestTenantID, "non-existent-agent").Return(nil)
+	mockDocDB.GetTracesCollection().On("DeleteByWorkflow", mock.Anything, testutils.TestTenantID, "non-existent-agent").Return(nil)
 
 	handler := handlers.NewDataHandler(mockDocDB)
 
 	router := testutils.SetupTestRouter()
-	router.DELETE("/tenants/:tenantId/autonomous-agents/:agentId/data", handler.DeleteAutonomousAgentData)
+	router.DELETE("/tenants/:tenantId/workflows/:agentId/data", handler.DeleteWorkflowData)
 
 	w := testutils.PerformRequest(router, "DELETE",
-		"/tenants/"+testutils.TestTenantID+"/autonomous-agents/non-existent-agent/data",
+		"/tenants/"+testutils.TestTenantID+"/workflows/non-existent-agent/data",
 		nil, nil,
 	)
 

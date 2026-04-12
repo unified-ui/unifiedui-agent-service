@@ -198,7 +198,7 @@ func TestGetConversation_HTTPMethod(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestValidateAutonomousAgentAPIKey_HTTPMethod(t *testing.T) {
+func TestValidateWorkflowAPIKey_HTTPMethod(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodPost, r.Method)
 		w.WriteHeader(200)
@@ -206,7 +206,7 @@ func TestValidateAutonomousAgentAPIKey_HTTPMethod(t *testing.T) {
 	defer ts.Close()
 
 	client := newTestClient(ts)
-	err := client.ValidateAutonomousAgentAPIKey(context.Background(), "t", "a", "key")
+	err := client.ValidateWorkflowAPIKey(context.Background(), "t", "a", "key")
 	assert.NoError(t, err)
 }
 
@@ -234,10 +234,10 @@ func TestServiceConfigResponse_BackwardCompatibility(t *testing.T) {
 	assert.Equal(t, platform.AgentTypeN8N, parsed.Type)
 }
 
-// === AutonomousAgentConfigSettings Additional Tests ===
+// === WorkflowConfigSettings Additional Tests ===
 
-func TestAutonomousAgentConfigSettings_AllFields(t *testing.T) {
-	settings := platform.AutonomousAgentConfigSettings{
+func TestWorkflowConfigSettings_AllFields(t *testing.T) {
+	settings := platform.WorkflowConfigSettings{
 		APIVersion:          "v2",
 		N8NHost:             "https://n8n.example.com",
 		N8NWorkflowEndpoint: "/webhook/autonomous",
@@ -256,7 +256,7 @@ func TestAutonomousAgentConfigSettings_AllFields(t *testing.T) {
 	data, err := json.Marshal(settings)
 	require.NoError(t, err)
 
-	var parsed platform.AutonomousAgentConfigSettings
+	var parsed platform.WorkflowConfigSettings
 	err = json.Unmarshal(data, &parsed)
 	require.NoError(t, err)
 
