@@ -643,6 +643,7 @@ func (h *MessagesHandler) streamTitleGeneration(ctx context.Context, writer *sse
 	_ = writer.WriteTitleGeneration(title)
 
 	if authToken != "" {
+		// nolint:gosec // G118: Intentionally using Background() as this runs after HTTP response is sent
 		go func() {
 			persistCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()

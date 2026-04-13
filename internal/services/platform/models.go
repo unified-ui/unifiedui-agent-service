@@ -35,8 +35,9 @@ const (
 )
 
 // ServiceConfigResponse represents the config response from platform service (without user data).
-// Deprecated: Use ChatAgentConfigResponse instead.
 // This is kept for backwards compatibility.
+//
+// Deprecated: Use ChatAgentConfigResponse instead.
 type ServiceConfigResponse struct {
 	DocVersion  string        `json:"docversion"`
 	Type        AgentType     `json:"type"`

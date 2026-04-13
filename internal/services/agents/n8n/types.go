@@ -128,12 +128,12 @@ func BuildChatHistoryMarkdown(history []models.ChatHistoryEntry, currentMessage 
 
 		for _, entry := range history {
 			ts := entry.Timestamp.Format("2006-01-02 15:04:05")
-			sb.WriteString(fmt.Sprintf("[%s | %s]:\n%s\n\n", ts, entry.Role, entry.Content))
+			fmt.Fprintf(&sb, "[%s | %s]:\n%s\n\n", ts, entry.Role, entry.Content)
 		}
 	}
 
 	ts := currentTimestamp.Format("2006-01-02 15:04:05")
-	sb.WriteString(fmt.Sprintf("## Current Message\n\n[%s | user]:\n%s", ts, currentMessage))
+	fmt.Fprintf(&sb, "## Current Message\n\n[%s | user]:\n%s", ts, currentMessage)
 
 	return sb.String()
 }
@@ -154,13 +154,13 @@ func BuildSimpleChatHistoryMarkdown(history []models.ChatHistoryEntry, currentMe
 		sb.WriteString("<history>\n")
 		for _, entry := range history {
 			ts := entry.Timestamp.Format("2006-01-02 15:04:05")
-			sb.WriteString(fmt.Sprintf("[%s|%s]: %s\n", ts, entry.Role, entry.Content))
+			fmt.Fprintf(&sb, "[%s|%s]: %s\n", ts, entry.Role, entry.Content)
 		}
 		sb.WriteString("</history>\n")
 	}
 
 	ts := currentTimestamp.Format("2006-01-02 15:04:05")
-	sb.WriteString(fmt.Sprintf("<current>\n[%s|user]: %s\n</current>", ts, currentMessage))
+	fmt.Fprintf(&sb, "<current>\n[%s|user]: %s\n</current>", ts, currentMessage)
 
 	return sb.String()
 }
