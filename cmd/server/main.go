@@ -289,7 +289,6 @@ func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb
 	// Create middleware
 	loggingMw := middleware.NewLoggingMiddleware()
 	errorMw := middleware.NewErrorMiddleware()
-	authMw := middleware.NewAuthMiddleware(cfg.Platform.URL)
 	serviceKeyMw := middleware.NewServiceKeyMiddleware(appVaultClient, cfg.AppVault)
 
 	// Create platform client
@@ -299,6 +298,9 @@ func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb
 		ServiceKey: cfg.Platform.ServiceKey,
 		Timeout:    cfg.Platform.Timeout,
 	})
+
+	// Auth middleware delegates Bearer-token validation to the platform service.
+	authMw := middleware.NewAuthMiddleware(platformClient)
 
 	// Create agent factory with ReACT service support
 	reactServiceKey := resolveServiceKeyFromVault(context.Background(), appVaultClient, cfg.AppVault.AgentToReactAgentKey)

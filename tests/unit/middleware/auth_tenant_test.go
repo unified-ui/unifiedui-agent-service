@@ -1,14 +1,19 @@
 package middleware
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 
 	"github.com/unifiedui/agent-service/internal/api/middleware"
+	"github.com/unifiedui/agent-service/internal/services/platform"
 )
 
 func init() {
@@ -88,7 +93,7 @@ func TestGetTenantContext(t *testing.T) {
 
 func TestAuthMiddleware_Authenticate_Success(t *testing.T) {
 	router := gin.New()
-	am := middleware.NewAuthMiddleware("http://platform")
+	am := middleware.NewAuthMiddleware(nil)
 	router.Use(am.Authenticate())
 
 	var token string
@@ -108,7 +113,7 @@ func TestAuthMiddleware_Authenticate_Success(t *testing.T) {
 
 func TestAuthMiddleware_Authenticate_MissingHeader(t *testing.T) {
 	router := gin.New()
-	am := middleware.NewAuthMiddleware("http://platform")
+	am := middleware.NewAuthMiddleware(nil)
 	router.Use(am.Authenticate())
 	router.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
 
@@ -121,7 +126,7 @@ func TestAuthMiddleware_Authenticate_MissingHeader(t *testing.T) {
 
 func TestAuthMiddleware_Authenticate_InvalidFormat(t *testing.T) {
 	router := gin.New()
-	am := middleware.NewAuthMiddleware("http://platform")
+	am := middleware.NewAuthMiddleware(nil)
 	router.Use(am.Authenticate())
 	router.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
 
@@ -135,7 +140,7 @@ func TestAuthMiddleware_Authenticate_InvalidFormat(t *testing.T) {
 
 func TestAuthMiddleware_Authenticate_EmptyToken(t *testing.T) {
 	router := gin.New()
-	am := middleware.NewAuthMiddleware("http://platform")
+	am := middleware.NewAuthMiddleware(nil)
 	router.Use(am.Authenticate())
 	router.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
 
@@ -149,7 +154,7 @@ func TestAuthMiddleware_Authenticate_EmptyToken(t *testing.T) {
 
 func TestAuthMiddleware_AuthenticateFlexible_BearerToken(t *testing.T) {
 	router := gin.New()
-	am := middleware.NewAuthMiddleware("http://platform")
+	am := middleware.NewAuthMiddleware(nil)
 	router.Use(am.AuthenticateFlexible())
 	var token string
 	router.GET("/test", func(c *gin.Context) {
@@ -168,7 +173,7 @@ func TestAuthMiddleware_AuthenticateFlexible_BearerToken(t *testing.T) {
 
 func TestAuthMiddleware_AuthenticateFlexible_APIKey(t *testing.T) {
 	router := gin.New()
-	am := middleware.NewAuthMiddleware("http://platform")
+	am := middleware.NewAuthMiddleware(nil)
 	router.Use(am.AuthenticateFlexible())
 	var apiKey string
 	router.GET("/test", func(c *gin.Context) {
@@ -187,7 +192,7 @@ func TestAuthMiddleware_AuthenticateFlexible_APIKey(t *testing.T) {
 
 func TestAuthMiddleware_AuthenticateFlexible_NeitherPresent(t *testing.T) {
 	router := gin.New()
-	am := middleware.NewAuthMiddleware("http://platform")
+	am := middleware.NewAuthMiddleware(nil)
 	router.Use(am.AuthenticateFlexible())
 	router.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
 
@@ -202,7 +207,7 @@ func TestAuthMiddleware_AuthenticateFlexible_InvalidAuthHeader_NoAPIKey(t *testi
 	// Tests the "invalid authentication credentials" path when auth header is present but invalid
 	// and no API key is provided
 	router := gin.New()
-	am := middleware.NewAuthMiddleware("http://platform")
+	am := middleware.NewAuthMiddleware(nil)
 	router.Use(am.AuthenticateFlexible())
 	router.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
 
@@ -217,7 +222,7 @@ func TestAuthMiddleware_AuthenticateFlexible_InvalidAuthHeader_NoAPIKey(t *testi
 func TestAuthMiddleware_AuthenticateFlexible_EmptyBearerToken_NoAPIKey(t *testing.T) {
 	// Tests when Bearer token is empty and no API key
 	router := gin.New()
-	am := middleware.NewAuthMiddleware("http://platform")
+	am := middleware.NewAuthMiddleware(nil)
 	router.Use(am.AuthenticateFlexible())
 	router.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
 
@@ -232,7 +237,7 @@ func TestAuthMiddleware_AuthenticateFlexible_EmptyBearerToken_NoAPIKey(t *testin
 func TestAuthMiddleware_AuthenticateFlexible_SinglePartAuth_NoAPIKey(t *testing.T) {
 	// Tests when Authorization header has only one part (no space)
 	router := gin.New()
-	am := middleware.NewAuthMiddleware("http://platform")
+	am := middleware.NewAuthMiddleware(nil)
 	router.Use(am.AuthenticateFlexible())
 	router.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
 
@@ -247,7 +252,7 @@ func TestAuthMiddleware_AuthenticateFlexible_SinglePartAuth_NoAPIKey(t *testing.
 func TestAuthMiddleware_AuthenticateFlexible_InvalidAuthHeader_WithAPIKey(t *testing.T) {
 	// Tests fallback to API key when auth header is invalid
 	router := gin.New()
-	am := middleware.NewAuthMiddleware("http://platform")
+	am := middleware.NewAuthMiddleware(nil)
 	router.Use(am.AuthenticateFlexible())
 	var apiKey string
 	router.GET("/test", func(c *gin.Context) {
@@ -267,7 +272,7 @@ func TestAuthMiddleware_AuthenticateFlexible_InvalidAuthHeader_WithAPIKey(t *tes
 
 func TestAuthMiddleware_AuthenticateWorkflowAPIKey_Success(t *testing.T) {
 	router := gin.New()
-	am := middleware.NewAuthMiddleware("http://platform")
+	am := middleware.NewAuthMiddleware(nil)
 	router.Use(am.AuthenticateWorkflowAPIKey())
 	var apiKey string
 	router.GET("/test", func(c *gin.Context) {
@@ -286,7 +291,7 @@ func TestAuthMiddleware_AuthenticateWorkflowAPIKey_Success(t *testing.T) {
 
 func TestAuthMiddleware_AuthenticateWorkflowAPIKey_Missing(t *testing.T) {
 	router := gin.New()
-	am := middleware.NewAuthMiddleware("http://platform")
+	am := middleware.NewAuthMiddleware(nil)
 	router.Use(am.AuthenticateWorkflowAPIKey())
 	router.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
 
@@ -309,4 +314,74 @@ func TestGetWorkflowAPIKey_NotSet(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	c.Request = httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	require.Equal(t, "", middleware.GetWorkflowAPIKey(c))
+}
+
+// --- Validator-backed Authenticate tests ---
+
+type stubValidator struct {
+	user *platform.UserInfo
+	err  error
+	n    int32
+}
+
+func (s *stubValidator) GetMe(_ context.Context, _ string) (*platform.UserInfo, error) {
+	atomic.AddInt32(&s.n, 1)
+	return s.user, s.err
+}
+
+func TestAuthMiddleware_Authenticate_ValidatorRejectsInvalidToken(t *testing.T) {
+	v := &stubValidator{err: errors.New("401 unauthorized")}
+	am := middleware.NewAuthMiddleware(v)
+	router := gin.New()
+	router.Use(am.Authenticate())
+	router.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
+	req.Header.Set("Authorization", "Bearer forged-token")
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusUnauthorized, w.Code)
+	require.Equal(t, int32(1), atomic.LoadInt32(&v.n))
+}
+
+func TestAuthMiddleware_Authenticate_ValidatorAcceptsAndStoresUser(t *testing.T) {
+	v := &stubValidator{user: &platform.UserInfo{ID: "u-1", Mail: "a@b"}}
+	am := middleware.NewAuthMiddleware(v)
+	router := gin.New()
+	router.Use(am.Authenticate())
+
+	var capturedUser *platform.UserInfo
+	router.GET("/test", func(c *gin.Context) {
+		capturedUser = middleware.GetAuthUser(c)
+		c.Status(http.StatusOK)
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
+	req.Header.Set("Authorization", "Bearer valid-token")
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.NotNil(t, capturedUser)
+	require.Equal(t, "u-1", capturedUser.ID)
+}
+
+func TestAuthMiddleware_Authenticate_CachesValidation(t *testing.T) {
+	v := &stubValidator{user: &platform.UserInfo{ID: "u-1"}}
+	am := middleware.NewAuthMiddleware(v)
+	am.SetCacheTTL(time.Minute)
+	router := gin.New()
+	router.Use(am.Authenticate())
+	router.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
+
+	for i := 0; i < 3; i++ {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
+		req.Header.Set("Authorization", "Bearer same-token")
+		router.ServeHTTP(w, req)
+		require.Equal(t, http.StatusOK, w.Code)
+	}
+
+	require.Equal(t, int32(1), atomic.LoadInt32(&v.n))
 }

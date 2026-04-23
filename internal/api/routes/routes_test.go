@@ -141,7 +141,7 @@ func setupTestRouter() *gin.Engine {
 
 func createTestConfig() *routes.Config {
 	healthHandler := handlers.NewHealthHandler(&mockCacheClient{}, &mockDocDBClient{})
-	authMiddleware := middleware.NewAuthMiddleware("http://test-platform-service")
+	authMiddleware := middleware.NewAuthMiddleware(nil)
 
 	return &routes.Config{
 		HealthHandler:    healthHandler,
