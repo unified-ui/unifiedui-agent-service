@@ -58,6 +58,7 @@ import (
 	"github.com/unifiedui/agent-service/internal/services/connections"
 	"github.com/unifiedui/agent-service/internal/services/platform"
 	"github.com/unifiedui/agent-service/internal/services/session"
+	"github.com/unifiedui/agent-service/internal/services/telemetry"
 	"github.com/unifiedui/agent-service/internal/services/traceimport"
 	"github.com/unifiedui/agent-service/internal/services/traceimport/foundry"
 	"github.com/unifiedui/agent-service/internal/services/traceimport/n8n"
@@ -290,6 +291,7 @@ func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb
 	loggingMw := middleware.NewLoggingMiddleware()
 	errorMw := middleware.NewErrorMiddleware()
 	serviceKeyMw := middleware.NewServiceKeyMiddleware(appVaultClient, cfg.AppVault)
+	serviceKeyMw.SetDebugBackdoor(cfg.DebugBackdoor)
 
 	// Create platform client
 	platformClient := platform.NewClient(&platform.ClientConfig{
@@ -301,6 +303,7 @@ func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb
 
 	// Auth middleware delegates Bearer-token validation to the platform service.
 	authMw := middleware.NewAuthMiddleware(platformClient)
+	authMw.SetDebugBackdoor(cfg.DebugBackdoor)
 
 	// Create agent factory with ReACT service support
 	reactServiceKey := resolveServiceKeyFromVault(context.Background(), appVaultClient, cfg.AppVault.AgentToReactAgentKey)
@@ -308,12 +311,23 @@ func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb
 
 	// Create handlers
 	healthHandler := handlers.NewHealthHandler(cacheClient, docDBClient)
+	healthHandler.SetDebugBackdoorEnabled(cfg.DebugBackdoor.Enabled)
+
+	if cfg.DebugBackdoor.Enabled {
+		emitDebugBackdoorBanner()
+		startDebugBackdoorReminder(context.Background())
+	}
 
 	// Create AI service and handler
 	aiService := ai.NewService(platformClient)
 	aiHandler := handlers.NewAIHandler(aiService, platformClient)
 
 	messagesHandler := handlers.NewMessagesHandler(docDBClient, platformClient, agentFactory, sessionService, configCacheService, importService, aiService)
+
+	telemetrySink := telemetry.NewHTTPSink(cfg.Platform.URL, cfg.Platform.ServiceKey, nil)
+	telemetryEmitter := telemetry.NewEmitter(telemetrySink, telemetry.Config{})
+	telemetryEmitter.Start(context.Background())
+	messagesHandler.WithTelemetry(telemetryEmitter)
 	tracesHandler := handlers.NewTracesHandler(docDBClient, platformClient, importService)
 	reactionsHandler := handlers.NewReactionsHandler(docDBClient, platformClient)
 	dataHandler := handlers.NewDataHandler(docDBClient)
@@ -353,4 +367,32 @@ func resolveServiceKeyFromVault(ctx context.Context, vaultClient vault.Client, k
 		return ""
 	}
 	return secret
+}
+
+// emitDebugBackdoorBanner prints a loud warning when the backdoor is enabled (REQ 007).
+func emitDebugBackdoorBanner() {
+	banner := "\n" +
+		"================================================================\n" +
+		"  !!! DEBUG BACKDOOR ENABLED — DEV/TEST ONLY !!!                \n" +
+		"  ENABLE_DEBUG_BACK_DOOR=true                                   \n" +
+		"  This service accepts synthetic auth via X-Debug-* headers.    \n" +
+		"  NEVER expose this configuration to production.                \n" +
+		"================================================================\n"
+	log.Print(banner)
+}
+
+// startDebugBackdoorReminder spawns a goroutine that re-emits a warning every 30s.
+func startDebugBackdoorReminder(ctx context.Context) {
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				log.Print("DEBUG BACKDOOR is ENABLED — never run this configuration in production")
+			}
+		}
+	}()
 }

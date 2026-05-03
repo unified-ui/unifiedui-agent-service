@@ -11,6 +11,7 @@ import (
 	"github.com/unifiedui/agent-service/internal/domain/models"
 	"github.com/unifiedui/agent-service/internal/services/platform"
 	"github.com/unifiedui/agent-service/internal/services/session"
+	"github.com/unifiedui/agent-service/internal/services/telemetry"
 	"github.com/unifiedui/agent-service/internal/services/traceimport"
 )
 
@@ -45,6 +46,7 @@ func (h *MessagesHandler) saveCanceledAssistantMessage(
 	saveCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	_ = h.docDBClient.Messages().Add(saveCtx, msg)
+	h.emitMessageMetric(msg, agentConfig, "CANCELED", "USER_CANCELED")
 }
 
 func (h *MessagesHandler) saveAssistantMessageWithMetadata(
@@ -64,6 +66,7 @@ func (h *MessagesHandler) saveAssistantMessageWithMetadata(
 	if err := h.docDBClient.Messages().Add(ctx, msg); err != nil {
 		return nil
 	}
+	h.emitMessageMetric(msg, agentConfig, "SUCCESS", "")
 	return msg
 }
 
@@ -284,4 +287,38 @@ func extractBaseURL(fullURL string) string {
 	}
 
 	return fullURL[:slashIdx]
+}
+
+func (h *MessagesHandler) emitMessageMetric(
+	msg *models.Message,
+	agentConfig *platform.AgentConfig,
+	status string,
+	errorCode string,
+) {
+	if h.telemetry == nil || msg == nil {
+		return
+	}
+	event := telemetry.MetricEvent{
+		MessageID:      msg.ID,
+		ConversationID: msg.ConversationID,
+		ChatAgentID:    msg.ChatAgentID,
+		UserID:         msg.UserID,
+		Status:         status,
+		ErrorCode:      errorCode,
+	}
+	if msg.Metadata != nil {
+		event.TokensInput = msg.Metadata.TokensInput
+		event.TokensOutput = msg.Metadata.TokensOutput
+		event.LatencyMs = int(msg.Metadata.LatencyMs)
+		event.Model = msg.Metadata.Model
+		event.AgentType = msg.Metadata.AgentType
+	}
+	if agentConfig != nil {
+		event.TenantID = agentConfig.TenantID
+		event.Provider = string(agentConfig.Type)
+		if event.AgentType == "" {
+			event.AgentType = string(agentConfig.Type)
+		}
+	}
+	h.telemetry.Emit(event)
 }

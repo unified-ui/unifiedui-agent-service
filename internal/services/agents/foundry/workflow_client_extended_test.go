@@ -116,7 +116,7 @@ func TestNewWorkflowClient_EmptyAPIToken(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Nil(t, client)
-	assert.Contains(t, err.Error(), "API token is required")
+	assert.Contains(t, err.Error(), "API token or AuthProvider is required")
 }
 
 func TestNewWorkflowClient_DefaultAPIVersion(t *testing.T) {

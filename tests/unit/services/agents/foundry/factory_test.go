@@ -54,7 +54,7 @@ func TestNewFromConfig_MissingToken(t *testing.T) {
 	client, err := foundry.NewFromConfig(config, "")
 	require.Error(t, err)
 	assert.Nil(t, client)
-	assert.Contains(t, err.Error(), "API token is required")
+	assert.Contains(t, err.Error(), "API token or AuthProvider is required")
 }
 
 // TestNewFromConfig_MissingProjectEndpoint tests error when project endpoint is missing.

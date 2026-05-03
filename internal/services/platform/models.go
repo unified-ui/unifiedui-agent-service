@@ -237,3 +237,10 @@ func (c *Credentials) GetSecretAsEntraIDAppReg() *EntraIDAppRegistrationSecret {
 		ClientSecret: cSecret,
 	}
 }
+
+// UpsertMessageFeedbackRequest is the body for the platform-service feedback upsert endpoint.
+type UpsertMessageFeedbackRequest struct {
+	Rating  string   `json:"rating"`
+	Reasons []string `json:"reasons"`
+	Comment string   `json:"comment,omitempty"`
+}

@@ -117,5 +117,17 @@ func (m *MockPlatformClient) UpdateConversationTitle(ctx context.Context, tenant
 	return args.Error(0)
 }
 
+// UpsertMessageFeedback mocks the UpsertMessageFeedback method.
+func (m *MockPlatformClient) UpsertMessageFeedback(ctx context.Context, tenantID, conversationID, messageID, authToken string, payload platform.UpsertMessageFeedbackRequest) error {
+	args := m.Called(ctx, tenantID, conversationID, messageID, authToken, payload)
+	return args.Error(0)
+}
+
+// DeleteMessageFeedback mocks the DeleteMessageFeedback method.
+func (m *MockPlatformClient) DeleteMessageFeedback(ctx context.Context, tenantID, conversationID, messageID, authToken string) error {
+	args := m.Called(ctx, tenantID, conversationID, messageID, authToken)
+	return args.Error(0)
+}
+
 // Ensure MockPlatformClient implements platform.Client interface.
 var _ platform.Client = (*MockPlatformClient)(nil)

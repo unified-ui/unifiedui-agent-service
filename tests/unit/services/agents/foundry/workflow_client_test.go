@@ -76,7 +76,7 @@ func TestNewWorkflowClient_MissingAPIToken(t *testing.T) {
 	client, err := foundry.NewWorkflowClient(config)
 	require.Error(t, err)
 	assert.Nil(t, client)
-	assert.Contains(t, err.Error(), "API token is required")
+	assert.Contains(t, err.Error(), "API token or AuthProvider is required")
 }
 
 // TestNewWorkflowClient_DefaultAPIVersion tests default API version is set.

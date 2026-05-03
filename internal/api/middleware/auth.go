@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/unifiedui/agent-service/internal/config"
 	"github.com/unifiedui/agent-service/internal/services/platform"
 )
 
@@ -31,6 +32,7 @@ type AuthMiddleware struct {
 	validator TokenValidator
 	cacheTTL  time.Duration
 	cache     sync.Map
+	backdoor  config.DebugBackdoorConfig
 }
 
 // NewAuthMiddleware creates a new AuthMiddleware backed by the given TokenValidator.
@@ -47,6 +49,12 @@ func NewAuthMiddleware(validator TokenValidator) *AuthMiddleware {
 // SetCacheTTL overrides the default validation cache TTL. Useful for tests.
 func (m *AuthMiddleware) SetCacheTTL(ttl time.Duration) {
 	m.cacheTTL = ttl
+}
+
+// SetDebugBackdoor enables the debug backdoor path on this middleware (REQ 007).
+// Pass an empty/disabled config to leave it off (the default).
+func (m *AuthMiddleware) SetDebugBackdoor(cfg config.DebugBackdoorConfig) {
+	m.backdoor = cfg
 }
 
 // validateToken returns the resolved user, fetching from the validator and
@@ -74,11 +82,49 @@ func (m *AuthMiddleware) validateToken(ctx context.Context, token string) (*plat
 	return user, nil
 }
 
+// tryBackdoor handles the debug-backdoor short-circuit (REQ 007).
+// Returns true when the request was authenticated via backdoor and the
+// caller should stop further auth processing and proceed to the handler.
+// Returns false when backdoor is disabled or the secret header is absent.
+// Aborts the request with 401 when the secret is wrong or required identity
+// headers are missing.
+func (m *AuthMiddleware) tryBackdoor(c *gin.Context) bool {
+	if !m.backdoor.Enabled {
+		return false
+	}
+	if !HasBackdoorHeaders(c) {
+		return false
+	}
+	if !VerifyBackdoorSecret(c, m.backdoor) {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+			"code":    "UNAUTHORIZED",
+			"message": "invalid debug backdoor secret",
+		})
+		return true
+	}
+	user := BuildSyntheticUser(c)
+	if user == nil {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+			"code":    "UNAUTHORIZED",
+			"message": "debug backdoor requires X-Debug-User-Id and X-Debug-User-Upn headers",
+		})
+		return true
+	}
+	LogBackdoorUse(c, user)
+	MarkBackdoor(c, user)
+	return true
+}
+
 // Authenticate returns a gin middleware that validates the Bearer token by
 // calling the platform service. The validated user info is stored in the
 // gin context for downstream handlers to consume without re-fetching.
 func (m *AuthMiddleware) Authenticate() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if m.tryBackdoor(c) {
+			c.Next()
+			return
+		}
+
 		token, ok := extractBearerToken(c)
 		if !ok {
 			return
@@ -167,6 +213,11 @@ func GetWorkflowAPIKey(c *gin.Context) string {
 // workflow's primary/secondary keys.
 func (m *AuthMiddleware) AuthenticateFlexible() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if m.tryBackdoor(c) {
+			c.Next()
+			return
+		}
+
 		authHeader := c.GetHeader("Authorization")
 		apiKey := c.GetHeader("X-Unified-UI-Workflow-API-Key")
 

@@ -16,6 +16,7 @@ import (
 	"github.com/unifiedui/agent-service/internal/services/configcache"
 	"github.com/unifiedui/agent-service/internal/services/platform"
 	"github.com/unifiedui/agent-service/internal/services/session"
+	"github.com/unifiedui/agent-service/internal/services/telemetry"
 	"github.com/unifiedui/agent-service/internal/services/traceimport"
 )
 
@@ -35,6 +36,7 @@ type MessagesHandler struct {
 	configCache    configcache.Service
 	importService  *traceimport.ImportService
 	aiService      ai.Service
+	telemetry      *telemetry.Emitter
 }
 
 // NewMessagesHandler creates a new MessagesHandler.
@@ -56,6 +58,77 @@ func NewMessagesHandler(
 		importService:  importService,
 		aiService:      aiService,
 	}
+}
+
+// WithTelemetry attaches a telemetry emitter to the handler. Safe to omit;
+// when nil, EmitMetric becomes a no-op.
+func (h *MessagesHandler) WithTelemetry(emitter *telemetry.Emitter) *MessagesHandler {
+	h.telemetry = emitter
+	return h
+}
+
+// EmitMetric forwards a per-message metric event to the configured telemetry
+// emitter. The call is non-blocking and silently drops when no emitter is
+// configured or when the buffer is saturated.
+func (h *MessagesHandler) EmitMetric(event telemetry.MetricEvent) {
+	if h.telemetry == nil {
+		return
+	}
+	h.telemetry.Emit(event)
+}
+
+// emitSendMetric constructs a MetricEvent for a completed SendMessage request
+// and forwards it to the telemetry emitter. Safe to call with a partially
+// populated assistant message (e.g. on error or cancellation).
+func (h *MessagesHandler) emitSendMetric(
+	tenantCtx *middleware.TenantContext,
+	agentConfig *platform.AgentConfig,
+	assistantMessage *models.Message,
+	startedAt time.Time,
+) {
+	if h.telemetry == nil || assistantMessage == nil {
+		return
+	}
+	latencyMs := int(time.Since(startedAt).Milliseconds())
+	status := "success"
+	errorCode := ""
+	switch assistantMessage.Status {
+	case models.MessageStatusFailed:
+		status = "failed"
+		errorCode = "STREAM_ERROR"
+	case models.MessageStatusCanceled:
+		status = "cancelled"
+	case models.MessageStatusPending:
+		status = "pending"
+	case models.MessageStatusSuccess:
+		status = "success"
+	}
+	event := telemetry.MetricEvent{
+		TenantID:       tenantCtx.TenantID,
+		MessageID:      assistantMessage.ID,
+		ChatAgentID:    assistantMessage.ChatAgentID,
+		ConversationID: assistantMessage.ConversationID,
+		UserID:         tenantCtx.UserID,
+		LatencyMs:      latencyMs,
+		Status:         status,
+		ErrorCode:      errorCode,
+	}
+	if agentConfig != nil {
+		event.Provider = string(agentConfig.Type)
+		event.AgentType = string(agentConfig.Type)
+	}
+	if assistantMessage.Metadata != nil {
+		event.TokensInput = assistantMessage.Metadata.TokensInput
+		event.TokensOutput = assistantMessage.Metadata.TokensOutput
+		event.Model = assistantMessage.Metadata.Model
+		if assistantMessage.Metadata.AgentType != "" {
+			event.AgentType = assistantMessage.Metadata.AgentType
+		}
+		if assistantMessage.Metadata.LatencyMs > 0 {
+			event.LatencyMs = int(assistantMessage.Metadata.LatencyMs)
+		}
+	}
+	h.telemetry.Emit(event)
 }
 
 // GetMessagesRequest represents the query parameters for getting messages.
