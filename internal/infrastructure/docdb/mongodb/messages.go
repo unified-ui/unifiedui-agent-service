@@ -206,6 +206,91 @@ func (c *MessagesCollection) CountByConversation(ctx context.Context, tenantID, 
 	return count, nil
 }
 
+// GetMessageStats returns aggregated message counts by status for a tenant,
+// grouped by chat agent. Uses a single $match + $group aggregation pipeline.
+func (c *MessagesCollection) GetMessageStats(ctx context.Context, tenantID string, filter *models.MessageStatsFilter) (*models.MessageStatsResult, error) {
+	match := bson.M{
+		"tenantId": sanitizeValue(tenantID),
+		"type":     "assistant",
+		"status":   bson.M{"$in": bson.A{"success", "failed"}},
+	}
+	if filter != nil {
+		if len(filter.ChatAgentIDs) > 0 {
+			ids := make(bson.A, 0, len(filter.ChatAgentIDs))
+			for _, id := range filter.ChatAgentIDs {
+				ids = append(ids, sanitizeValue(id))
+			}
+			match["chatAgentId"] = bson.M{"$in": ids}
+		}
+		if !filter.From.IsZero() || !filter.To.IsZero() {
+			createdAt := bson.M{}
+			if !filter.From.IsZero() {
+				createdAt["$gte"] = filter.From
+			}
+			if !filter.To.IsZero() {
+				createdAt["$lte"] = filter.To
+			}
+			match["createdAt"] = createdAt
+		}
+	}
+
+	pipeline := mongo.Pipeline{
+		{{Key: "$match", Value: match}},
+		{{Key: "$group", Value: bson.M{
+			"_id":   "$chatAgentId",
+			"total": bson.M{"$sum": 1},
+			"failed": bson.M{"$sum": bson.M{"$cond": bson.A{
+				bson.M{"$eq": bson.A{"$status", "failed"}},
+				1,
+				0,
+			}}},
+		}}},
+	}
+
+	cursor, err := c.collection.Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, fmt.Errorf("failed to aggregate message stats: %w", err)
+	}
+	defer cursor.Close(ctx)
+
+	type groupRow struct {
+		ID     interface{} `bson:"_id"`
+		Total  int64       `bson:"total"`
+		Failed int64       `bson:"failed"`
+	}
+
+	result := &models.MessageStatsResult{
+		PerAgent: make([]models.MessageStatsPerAgent, 0),
+	}
+
+	for cursor.Next(ctx) {
+		var row groupRow
+		if err := cursor.Decode(&row); err != nil {
+			return nil, fmt.Errorf("failed to decode message stats row: %w", err)
+		}
+		success := row.Total - row.Failed
+		result.Aggregate.TotalMessages += row.Total
+		result.Aggregate.SuccessCount += success
+		result.Aggregate.FailedCount += row.Failed
+
+		agentID, ok := row.ID.(string)
+		if !ok || agentID == "" {
+			continue
+		}
+		result.PerAgent = append(result.PerAgent, models.MessageStatsPerAgent{
+			ChatAgentID:   agentID,
+			TotalMessages: row.Total,
+			SuccessCount:  success,
+			FailedCount:   row.Failed,
+		})
+	}
+	if err := cursor.Err(); err != nil {
+		return nil, fmt.Errorf("cursor error during message stats aggregation: %w", err)
+	}
+
+	return result, nil
+}
+
 // EnsureIndexes creates necessary indexes for the messages collection.
 func (c *MessagesCollection) EnsureIndexes(ctx context.Context) error {
 	indexes := []mongo.IndexModel{

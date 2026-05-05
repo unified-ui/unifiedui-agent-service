@@ -58,7 +58,6 @@ import (
 	"github.com/unifiedui/agent-service/internal/services/connections"
 	"github.com/unifiedui/agent-service/internal/services/platform"
 	"github.com/unifiedui/agent-service/internal/services/session"
-	"github.com/unifiedui/agent-service/internal/services/telemetry"
 	"github.com/unifiedui/agent-service/internal/services/traceimport"
 	"github.com/unifiedui/agent-service/internal/services/traceimport/foundry"
 	"github.com/unifiedui/agent-service/internal/services/traceimport/n8n"
@@ -323,11 +322,8 @@ func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb
 	aiHandler := handlers.NewAIHandler(aiService, platformClient)
 
 	messagesHandler := handlers.NewMessagesHandler(docDBClient, platformClient, agentFactory, sessionService, configCacheService, importService, aiService)
+	messageStatsHandler := handlers.NewMessageStatsHandler(docDBClient)
 
-	telemetrySink := telemetry.NewHTTPSink(cfg.Platform.URL, cfg.Platform.ServiceKey, nil)
-	telemetryEmitter := telemetry.NewEmitter(telemetrySink, telemetry.Config{})
-	telemetryEmitter.Start(context.Background())
-	messagesHandler.WithTelemetry(telemetryEmitter)
 	tracesHandler := handlers.NewTracesHandler(docDBClient, platformClient, importService)
 	reactionsHandler := handlers.NewReactionsHandler(docDBClient, platformClient)
 	dataHandler := handlers.NewDataHandler(docDBClient)
@@ -337,15 +333,16 @@ func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb
 
 	// Setup routes
 	routesCfg := &routes.Config{
-		HealthHandler:      healthHandler,
-		MessagesHandler:    messagesHandler,
-		TracesHandler:      tracesHandler,
-		ReactionsHandler:   reactionsHandler,
-		DataHandler:        dataHandler,
-		AIHandler:          aiHandler,
-		ConnectionsHandler: connectionsHandler,
-		AuthMiddleware:     authMw,
-		ServiceKeyMw:       serviceKeyMw,
+		HealthHandler:       healthHandler,
+		MessagesHandler:     messagesHandler,
+		MessageStatsHandler: messageStatsHandler,
+		TracesHandler:       tracesHandler,
+		ReactionsHandler:    reactionsHandler,
+		DataHandler:         dataHandler,
+		AIHandler:           aiHandler,
+		ConnectionsHandler:  connectionsHandler,
+		AuthMiddleware:      authMw,
+		ServiceKeyMw:        serviceKeyMw,
 	}
 
 	routes.SetupWithMiddleware(router, routesCfg, loggingMw, errorMw)

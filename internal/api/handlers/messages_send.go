@@ -189,10 +189,6 @@ func (h *MessagesHandler) SendMessage(c *gin.Context) {
 		}
 	}
 	files := convertFilesToFileInputs(req.Message.Files)
-	startedAt := time.Now()
-	defer func() {
-		h.emitSendMetric(tenantCtx, agentConfig, assistantMessage, startedAt)
-	}()
 	h.handleStreamingResponse(c, tenantCtx, agentClients, agentConfig, userMessage, assistantMessage, chatHistory, extConversationID, foundryAPIKey, req.InvokeConfig.ContextData, authToken, isFirstMessage, files)
 }
 

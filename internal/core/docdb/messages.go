@@ -74,6 +74,11 @@ type MessagesCollection interface {
 	// CountByConversation returns the count of messages in a conversation.
 	CountByConversation(ctx context.Context, tenantID, conversationID string) (int64, error)
 
+	// GetMessageStats returns aggregated message counts by status for a tenant,
+	// grouped by chat agent. Returns both the overall aggregate and per-agent
+	// breakdown. Filter.ChatAgentIDs scopes the query to specific agents.
+	GetMessageStats(ctx context.Context, tenantID string, filter *models.MessageStatsFilter) (*models.MessageStatsResult, error)
+
 	// EnsureIndexes creates necessary indexes for the collection.
 	EnsureIndexes(ctx context.Context) error
 }

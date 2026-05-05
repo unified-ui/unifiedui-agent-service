@@ -3,6 +3,7 @@ package handlers
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -35,6 +36,7 @@ func NewReactionsHandler(docDBClient docdb.Client, platformClient platform.Clien
 type UpsertReactionRequest struct {
 	Reaction     models.ReactionType `json:"reaction" binding:"required"`
 	FeedbackText string              `json:"feedbackText,omitempty"`
+	Reasons      []string            `json:"reasons,omitempty"`
 }
 
 // ReactionResponse represents a reaction in the API response.
@@ -327,16 +329,28 @@ func (h *ReactionsHandler) proxyUpsertToPlatform(_ context.Context, tenantID, co
 	if h.platformClient == nil || authToken == "" {
 		return
 	}
+	reasons := req.Reasons
+	if reasons == nil {
+		reasons = []string{}
+	}
 	payload := platform.UpsertMessageFeedbackRequest{
 		Rating:  reactionToFeedbackRating(req.Reaction),
-		Reasons: []string{},
+		Reasons: reasons,
 		Comment: req.FeedbackText,
 	}
 	go func() {
 		defer func() { _ = recover() }()
 		bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		_ = h.platformClient.UpsertMessageFeedback(bgCtx, tenantID, conversationID, messageID, authToken, payload)
+		if err := h.platformClient.UpsertMessageFeedback(bgCtx, tenantID, conversationID, messageID, authToken, payload); err != nil {
+			slog.Error("failed to proxy feedback upsert to platform",
+				"error", err,
+				"tenant_id", tenantID,
+				"conversation_id", conversationID,
+				"message_id", messageID,
+				"rating", payload.Rating,
+			)
+		}
 	}()
 }
 

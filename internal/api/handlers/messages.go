@@ -16,7 +16,6 @@ import (
 	"github.com/unifiedui/agent-service/internal/services/configcache"
 	"github.com/unifiedui/agent-service/internal/services/platform"
 	"github.com/unifiedui/agent-service/internal/services/session"
-	"github.com/unifiedui/agent-service/internal/services/telemetry"
 	"github.com/unifiedui/agent-service/internal/services/traceimport"
 )
 
@@ -36,7 +35,6 @@ type MessagesHandler struct {
 	configCache    configcache.Service
 	importService  *traceimport.ImportService
 	aiService      ai.Service
-	telemetry      *telemetry.Emitter
 }
 
 // NewMessagesHandler creates a new MessagesHandler.
@@ -58,77 +56,6 @@ func NewMessagesHandler(
 		importService:  importService,
 		aiService:      aiService,
 	}
-}
-
-// WithTelemetry attaches a telemetry emitter to the handler. Safe to omit;
-// when nil, EmitMetric becomes a no-op.
-func (h *MessagesHandler) WithTelemetry(emitter *telemetry.Emitter) *MessagesHandler {
-	h.telemetry = emitter
-	return h
-}
-
-// EmitMetric forwards a per-message metric event to the configured telemetry
-// emitter. The call is non-blocking and silently drops when no emitter is
-// configured or when the buffer is saturated.
-func (h *MessagesHandler) EmitMetric(event telemetry.MetricEvent) {
-	if h.telemetry == nil {
-		return
-	}
-	h.telemetry.Emit(event)
-}
-
-// emitSendMetric constructs a MetricEvent for a completed SendMessage request
-// and forwards it to the telemetry emitter. Safe to call with a partially
-// populated assistant message (e.g. on error or cancellation).
-func (h *MessagesHandler) emitSendMetric(
-	tenantCtx *middleware.TenantContext,
-	agentConfig *platform.AgentConfig,
-	assistantMessage *models.Message,
-	startedAt time.Time,
-) {
-	if h.telemetry == nil || assistantMessage == nil {
-		return
-	}
-	latencyMs := int(time.Since(startedAt).Milliseconds())
-	status := "success"
-	errorCode := ""
-	switch assistantMessage.Status {
-	case models.MessageStatusFailed:
-		status = "failed"
-		errorCode = "STREAM_ERROR"
-	case models.MessageStatusCanceled:
-		status = "cancelled"
-	case models.MessageStatusPending:
-		status = "pending"
-	case models.MessageStatusSuccess:
-		status = "success"
-	}
-	event := telemetry.MetricEvent{
-		TenantID:       tenantCtx.TenantID,
-		MessageID:      assistantMessage.ID,
-		ChatAgentID:    assistantMessage.ChatAgentID,
-		ConversationID: assistantMessage.ConversationID,
-		UserID:         tenantCtx.UserID,
-		LatencyMs:      latencyMs,
-		Status:         status,
-		ErrorCode:      errorCode,
-	}
-	if agentConfig != nil {
-		event.Provider = string(agentConfig.Type)
-		event.AgentType = string(agentConfig.Type)
-	}
-	if assistantMessage.Metadata != nil {
-		event.TokensInput = assistantMessage.Metadata.TokensInput
-		event.TokensOutput = assistantMessage.Metadata.TokensOutput
-		event.Model = assistantMessage.Metadata.Model
-		if assistantMessage.Metadata.AgentType != "" {
-			event.AgentType = assistantMessage.Metadata.AgentType
-		}
-		if assistantMessage.Metadata.LatencyMs > 0 {
-			event.LatencyMs = int(assistantMessage.Metadata.LatencyMs)
-		}
-	}
-	h.telemetry.Emit(event)
 }
 
 // GetMessagesRequest represents the query parameters for getting messages.
@@ -267,6 +194,62 @@ func (h *MessagesHandler) GetMessages(c *gin.Context) {
 		Messages: response,
 		HasMore:  hasMore,
 	})
+}
+
+// MessageWithContextResponse represents a single message with its preceding user message.
+type MessageWithContextResponse struct {
+	Message     MessageResponse  `json:"message"`
+	UserMessage *MessageResponse `json:"userMessage,omitempty"`
+}
+
+// GetMessageWithContext handles GET /tenants/{tenantId}/conversations/{conversationId}/messages/{messageId}/with-context
+// @Summary Get a message with its preceding user message
+// @Description Retrieves a single message and its preceding user message (if applicable). Optimized for feedback inspection.
+// @Tags Messages
+// @Accept json
+// @Produce json
+// @Param tenantId path string true "Tenant ID"
+// @Param conversationId path string true "Conversation ID"
+// @Param messageId path string true "Message ID"
+// @Success 200 {object} MessageWithContextResponse
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 401 {object} dto.ErrorResponse
+// @Failure 404 {object} dto.ErrorResponse
+// @Failure 500 {object} dto.ErrorResponse
+// @Security BearerAuth
+// @Router /api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/messages/{messageId}/with-context [get]
+func (h *MessagesHandler) GetMessageWithContext(c *gin.Context) {
+	ctx := c.Request.Context()
+	tenantCtx := middleware.GetTenantContext(c)
+
+	messageID := c.Param("messageId")
+	conversationID := c.Param("conversationId")
+	if messageID == "" || conversationID == "" {
+		middleware.HandleError(c, errors.NewValidationError("messageId and conversationId are required", ""))
+		return
+	}
+
+	msg, err := h.docDBClient.Messages().Get(ctx, messageID)
+	if err != nil {
+		middleware.HandleError(c, errors.NewInternalError("failed to get message", err))
+		return
+	}
+	if msg == nil || msg.TenantID != tenantCtx.TenantID || msg.ConversationID != conversationID {
+		middleware.HandleError(c, errors.NewNotFoundError("message", messageID))
+		return
+	}
+
+	resp := MessageWithContextResponse{Message: h.toMessageResponse(msg)}
+
+	if msg.UserMessageID != "" {
+		userMsg, uerr := h.docDBClient.Messages().Get(ctx, msg.UserMessageID)
+		if uerr == nil && userMsg != nil && userMsg.TenantID == tenantCtx.TenantID {
+			userResp := h.toMessageResponse(userMsg)
+			resp.UserMessage = &userResp
+		}
+	}
+
+	c.JSON(http.StatusOK, resp)
 }
 
 func (h *MessagesHandler) toMessageResponse(msg *models.Message) MessageResponse {

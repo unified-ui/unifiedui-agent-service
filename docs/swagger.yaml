@@ -524,6 +524,8 @@ definitions:
         additionalProperties:
           type: string
         type: object
+      debug_backdoor_enabled:
+        type: boolean
       status:
         type: string
     type: object
@@ -598,6 +600,13 @@ definitions:
       userMessageId:
         type: string
     type: object
+  handlers.MessageWithContextResponse:
+    properties:
+      message:
+        $ref: '#/definitions/handlers.MessageResponse'
+      userMessage:
+        $ref: '#/definitions/handlers.MessageResponse'
+    type: object
   handlers.ReactionResponse:
     properties:
       conversationId:
@@ -660,6 +669,10 @@ definitions:
         type: string
       reaction:
         $ref: '#/definitions/models.ReactionType'
+      reasons:
+        items:
+          type: string
+        type: array
     required:
     - reaction
     type: object
@@ -1537,6 +1550,56 @@ paths:
       summary: Create or update a reaction
       tags:
       - Reactions
+  /api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/messages/{messageId}/with-context:
+    get:
+      consumes:
+      - application/json
+      description: Retrieves a single message and its preceding user message (if applicable).
+        Optimized for feedback inspection.
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Conversation ID
+        in: path
+        name: conversationId
+        required: true
+        type: string
+      - description: Message ID
+        in: path
+        name: messageId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.MessageWithContextResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get a message with its preceding user message
+      tags:
+      - Messages
   /api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/reactions:
     get:
       consumes:
