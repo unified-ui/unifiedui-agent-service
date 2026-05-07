@@ -492,6 +492,45 @@ func (f *Factory) CreateRestAPIClients(agentCfg *platform.AgentConfig, userToken
 	}, nil
 }
 
+// CreateFoundryCustomRestAPIClients creates a REST API client for Foundry agents using CUSTOM_REST_API auth mode.
+// The Foundry config's custom_rest_api_endpoint becomes the invoke endpoint, and the proxy auth
+// settings determine how authentication is handled against the proxy.
+func (f *Factory) CreateFoundryCustomRestAPIClients(agentCfg *platform.AgentConfig, userToken string) (*AgentClients, error) {
+	if agentCfg == nil {
+		return nil, fmt.Errorf("config is required")
+	}
+
+	proxyConfig := *agentCfg
+	proxyConfig.Settings.InvokeEndpoint = agentCfg.Settings.CustomRestAPIEndpoint
+	proxyConfig.Settings.AuthType = mapCustomRestAPIAuthType(agentCfg.Settings.CustomRestAPIAuthType)
+	proxyConfig.Settings.APIKeyHeaderName = agentCfg.Settings.CustomRestAPIAPIKeyHeader
+
+	restFactory := restapi.NewFactory()
+
+	workflowClient, err := restFactory.CreateWorkflowClient(&proxyConfig, userToken)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Foundry custom REST API workflow client: %w", err)
+	}
+
+	return &AgentClients{
+		WorkflowClient: &restAPIWorkflowAdapter{
+			client: workflowClient,
+		},
+		APIClient: nil,
+		Config:    agentCfg,
+	}, nil
+}
+
+// mapCustomRestAPIAuthType maps Foundry proxy auth type values to REST API auth type values.
+func mapCustomRestAPIAuthType(proxyAuthType string) string {
+	switch proxyAuthType {
+	case "USER_TOKEN":
+		return "ENTRA_ID_USER_TOKEN"
+	default:
+		return proxyAuthType
+	}
+}
+
 // CreateLLMClients creates LLM agent clients for direct model chat streaming.
 func (f *Factory) CreateLLMClients(agentCfg *platform.AgentConfig) (*AgentClients, error) {
 	if agentCfg == nil {

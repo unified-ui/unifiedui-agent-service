@@ -17,6 +17,7 @@ const (
 	AuthTypeEntraIDUserToken       AuthType = "ENTRA_ID_USER_TOKEN" //nolint:gosec // not a credential
 	AuthTypeEntraIDAppRegistration AuthType = "ENTRA_ID_APP_REGISTRATION"
 	AuthTypeAPIKey                 AuthType = "API_KEY"
+	AuthTypeCustomRestAPI          AuthType = "CUSTOM_REST_API" //nolint:gosec // not a credential
 )
 
 // FoundryTokenScope is the AAD scope used to acquire Foundry access tokens.

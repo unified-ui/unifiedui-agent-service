@@ -103,6 +103,11 @@ type AgentSettings struct {
 	AccessToken                string       `json:"access_token,omitempty"`
 	APIKeyHeaderName           string       `json:"api_key_header_name,omitempty"`
 
+	// Foundry Custom REST API Proxy settings
+	CustomRestAPIEndpoint     string `json:"custom_rest_api_endpoint,omitempty"`
+	CustomRestAPIAuthType     string `json:"custom_rest_api_auth_type,omitempty"`
+	CustomRestAPIAPIKeyHeader string `json:"custom_rest_api_api_key_header,omitempty"`
+
 	// LLM specific settings
 	AIModelID string           `json:"ai_model_id,omitempty"`
 	AIModel   *ResolvedAIModel `json:"ai_model,omitempty"`
