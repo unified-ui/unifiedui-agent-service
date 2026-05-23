@@ -54,6 +54,7 @@ type ChatAgentConfigResponse struct {
 	Type        AgentType     `json:"type"`
 	TenantID    string        `json:"tenant_id"`
 	ChatAgentID string        `json:"chat_agent_id"`
+	IsActive    bool          `json:"is_active"`
 	Settings    AgentSettings `json:"settings"`
 	User        *UserInfo     `json:"user,omitempty"`
 }
@@ -66,6 +67,7 @@ type AgentConfig struct {
 	TenantID       string        `json:"tenant_id"`
 	ConversationID string        `json:"conversation_id"`
 	ChatAgentID    string        `json:"chat_agent_id"`
+	IsActive       bool          `json:"is_active"`
 	Settings       AgentSettings `json:"settings"`
 	User           *UserInfo     `json:"user,omitempty"`
 }

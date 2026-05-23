@@ -95,6 +95,7 @@ func (c *client) GetAgentConfig(ctx context.Context, tenantID, chatAgentID, conv
 		TenantID:       appConfig.TenantID,
 		ConversationID: conversationID,
 		ChatAgentID:    appConfig.ChatAgentID,
+		IsActive:       appConfig.IsActive,
 		Settings:       appConfig.Settings,
 		User:           appConfig.User,
 	}, nil

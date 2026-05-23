@@ -103,6 +103,11 @@ func (h *MessagesHandler) SendMessage(c *gin.Context) {
 		}
 	}
 
+	if !agentConfig.IsActive {
+		middleware.HandleError(c, errors.NewForbiddenError("chat agent is currently inactive"))
+		return
+	}
+
 	userMessage := models.NewUserMessage(
 		tenantCtx.TenantID,
 		conversationID,
