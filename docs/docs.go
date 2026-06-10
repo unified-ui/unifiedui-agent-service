@@ -1182,6 +1182,81 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/messages/{messageId}/with-context": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieves a single message and its preceding user message (if applicable). Optimized for feedback inspection.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Messages"
+                ],
+                "summary": "Get a message with its preceding user message",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Tenant ID",
+                        "name": "tenantId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Conversation ID",
+                        "name": "conversationId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Message ID",
+                        "name": "messageId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.MessageWithContextResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/reactions": {
             "get": {
                 "security": [
@@ -3218,6 +3293,9 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "debug_backdoor_enabled": {
+                    "type": "boolean"
+                },
                 "status": {
                     "type": "string"
                 }
@@ -3330,6 +3408,17 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.MessageWithContextResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "$ref": "#/definitions/handlers.MessageResponse"
+                },
+                "userMessage": {
+                    "$ref": "#/definitions/handlers.MessageResponse"
+                }
+            }
+        },
         "handlers.ReactionResponse": {
             "type": "object",
             "properties": {
@@ -3426,6 +3515,12 @@ const docTemplate = `{
                 },
                 "reaction": {
                     "$ref": "#/definitions/models.ReactionType"
+                },
+                "reasons": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },

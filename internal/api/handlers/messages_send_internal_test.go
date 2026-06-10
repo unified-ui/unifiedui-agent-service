@@ -289,6 +289,7 @@ func TestSendMessage_FoundryAgent_MissingAPIKey(t *testing.T) {
 
 	// Return Foundry agent config
 	agentConfig := &platform.AgentConfig{
+		IsActive:    true,
 		Type:        platform.AgentTypeFoundry,
 		TenantID:    "test-tenant",
 		ChatAgentID: "foundry-agent",
@@ -382,6 +383,7 @@ func TestSendMessage_MessageStorageError(t *testing.T) {
 		Return(nil, errors.New("not found"))
 
 	agentConfig := &platform.AgentConfig{
+		IsActive:    true,
 		Type:        platform.AgentTypeN8N,
 		TenantID:    "test-tenant",
 		ChatAgentID: "agent-456",
@@ -433,6 +435,7 @@ func TestSendMessage_LoadsChatHistory(t *testing.T) {
 
 	// Agent config with unified chat history enabled
 	agentConfig := &platform.AgentConfig{
+		IsActive:    true,
 		Type:        platform.AgentTypeN8N,
 		TenantID:    "test-tenant",
 		ChatAgentID: "agent-456",
@@ -497,6 +500,7 @@ func TestSendMessage_FirstMessage_AlwaysFetchesFreshConfig(t *testing.T) {
 		Return(nil, errors.New("not found"))
 
 	agentConfig := &platform.AgentConfig{
+		IsActive:    true,
 		Type:        platform.AgentTypeN8N,
 		TenantID:    "test-tenant",
 		ChatAgentID: "agent-456",
@@ -552,6 +556,7 @@ func TestSendMessage_NoSession_CallsPlatformAndWritesCache(t *testing.T) {
 		Return(nil, errors.New("not found"))
 
 	agentConfig := &platform.AgentConfig{
+		IsActive:    true,
 		Type:        platform.AgentTypeN8N,
 		TenantID:    "test-tenant",
 		ChatAgentID: "agent-456",
@@ -608,6 +613,7 @@ func TestSendMessage_XUseCacheFalse_BypassesConfigCache(t *testing.T) {
 		Return(nil, errors.New("not found"))
 
 	agentConfig := &platform.AgentConfig{
+		IsActive:    true,
 		Type:        platform.AgentTypeN8N,
 		TenantID:    "test-tenant",
 		ChatAgentID: "agent-456",
@@ -657,6 +663,7 @@ func TestSendMessage_SessionHit_SkipsCacheAndPlatform(t *testing.T) {
 	c.Request.Header.Set("Content-Type", "application/json")
 
 	sessionConfig := &platform.AgentConfig{
+		IsActive:    true,
 		Type:        platform.AgentTypeN8N,
 		TenantID:    "test-tenant",
 		ChatAgentID: "agent-456",
@@ -719,6 +726,7 @@ func TestSendMessage_ConfigCacheGetError_FallsThroughToPlatform(t *testing.T) {
 		Return(nil, errors.New("redis error"))
 
 	agentConfig := &platform.AgentConfig{
+		IsActive:    true,
 		Type:        platform.AgentTypeN8N,
 		TenantID:    "test-tenant",
 		ChatAgentID: "agent-456",

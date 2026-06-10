@@ -222,7 +222,11 @@ type WorkflowClientConfig struct {
 	APIVersion      string
 	AgentName       string
 	AgentType       string // "AGENT" or "MULTI_AGENT"
-	APIToken        string // Bearer token from X-Microsoft-Foundry-API-Key header
+	APIToken        string // Deprecated: legacy bearer token. Prefer AuthProvider.
+
+	// AuthProvider, when set, takes precedence over APIToken and is consulted
+	// for every outgoing request. It is the supported way to authenticate.
+	AuthProvider AuthProvider
 }
 
 // MessageInfo contains information about a parsed message from Foundry.

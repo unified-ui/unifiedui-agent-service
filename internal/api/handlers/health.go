@@ -12,8 +12,9 @@ import (
 
 // HealthHandler handles health check endpoints.
 type HealthHandler struct {
-	cacheClient cache.Client
-	docDBClient docdb.Client
+	cacheClient          cache.Client
+	docDBClient          docdb.Client
+	debugBackdoorEnabled bool
 }
 
 // NewHealthHandler creates a new HealthHandler.
@@ -24,10 +25,16 @@ func NewHealthHandler(cacheClient cache.Client, docDBClient docdb.Client) *Healt
 	}
 }
 
+// SetDebugBackdoorEnabled marks the health response with the backdoor flag (REQ 007).
+func (h *HealthHandler) SetDebugBackdoorEnabled(enabled bool) {
+	h.debugBackdoorEnabled = enabled
+}
+
 // HealthResponse represents a health check response.
 type HealthResponse struct {
-	Status     string            `json:"status"`
-	Components map[string]string `json:"components,omitempty"`
+	Status               string            `json:"status"`
+	Components           map[string]string `json:"components,omitempty"`
+	DebugBackdoorEnabled bool              `json:"debug_backdoor_enabled"`
 }
 
 // Health handles the health endpoint.
@@ -66,8 +73,9 @@ func (h *HealthHandler) Health(c *gin.Context) {
 	}
 
 	c.JSON(statusCode, HealthResponse{
-		Status:     status,
-		Components: components,
+		Status:               status,
+		Components:           components,
+		DebugBackdoorEnabled: h.debugBackdoorEnabled,
 	})
 }
 

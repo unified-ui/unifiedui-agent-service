@@ -26,6 +26,8 @@ type Client interface {
 	GetAIModelsByPurpose(ctx context.Context, tenantID, purposeGroup, modelType string) ([]AIModelWithSecretResponse, error)
 	GetCredentialSecret(ctx context.Context, tenantID, credentialID, authToken string) (string, error)
 	UpdateConversationTitle(ctx context.Context, tenantID, conversationID, title, authToken string) error
+	UpsertMessageFeedback(ctx context.Context, tenantID, conversationID, messageID, authToken string, payload UpsertMessageFeedbackRequest) error
+	DeleteMessageFeedback(ctx context.Context, tenantID, conversationID, messageID, authToken string) error
 }
 
 type client struct {
@@ -93,6 +95,7 @@ func (c *client) GetAgentConfig(ctx context.Context, tenantID, chatAgentID, conv
 		TenantID:       appConfig.TenantID,
 		ConversationID: conversationID,
 		ChatAgentID:    appConfig.ChatAgentID,
+		IsActive:       appConfig.IsActive,
 		Settings:       appConfig.Settings,
 		User:           appConfig.User,
 	}, nil
@@ -242,4 +245,34 @@ func (c *client) UpdateConversationTitle(ctx context.Context, tenantID, conversa
 	headers := bearerHeaders(c, authToken)
 	headers["Content-Type"] = "application/json"
 	return doValidateRequest(ctx, c, requestConfig{method: http.MethodPatch, url: url, body: bytes.NewReader(payload), headers: headers}, "conversation not found")
+}
+
+// UpsertMessageFeedback proxies a reaction/feedback upsert to the platform service.
+func (c *client) UpsertMessageFeedback(ctx context.Context, tenantID, conversationID, messageID, authToken string, payload UpsertMessageFeedbackRequest) error {
+	if c.baseURL == "" {
+		return fmt.Errorf("platform service URL not configured")
+	}
+	if authToken == "" {
+		return fmt.Errorf("auth token not provided")
+	}
+	url := fmt.Sprintf("%s/api/v1/platform-service/tenants/%s/conversations/%s/messages/%s/feedback", c.baseURL, tenantID, conversationID, messageID)
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal feedback payload: %w", err)
+	}
+	headers := bearerHeaders(c, authToken)
+	headers["Content-Type"] = "application/json"
+	return doValidateRequest(ctx, c, requestConfig{method: http.MethodPost, url: url, body: bytes.NewReader(body), headers: headers}, "conversation or message not found")
+}
+
+// DeleteMessageFeedback proxies a reaction/feedback delete to the platform service.
+func (c *client) DeleteMessageFeedback(ctx context.Context, tenantID, conversationID, messageID, authToken string) error {
+	if c.baseURL == "" {
+		return fmt.Errorf("platform service URL not configured")
+	}
+	if authToken == "" {
+		return fmt.Errorf("auth token not provided")
+	}
+	url := fmt.Sprintf("%s/api/v1/platform-service/tenants/%s/conversations/%s/messages/%s/feedback", c.baseURL, tenantID, conversationID, messageID)
+	return doValidateRequest(ctx, c, requestConfig{method: http.MethodDelete, url: url, headers: bearerHeaders(c, authToken)}, "feedback not found")
 }

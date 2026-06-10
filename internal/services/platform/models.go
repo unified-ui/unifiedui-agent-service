@@ -54,6 +54,7 @@ type ChatAgentConfigResponse struct {
 	Type        AgentType     `json:"type"`
 	TenantID    string        `json:"tenant_id"`
 	ChatAgentID string        `json:"chat_agent_id"`
+	IsActive    bool          `json:"is_active"`
 	Settings    AgentSettings `json:"settings"`
 	User        *UserInfo     `json:"user,omitempty"`
 }
@@ -66,6 +67,7 @@ type AgentConfig struct {
 	TenantID       string        `json:"tenant_id"`
 	ConversationID string        `json:"conversation_id"`
 	ChatAgentID    string        `json:"chat_agent_id"`
+	IsActive       bool          `json:"is_active"`
 	Settings       AgentSettings `json:"settings"`
 	User           *UserInfo     `json:"user,omitempty"`
 }
@@ -102,6 +104,11 @@ type AgentSettings struct {
 	Credential                 *Credentials `json:"credential,omitempty"`
 	AccessToken                string       `json:"access_token,omitempty"`
 	APIKeyHeaderName           string       `json:"api_key_header_name,omitempty"`
+
+	// Foundry Custom REST API Proxy settings
+	CustomRestAPIEndpoint     string `json:"custom_rest_api_endpoint,omitempty"`
+	CustomRestAPIAuthType     string `json:"custom_rest_api_auth_type,omitempty"`
+	CustomRestAPIAPIKeyHeader string `json:"custom_rest_api_api_key_header,omitempty"`
 
 	// LLM specific settings
 	AIModelID string           `json:"ai_model_id,omitempty"`
@@ -236,4 +243,11 @@ func (c *Credentials) GetSecretAsEntraIDAppReg() *EntraIDAppRegistrationSecret {
 		ClientID:     cID,
 		ClientSecret: cSecret,
 	}
+}
+
+// UpsertMessageFeedbackRequest is the body for the platform-service feedback upsert endpoint.
+type UpsertMessageFeedbackRequest struct {
+	Rating  string   `json:"rating"`
+	Reasons []string `json:"reasons"`
+	Comment string   `json:"comment,omitempty"`
 }

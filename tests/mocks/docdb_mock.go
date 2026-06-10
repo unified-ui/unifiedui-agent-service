@@ -394,6 +394,15 @@ func (m *MockMessagesCollection) CountByConversation(ctx context.Context, tenant
 	return args.Get(0).(int64), args.Error(1)
 }
 
+// GetMessageStats returns aggregated message stats.
+func (m *MockMessagesCollection) GetMessageStats(ctx context.Context, tenantID string, filter *models.MessageStatsFilter) (*models.MessageStatsResult, error) {
+	args := m.Called(ctx, tenantID, filter)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.MessageStatsResult), args.Error(1)
+}
+
 // EnsureIndexes creates indexes.
 func (m *MockMessagesCollection) EnsureIndexes(ctx context.Context) error {
 	args := m.Called(ctx)
