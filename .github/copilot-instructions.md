@@ -86,6 +86,27 @@ Read the relevant instruction file **before** working in that area.
 
 ---
 
+## Debug Backdoor (REQ 007)
+
+This service implements the agent-side half of the cross-service debug backdoor. See [unifiedui/.github/copilot-instructions.md](https://github.com/unified-ui/unifiedui/blob/main/.github/copilot-instructions.md) for the cross-service contract.
+
+| File | Role |
+|------|------|
+| `internal/api/middleware/debug_backdoor.go` | `HasBackdoorHeaders`, `VerifyBackdoorSecret`, `BuildSyntheticUser` (synthesises `*platform.UserInfo` with `IdentityProvider="MOCK"`), `LogBackdoorUse`, `IsBackdoorRequest` |
+| `internal/api/middleware/auth.go` | `AuthMiddleware.tryBackdoor(c)` called at the top of `Authenticate()` and `AuthenticateFlexible()` |
+| `internal/api/middleware/service_auth.go` | Same bypass at the top of `AuthenticateServiceKey()` |
+| `internal/api/handlers/health.go` | `HealthResponse.DebugBackdoorEnabled bool` field |
+| `internal/config/config.go` | `DebugBackdoorConfig{Enabled, Secret}` + `Validate(deploymentMode)` (rejects `production`, requires secret ≥ 32 chars) |
+| `cmd/server/main.go` | `emitDebugBackdoorBanner()` + `startDebugBackdoorReminder(ctx)` (30 s ticker) wired in `main()` when `cfg.DebugBackdoor.Enabled` |
+
+**Headers** are identical to the platform service (`X-Debug-Backdoor`, `X-Debug-User-Id`, `X-Debug-User-Upn`, `X-Debug-User-Name`, `X-Debug-Tenant-Id`, `X-Debug-Groups`, `X-Debug-Roles`).
+
+**Tests**: `tests/unit/middleware/debug_backdoor_test.go` (6 tests covering bypass enable/disable, wrong secret, missing user headers, valid synthesis, flexible auth, config validation).
+
+`gosec G101` is suppressed on header-name constants with `// #nosec G101 -- header name, not a credential`.
+
+---
+
 ## Instruction Management (Summary)
 
 After completing work, evaluate whether documentation needs updating. Full rules in [instruction-management.instructions.md](./instructions/instruction-management.instructions.md).

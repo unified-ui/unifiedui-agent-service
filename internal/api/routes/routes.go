@@ -10,15 +10,16 @@ import (
 
 // Config holds the dependencies for setting up routes.
 type Config struct {
-	HealthHandler      *handlers.HealthHandler
-	MessagesHandler    *handlers.MessagesHandler
-	ReactionsHandler   *handlers.ReactionsHandler
-	TracesHandler      *handlers.TracesHandler
-	DataHandler        *handlers.DataHandler
-	AIHandler          *handlers.AIHandler
-	ConnectionsHandler *handlers.ConnectionsHandler
-	AuthMiddleware     *middleware.AuthMiddleware
-	ServiceKeyMw       *middleware.ServiceKeyMiddleware
+	HealthHandler       *handlers.HealthHandler
+	MessagesHandler     *handlers.MessagesHandler
+	MessageStatsHandler *handlers.MessageStatsHandler
+	ReactionsHandler    *handlers.ReactionsHandler
+	TracesHandler       *handlers.TracesHandler
+	DataHandler         *handlers.DataHandler
+	AIHandler           *handlers.AIHandler
+	ConnectionsHandler  *handlers.ConnectionsHandler
+	AuthMiddleware      *middleware.AuthMiddleware
+	ServiceKeyMw        *middleware.ServiceKeyMiddleware
 }
 
 // Setup configures all routes on the Gin engine.
@@ -39,9 +40,12 @@ func Setup(r *gin.Engine, cfg *Config) {
 	conversation.GET("/messages/search", cfg.MessagesHandler.SearchMessages)
 	conversation.POST("/messages", cfg.MessagesHandler.SendMessage)
 
+	tenants.GET("/messages/stats", cfg.MessageStatsHandler.GetMessageStats)
+
 	conversations := tenants.Group("/conversations/:conversationId")
 	conversations.PUT("/messages/:messageId", cfg.MessagesHandler.EditMessage)
 	conversations.DELETE("/messages/:messageId", cfg.MessagesHandler.DeleteMessage)
+	conversations.GET("/messages/:messageId/with-context", cfg.MessagesHandler.GetMessageWithContext)
 
 	if cfg.ReactionsHandler != nil {
 		conversations.GET("/reactions", cfg.ReactionsHandler.GetBulkReactions)

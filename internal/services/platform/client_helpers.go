@@ -41,7 +41,7 @@ func (c *client) doRawRequest(ctx context.Context, cfg requestConfig) (body []by
 }
 
 func checkStatus(statusCode int, body []byte, notFoundMsg string) error {
-	if statusCode == http.StatusOK {
+	if statusCode >= 200 && statusCode < 300 {
 		return nil
 	}
 	switch statusCode {

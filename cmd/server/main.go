@@ -289,8 +289,8 @@ func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb
 	// Create middleware
 	loggingMw := middleware.NewLoggingMiddleware()
 	errorMw := middleware.NewErrorMiddleware()
-	authMw := middleware.NewAuthMiddleware(cfg.Platform.URL)
 	serviceKeyMw := middleware.NewServiceKeyMiddleware(appVaultClient, cfg.AppVault)
+	serviceKeyMw.SetDebugBackdoor(cfg.DebugBackdoor)
 
 	// Create platform client
 	platformClient := platform.NewClient(&platform.ClientConfig{
@@ -300,18 +300,30 @@ func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb
 		Timeout:    cfg.Platform.Timeout,
 	})
 
+	// Auth middleware delegates Bearer-token validation to the platform service.
+	authMw := middleware.NewAuthMiddleware(platformClient)
+	authMw.SetDebugBackdoor(cfg.DebugBackdoor)
+
 	// Create agent factory with ReACT service support
 	reactServiceKey := resolveServiceKeyFromVault(context.Background(), appVaultClient, cfg.AppVault.AgentToReactAgentKey)
 	agentFactory := agents.NewFactoryWithReact(cfg.ReactService, reactServiceKey)
 
 	// Create handlers
 	healthHandler := handlers.NewHealthHandler(cacheClient, docDBClient)
+	healthHandler.SetDebugBackdoorEnabled(cfg.DebugBackdoor.Enabled)
+
+	if cfg.DebugBackdoor.Enabled {
+		emitDebugBackdoorBanner()
+		startDebugBackdoorReminder(context.Background())
+	}
 
 	// Create AI service and handler
 	aiService := ai.NewService(platformClient)
 	aiHandler := handlers.NewAIHandler(aiService, platformClient)
 
 	messagesHandler := handlers.NewMessagesHandler(docDBClient, platformClient, agentFactory, sessionService, configCacheService, importService, aiService)
+	messageStatsHandler := handlers.NewMessageStatsHandler(docDBClient)
+
 	tracesHandler := handlers.NewTracesHandler(docDBClient, platformClient, importService)
 	reactionsHandler := handlers.NewReactionsHandler(docDBClient, platformClient)
 	dataHandler := handlers.NewDataHandler(docDBClient)
@@ -321,15 +333,16 @@ func setupRouter(cfg *config.Config, cacheClient cache.Client, docDBClient docdb
 
 	// Setup routes
 	routesCfg := &routes.Config{
-		HealthHandler:      healthHandler,
-		MessagesHandler:    messagesHandler,
-		TracesHandler:      tracesHandler,
-		ReactionsHandler:   reactionsHandler,
-		DataHandler:        dataHandler,
-		AIHandler:          aiHandler,
-		ConnectionsHandler: connectionsHandler,
-		AuthMiddleware:     authMw,
-		ServiceKeyMw:       serviceKeyMw,
+		HealthHandler:       healthHandler,
+		MessagesHandler:     messagesHandler,
+		MessageStatsHandler: messageStatsHandler,
+		TracesHandler:       tracesHandler,
+		ReactionsHandler:    reactionsHandler,
+		DataHandler:         dataHandler,
+		AIHandler:           aiHandler,
+		ConnectionsHandler:  connectionsHandler,
+		AuthMiddleware:      authMw,
+		ServiceKeyMw:        serviceKeyMw,
 	}
 
 	routes.SetupWithMiddleware(router, routesCfg, loggingMw, errorMw)
@@ -351,4 +364,32 @@ func resolveServiceKeyFromVault(ctx context.Context, vaultClient vault.Client, k
 		return ""
 	}
 	return secret
+}
+
+// emitDebugBackdoorBanner prints a loud warning when the backdoor is enabled (REQ 007).
+func emitDebugBackdoorBanner() {
+	banner := "\n" +
+		"================================================================\n" +
+		"  !!! DEBUG BACKDOOR ENABLED — DEV/TEST ONLY !!!                \n" +
+		"  ENABLE_DEBUG_BACK_DOOR=true                                   \n" +
+		"  This service accepts synthetic auth via X-Debug-* headers.    \n" +
+		"  NEVER expose this configuration to production.                \n" +
+		"================================================================\n"
+	log.Print(banner)
+}
+
+// startDebugBackdoorReminder spawns a goroutine that re-emits a warning every 30s.
+func startDebugBackdoorReminder(ctx context.Context) {
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				log.Print("DEBUG BACKDOOR is ENABLED — never run this configuration in production")
+			}
+		}
+	}()
 }

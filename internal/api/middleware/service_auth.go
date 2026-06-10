@@ -14,6 +14,7 @@ import (
 type ServiceKeyMiddleware struct {
 	vaultClient vault.Client
 	appVaultCfg config.AppVaultConfig
+	backdoor    config.DebugBackdoorConfig
 }
 
 // NewServiceKeyMiddleware creates a new ServiceKeyMiddleware.
@@ -24,10 +25,27 @@ func NewServiceKeyMiddleware(vaultClient vault.Client, appVaultCfg config.AppVau
 	}
 }
 
+// SetDebugBackdoor enables the debug backdoor on this middleware (REQ 007).
+func (m *ServiceKeyMiddleware) SetDebugBackdoor(cfg config.DebugBackdoorConfig) {
+	m.backdoor = cfg
+}
+
 // AuthenticateServiceKey returns a gin middleware that validates the X-Service-Key header
 // against the expected service key stored in the vault.
 func (m *ServiceKeyMiddleware) AuthenticateServiceKey() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if m.backdoor.Enabled && HasBackdoorHeaders(c) {
+			if !VerifyBackdoorSecret(c, m.backdoor) {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+					"code":    "UNAUTHORIZED",
+					"message": "invalid debug backdoor secret",
+				})
+				return
+			}
+			c.Next()
+			return
+		}
+
 		serviceKey := c.GetHeader("X-Service-Key")
 		if serviceKey == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{

@@ -90,6 +90,12 @@ func (m *mockPlatformClient) GetCredentialSecret(_ context.Context, _, _, _ stri
 func (m *mockPlatformClient) UpdateConversationTitle(_ context.Context, _, _, _, _ string) error {
 	return nil
 }
+func (m *mockPlatformClient) UpsertMessageFeedback(_ context.Context, _, _, _, _ string, _ platform.UpsertMessageFeedbackRequest) error {
+	return nil
+}
+func (m *mockPlatformClient) DeleteMessageFeedback(_ context.Context, _, _, _, _ string) error {
+	return nil
+}
 
 type mockAIService struct{}
 
@@ -141,7 +147,7 @@ func setupTestRouter() *gin.Engine {
 
 func createTestConfig() *routes.Config {
 	healthHandler := handlers.NewHealthHandler(&mockCacheClient{}, &mockDocDBClient{})
-	authMiddleware := middleware.NewAuthMiddleware("http://test-platform-service")
+	authMiddleware := middleware.NewAuthMiddleware(nil)
 
 	return &routes.Config{
 		HealthHandler:    healthHandler,

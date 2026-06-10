@@ -196,6 +196,62 @@ func (h *MessagesHandler) GetMessages(c *gin.Context) {
 	})
 }
 
+// MessageWithContextResponse represents a single message with its preceding user message.
+type MessageWithContextResponse struct {
+	Message     MessageResponse  `json:"message"`
+	UserMessage *MessageResponse `json:"userMessage,omitempty"`
+}
+
+// GetMessageWithContext handles GET /tenants/{tenantId}/conversations/{conversationId}/messages/{messageId}/with-context
+// @Summary Get a message with its preceding user message
+// @Description Retrieves a single message and its preceding user message (if applicable). Optimized for feedback inspection.
+// @Tags Messages
+// @Accept json
+// @Produce json
+// @Param tenantId path string true "Tenant ID"
+// @Param conversationId path string true "Conversation ID"
+// @Param messageId path string true "Message ID"
+// @Success 200 {object} MessageWithContextResponse
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 401 {object} dto.ErrorResponse
+// @Failure 404 {object} dto.ErrorResponse
+// @Failure 500 {object} dto.ErrorResponse
+// @Security BearerAuth
+// @Router /api/v1/agent-service/tenants/{tenantId}/conversations/{conversationId}/messages/{messageId}/with-context [get]
+func (h *MessagesHandler) GetMessageWithContext(c *gin.Context) {
+	ctx := c.Request.Context()
+	tenantCtx := middleware.GetTenantContext(c)
+
+	messageID := c.Param("messageId")
+	conversationID := c.Param("conversationId")
+	if messageID == "" || conversationID == "" {
+		middleware.HandleError(c, errors.NewValidationError("messageId and conversationId are required", ""))
+		return
+	}
+
+	msg, err := h.docDBClient.Messages().Get(ctx, messageID)
+	if err != nil {
+		middleware.HandleError(c, errors.NewInternalError("failed to get message", err))
+		return
+	}
+	if msg == nil || msg.TenantID != tenantCtx.TenantID || msg.ConversationID != conversationID {
+		middleware.HandleError(c, errors.NewNotFoundError("message", messageID))
+		return
+	}
+
+	resp := MessageWithContextResponse{Message: h.toMessageResponse(msg)}
+
+	if msg.UserMessageID != "" {
+		userMsg, uerr := h.docDBClient.Messages().Get(ctx, msg.UserMessageID)
+		if uerr == nil && userMsg != nil && userMsg.TenantID == tenantCtx.TenantID {
+			userResp := h.toMessageResponse(userMsg)
+			resp.UserMessage = &userResp
+		}
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
 func (h *MessagesHandler) toMessageResponse(msg *models.Message) MessageResponse {
 	var extra map[string]interface{}
 	if msg.Request != nil && len(msg.Request.Extra) > 0 {

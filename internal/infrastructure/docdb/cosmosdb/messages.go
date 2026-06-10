@@ -262,6 +262,83 @@ func (c *MessagesCollection) CountByConversation(ctx context.Context, tenantID, 
 	return 0, nil
 }
 
+// GetMessageStats returns aggregated message counts by status for a tenant,
+// grouped by chat agent. Uses a single GROUP BY query.
+func (c *MessagesCollection) GetMessageStats(ctx context.Context, tenantID string, filter *models.MessageStatsFilter) (*models.MessageStatsResult, error) {
+	whereClause := "WHERE c.tenantId = @tenantId AND c.type = 'assistant' AND c.status IN ('success', 'failed')"
+	params := []azcosmos.QueryParameter{
+		{Name: "@tenantId", Value: sanitizeValue(tenantID)},
+	}
+
+	if filter != nil {
+		if len(filter.ChatAgentIDs) > 0 {
+			ids := make([]interface{}, 0, len(filter.ChatAgentIDs))
+			for _, id := range filter.ChatAgentIDs {
+				ids = append(ids, sanitizeValue(id))
+			}
+			whereClause += " AND ARRAY_CONTAINS(@agentIds, c.chatAgentId)"
+			params = append(params, azcosmos.QueryParameter{Name: "@agentIds", Value: ids})
+		}
+		if !filter.From.IsZero() {
+			whereClause += " AND c.createdAt >= @from"
+			params = append(params, azcosmos.QueryParameter{Name: "@from", Value: filter.From.Format(time.RFC3339)})
+		}
+		if !filter.To.IsZero() {
+			whereClause += " AND c.createdAt <= @to"
+			params = append(params, azcosmos.QueryParameter{Name: "@to", Value: filter.To.Format(time.RFC3339)})
+		}
+	}
+
+	query := fmt.Sprintf(
+		"SELECT c.chatAgentId AS agentId, COUNT(1) AS total, SUM(IIF(c.status = 'failed', 1, 0)) AS failed FROM c %s GROUP BY c.chatAgentId",
+		whereClause,
+	)
+
+	pk := azcosmos.NewPartitionKeyString(tenantID)
+	pager := c.containerClient.NewQueryItemsPager(query, pk, &azcosmos.QueryOptions{
+		QueryParameters: params,
+	})
+
+	type groupRow struct {
+		AgentID string `json:"agentId"`
+		Total   int64  `json:"total"`
+		Failed  int64  `json:"failed"`
+	}
+
+	result := &models.MessageStatsResult{
+		PerAgent: make([]models.MessageStatsPerAgent, 0),
+	}
+
+	for pager.More() {
+		resp, err := pager.NextPage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to query message stats: %w", err)
+		}
+		for _, item := range resp.Items {
+			var row groupRow
+			if err := json.Unmarshal(item, &row); err != nil {
+				return nil, fmt.Errorf("failed to decode message stats row: %w", err)
+			}
+			success := row.Total - row.Failed
+			result.Aggregate.TotalMessages += row.Total
+			result.Aggregate.SuccessCount += success
+			result.Aggregate.FailedCount += row.Failed
+
+			if row.AgentID == "" {
+				continue
+			}
+			result.PerAgent = append(result.PerAgent, models.MessageStatsPerAgent{
+				ChatAgentID:   row.AgentID,
+				TotalMessages: row.Total,
+				SuccessCount:  success,
+				FailedCount:   row.Failed,
+			})
+		}
+	}
+
+	return result, nil
+}
+
 // EnsureIndexes for CosmosDB verifies container configuration.
 // Note: CosmosDB indexes are managed via indexing policy at container creation time.
 func (c *MessagesCollection) EnsureIndexes(_ context.Context) error {

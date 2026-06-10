@@ -16,6 +16,7 @@ import (
 	"github.com/unifiedui/agent-service/internal/domain/errors"
 	"github.com/unifiedui/agent-service/internal/domain/models"
 	"github.com/unifiedui/agent-service/internal/services/agents"
+	"github.com/unifiedui/agent-service/internal/services/agents/foundry"
 	"github.com/unifiedui/agent-service/internal/services/platform"
 )
 
@@ -102,6 +103,11 @@ func (h *MessagesHandler) SendMessage(c *gin.Context) {
 		}
 	}
 
+	if !agentConfig.IsActive {
+		middleware.HandleError(c, errors.NewForbiddenError("chat agent is currently inactive"))
+		return
+	}
+
 	userMessage := models.NewUserMessage(
 		tenantCtx.TenantID,
 		conversationID,
@@ -135,12 +141,17 @@ func (h *MessagesHandler) SendMessage(c *gin.Context) {
 
 	switch agentConfig.Type {
 	case platform.AgentTypeFoundry:
-		foundryAPIKey := c.GetHeader("X-Microsoft-Foundry-API-Key")
-		if foundryAPIKey == "" {
-			middleware.HandleError(c, errors.NewValidationError("X-Microsoft-Foundry-API-Key header is required for Foundry agents", ""))
-			return
+		if agentConfig.Settings.AuthType == string(foundry.AuthTypeCustomRestAPI) {
+			foundryAPIKey := c.GetHeader("X-Microsoft-Foundry-API-Key")
+			agentClients, createErr = h.agentFactory.CreateFoundryCustomRestAPIClients(agentConfig, foundryAPIKey)
+		} else {
+			foundryAPIKey := c.GetHeader("X-Microsoft-Foundry-API-Key")
+			if foundryAPIKey == "" {
+				middleware.HandleError(c, errors.NewValidationError("X-Microsoft-Foundry-API-Key header is required for Foundry agents", ""))
+				return
+			}
+			agentClients, createErr = h.agentFactory.CreateFoundryClients(agentConfig, foundryAPIKey)
 		}
-		agentClients, createErr = h.agentFactory.CreateFoundryClients(agentConfig, foundryAPIKey)
 	case platform.AgentTypeRestAPI:
 		authToken := middleware.GetToken(c)
 		agentClients, createErr = h.agentFactory.CreateRestAPIClients(agentConfig, authToken)
@@ -245,11 +256,16 @@ func (h *MessagesHandler) handleStreamingResponse(
 
 	switch agentConfig.Type {
 	case platform.AgentTypeFoundry:
-		h.handleFoundryStreaming(ctx, writer, streamReader, tenantCtx, agentConfig, userMessage, assistantMessage, startTime)
-		h.updateSessionCacheConfigOnly(ctx, tenantCtx, agentConfig, userMessage.ConversationID)
+		if agentConfig.Settings.AuthType == string(foundry.AuthTypeCustomRestAPI) {
+			h.handleReActStreaming(ctx, writer, streamReader, tenantCtx, agentConfig, userMessage, assistantMessage, startTime)
+			h.updateSessionCache(ctx, tenantCtx, agentConfig, userMessage, assistantMessage)
+		} else {
+			h.handleFoundryStreaming(ctx, writer, streamReader, tenantCtx, agentConfig, userMessage, assistantMessage, startTime)
+			h.updateSessionCacheConfigOnly(ctx, tenantCtx, agentConfig, userMessage.ConversationID)
 
-		if h.importService != nil && extConversationID != "" && foundryAPIKey != "" {
-			h.enqueueFoundryTraceImport(tenantCtx, agentConfig, userMessage, extConversationID, foundryAPIKey)
+			if h.importService != nil && extConversationID != "" && foundryAPIKey != "" {
+				h.enqueueFoundryTraceImport(tenantCtx, agentConfig, userMessage, extConversationID, foundryAPIKey)
+			}
 		}
 	case platform.AgentTypeReactAgent, platform.AgentTypeRestAPI:
 		h.handleReActStreaming(ctx, writer, streamReader, tenantCtx, agentConfig, userMessage, assistantMessage, startTime)
@@ -643,6 +659,7 @@ func (h *MessagesHandler) streamTitleGeneration(ctx context.Context, writer *sse
 	_ = writer.WriteTitleGeneration(title)
 
 	if authToken != "" {
+		// nolint:gosec // G118: Intentionally using Background() as this runs after HTTP response is sent
 		go func() {
 			persistCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()

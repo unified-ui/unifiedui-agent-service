@@ -263,7 +263,7 @@ func newGoogleGenAIClientWithBaseURL(config map[string]interface{}, apiKey, base
 func (c *googleGenAIClient) ChatCompletion(ctx context.Context, messages []ChatMessage) (*ChatCompletionResult, error) {
 	url := fmt.Sprintf("%s/v1beta/models/%s:generateContent?key=%s", c.baseURL, c.modelName, c.apiKey)
 
-	contents := make([]map[string]interface{}, 0)
+	contents := make([]map[string]interface{}, 0, len(messages))
 	for _, msg := range messages {
 		role := msg.Role
 		if role == "assistant" {

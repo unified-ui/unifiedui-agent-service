@@ -34,18 +34,18 @@ func NewFactoryWithReact(reactCfg config.ReactServiceConfig, serviceKey string) 
 }
 
 // CreateClients creates the appropriate agent clients based on the configuration.
-func (f *Factory) CreateClients(config *platform.AgentConfig) (*AgentClients, error) {
-	if config == nil {
+func (f *Factory) CreateClients(agentCfg *platform.AgentConfig) (*AgentClients, error) {
+	if agentCfg == nil {
 		return nil, fmt.Errorf("config is required")
 	}
 
-	switch config.Type {
+	switch agentCfg.Type {
 	case platform.AgentTypeN8N:
-		return f.createN8NClients(config)
+		return f.createN8NClients(agentCfg)
 	case platform.AgentTypeFoundry:
 		return nil, fmt.Errorf("foundry requires API token - use CreateFoundryClients instead")
 	case platform.AgentTypeReactAgent:
-		return f.createReActClients(config)
+		return f.createReActClients(agentCfg)
 	case platform.AgentTypeCopilot:
 		return nil, fmt.Errorf("copilot agent type not yet implemented")
 	case platform.AgentTypeCustom:
@@ -53,13 +53,13 @@ func (f *Factory) CreateClients(config *platform.AgentConfig) (*AgentClients, er
 	case platform.AgentTypeRestAPI:
 		return nil, fmt.Errorf("REST API requires auth token - use CreateRestAPIClients instead")
 	default:
-		return nil, fmt.Errorf("unsupported agent type: %s", config.Type)
+		return nil, fmt.Errorf("unsupported agent type: %s", agentCfg.Type)
 	}
 }
 
 // CreateFoundryClients creates Microsoft Foundry agent clients with the provided API token.
-func (f *Factory) CreateFoundryClients(config *platform.AgentConfig, apiToken string) (*AgentClients, error) {
-	if config == nil {
+func (f *Factory) CreateFoundryClients(agentCfg *platform.AgentConfig, apiToken string) (*AgentClients, error) {
+	if agentCfg == nil {
 		return nil, fmt.Errorf("config is required")
 	}
 	if apiToken == "" {
@@ -68,7 +68,7 @@ func (f *Factory) CreateFoundryClients(config *platform.AgentConfig, apiToken st
 
 	foundryFactory := foundry.NewFactory()
 
-	workflowClient, err := foundryFactory.CreateWorkflowClient(config, apiToken)
+	workflowClient, err := foundryFactory.CreateWorkflowClient(agentCfg, apiToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Foundry workflow client: %w", err)
 	}
@@ -79,22 +79,22 @@ func (f *Factory) CreateFoundryClients(config *platform.AgentConfig, apiToken st
 			fileConverter: foundry.NewFileConverter(),
 		},
 		APIClient: nil, // Foundry doesn't have a separate API client
-		Config:    config,
+		Config:    agentCfg,
 	}, nil
 }
 
 // createN8NClients creates N8N-specific clients.
-func (f *Factory) createN8NClients(config *platform.AgentConfig) (*AgentClients, error) {
+func (f *Factory) createN8NClients(agentCfg *platform.AgentConfig) (*AgentClients, error) {
 	n8nFactory := n8n.NewFactory()
 
 	// Create workflow client
-	workflowClient, err := n8nFactory.CreateWorkflowClient(config)
+	workflowClient, err := n8nFactory.CreateWorkflowClient(agentCfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create N8N workflow client: %w", err)
 	}
 
 	// Create API client
-	apiClient, err := n8nFactory.CreateAPIClient(config)
+	apiClient, err := n8nFactory.CreateAPIClient(agentCfg)
 	if err != nil {
 		// Clean up workflow client if API client creation fails
 		_ = workflowClient.Close()
@@ -107,7 +107,7 @@ func (f *Factory) createN8NClients(config *platform.AgentConfig) (*AgentClients,
 			fileConverter: n8n.NewFileConverter(),
 		},
 		APIClient: &n8nAPIAdapter{apiClient},
-		Config:    config,
+		Config:    agentCfg,
 	}, nil
 }
 
@@ -471,14 +471,14 @@ func convertFoundryChunk(foundryChunk *foundry.StreamChunk) *StreamChunk {
 }
 
 // CreateRestAPIClients creates REST API agent clients with the user token for auth forwarding.
-func (f *Factory) CreateRestAPIClients(config *platform.AgentConfig, userToken string) (*AgentClients, error) {
-	if config == nil {
+func (f *Factory) CreateRestAPIClients(agentCfg *platform.AgentConfig, userToken string) (*AgentClients, error) {
+	if agentCfg == nil {
 		return nil, fmt.Errorf("config is required")
 	}
 
 	restFactory := restapi.NewFactory()
 
-	workflowClient, err := restFactory.CreateWorkflowClient(config, userToken)
+	workflowClient, err := restFactory.CreateWorkflowClient(agentCfg, userToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create REST API workflow client: %w", err)
 	}
@@ -488,17 +488,56 @@ func (f *Factory) CreateRestAPIClients(config *platform.AgentConfig, userToken s
 			client: workflowClient,
 		},
 		APIClient: nil,
-		Config:    config,
+		Config:    agentCfg,
 	}, nil
 }
 
-// CreateLLMClients creates LLM agent clients for direct model chat streaming.
-func (f *Factory) CreateLLMClients(config *platform.AgentConfig) (*AgentClients, error) {
-	if config == nil {
+// CreateFoundryCustomRestAPIClients creates a REST API client for Foundry agents using CUSTOM_REST_API auth mode.
+// The Foundry config's custom_rest_api_endpoint becomes the invoke endpoint, and the proxy auth
+// settings determine how authentication is handled against the proxy.
+func (f *Factory) CreateFoundryCustomRestAPIClients(agentCfg *platform.AgentConfig, userToken string) (*AgentClients, error) {
+	if agentCfg == nil {
 		return nil, fmt.Errorf("config is required")
 	}
 
-	aiModel := config.Settings.AIModel
+	proxyConfig := *agentCfg
+	proxyConfig.Settings.InvokeEndpoint = agentCfg.Settings.CustomRestAPIEndpoint
+	proxyConfig.Settings.AuthType = mapCustomRestAPIAuthType(agentCfg.Settings.CustomRestAPIAuthType)
+	proxyConfig.Settings.APIKeyHeaderName = agentCfg.Settings.CustomRestAPIAPIKeyHeader
+
+	restFactory := restapi.NewFactory()
+
+	workflowClient, err := restFactory.CreateWorkflowClient(&proxyConfig, userToken)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Foundry custom REST API workflow client: %w", err)
+	}
+
+	return &AgentClients{
+		WorkflowClient: &restAPIWorkflowAdapter{
+			client: workflowClient,
+		},
+		APIClient: nil,
+		Config:    agentCfg,
+	}, nil
+}
+
+// mapCustomRestAPIAuthType maps Foundry proxy auth type values to REST API auth type values.
+func mapCustomRestAPIAuthType(proxyAuthType string) string {
+	switch proxyAuthType {
+	case "USER_TOKEN":
+		return "ENTRA_ID_USER_TOKEN"
+	default:
+		return proxyAuthType
+	}
+}
+
+// CreateLLMClients creates LLM agent clients for direct model chat streaming.
+func (f *Factory) CreateLLMClients(agentCfg *platform.AgentConfig) (*AgentClients, error) {
+	if agentCfg == nil {
+		return nil, fmt.Errorf("config is required")
+	}
+
+	aiModel := agentCfg.Settings.AIModel
 	if aiModel == nil {
 		return nil, fmt.Errorf("LLM agent requires a resolved AI model in config")
 	}
@@ -509,19 +548,19 @@ func (f *Factory) CreateLLMClients(config *platform.AgentConfig) (*AgentClients,
 	}
 
 	return &AgentClients{
-		WorkflowClient: &llmWorkflowAdapter{client: streamClient, settings: config.Settings},
+		WorkflowClient: &llmWorkflowAdapter{client: streamClient, settings: agentCfg.Settings},
 		APIClient:      nil,
-		Config:         config,
+		Config:         agentCfg,
 	}, nil
 }
 
 // createReActClients creates ReACT agent clients.
-func (f *Factory) createReActClients(config *platform.AgentConfig) (*AgentClients, error) {
+func (f *Factory) createReActClients(agentCfg *platform.AgentConfig) (*AgentClients, error) {
 	if f.reactFactory == nil {
 		return nil, fmt.Errorf("ReACT service not configured - use NewFactoryWithReact")
 	}
 
-	workflowClient, err := f.reactFactory.CreateWorkflowClient(config)
+	workflowClient, err := f.reactFactory.CreateWorkflowClient(agentCfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create ReACT workflow client: %w", err)
 	}
@@ -529,10 +568,10 @@ func (f *Factory) createReActClients(config *platform.AgentConfig) (*AgentClient
 	return &AgentClients{
 		WorkflowClient: &reactWorkflowAdapter{
 			client: workflowClient,
-			config: config,
+			config: agentCfg,
 		},
 		APIClient: nil,
-		Config:    config,
+		Config:    agentCfg,
 	}, nil
 }
 

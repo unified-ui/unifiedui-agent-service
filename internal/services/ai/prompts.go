@@ -121,12 +121,9 @@ func BuildTraceChatMessages(traceJSON, selectedNodeJSON string, history []ChatMe
 
 	systemContent := fmt.Sprintf(traceChatSystemPrompt, traceJSON, selectedNodeSection)
 
-	messages := []ChatMessage{
-		{Role: "system", Content: systemContent},
-	}
-
+	messages := make([]ChatMessage, 0, 2+len(history))
+	messages = append(messages, ChatMessage{Role: "system", Content: systemContent})
 	messages = append(messages, history...)
-
 	messages = append(messages, ChatMessage{
 		Role:    "user",
 		Content: userMessage,

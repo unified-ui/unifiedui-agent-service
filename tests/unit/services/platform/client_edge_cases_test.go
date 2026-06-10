@@ -213,7 +213,7 @@ func TestValidateWorkflowAPIKey_HTTPMethod(t *testing.T) {
 // === ServiceConfigResponse backward compatibility ===
 
 func TestServiceConfigResponse_BackwardCompatibility(t *testing.T) {
-	resp := platform.ServiceConfigResponse{
+	resp := platform.ServiceConfigResponse{ //nolint:staticcheck // SA1019: Testing deprecated type
 		DocVersion:  "1",
 		Type:        platform.AgentTypeN8N,
 		TenantID:    "tenant1",
@@ -226,7 +226,7 @@ func TestServiceConfigResponse_BackwardCompatibility(t *testing.T) {
 	data, err := json.Marshal(resp)
 	require.NoError(t, err)
 
-	var parsed platform.ServiceConfigResponse
+	var parsed platform.ServiceConfigResponse //nolint:staticcheck // SA1019: Testing deprecated type
 	err = json.Unmarshal(data, &parsed)
 	require.NoError(t, err)
 

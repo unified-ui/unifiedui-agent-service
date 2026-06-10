@@ -21,6 +21,7 @@ type WorkflowClient struct {
 	agentName       string
 	agentType       string
 	apiToken        string
+	authProvider    AuthProvider
 	httpClient      *http.Client
 }
 
@@ -35,8 +36,8 @@ func NewWorkflowClient(config *WorkflowClientConfig) (*WorkflowClient, error) {
 	if config.AgentName == "" {
 		return nil, fmt.Errorf("agent name is required")
 	}
-	if config.APIToken == "" {
-		return nil, fmt.Errorf("API token is required")
+	if config.APIToken == "" && config.AuthProvider == nil {
+		return nil, fmt.Errorf("API token or AuthProvider is required")
 	}
 
 	apiVersion := config.APIVersion
@@ -50,10 +51,21 @@ func NewWorkflowClient(config *WorkflowClientConfig) (*WorkflowClient, error) {
 		agentName:       config.AgentName,
 		agentType:       config.AgentType,
 		apiToken:        config.APIToken,
+		authProvider:    config.AuthProvider,
 		httpClient: &http.Client{
 			Timeout: 10 * time.Minute, // Long timeout for streaming
 		},
 	}, nil
+}
+
+// applyAuth applies authentication headers using AuthProvider when configured,
+// falling back to the legacy bearer-token form for backwards compatibility.
+func (c *WorkflowClient) applyAuth(ctx context.Context, req *http.Request) error {
+	if c.authProvider != nil {
+		return c.authProvider.Apply(ctx, req)
+	}
+	req.Header.Set("Authorization", "Bearer "+c.apiToken)
+	return nil
 }
 
 // SetHTTPClient sets a custom HTTP client (used for testing).
@@ -87,7 +99,9 @@ func (c *WorkflowClient) TestConnection(ctx context.Context) error {
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+c.apiToken)
+	if err := c.applyAuth(ctx, httpReq); err != nil {
+		return fmt.Errorf("failed to apply auth: %w", err)
+	}
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
@@ -218,7 +232,9 @@ func (c *WorkflowClient) InvokeStreamReader(ctx context.Context, req *InvokeRequ
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+c.apiToken)
+	if err := c.applyAuth(ctx, httpReq); err != nil {
+		return nil, fmt.Errorf("failed to apply auth: %w", err)
+	}
 	httpReq.Header.Set("Accept", "text/event-stream")
 
 	resp, err := c.httpClient.Do(httpReq)

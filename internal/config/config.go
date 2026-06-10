@@ -13,15 +13,17 @@ import (
 
 // Config holds all configuration for the application.
 type Config struct {
-	Server       ServerConfig
-	Cache        CacheConfig
-	DocDB        DocDBConfig
-	Vaults       VaultsConfig
-	Platform     PlatformConfig
-	ReactService ReactServiceConfig
-	AppVault     AppVaultConfig
-	Log          LogConfig
-	CORS         CORSConfig
+	Server        ServerConfig
+	Cache         CacheConfig
+	DocDB         DocDBConfig
+	Vaults        VaultsConfig
+	Platform      PlatformConfig
+	ReactService  ReactServiceConfig
+	AppVault      AppVaultConfig
+	Log           LogConfig
+	CORS          CORSConfig
+	Deployment    DeploymentConfig
+	DebugBackdoor DebugBackdoorConfig
 }
 
 // ServerConfig holds server-related configuration.
@@ -123,6 +125,31 @@ type CORSConfig struct {
 	AllowOrigins []string
 }
 
+// DeploymentConfig holds deployment-mode information used for runtime safety guards.
+type DeploymentConfig struct {
+	Mode string
+}
+
+// DebugBackdoorConfig holds the debug backdoor configuration (REQ 007).
+type DebugBackdoorConfig struct {
+	Enabled bool
+	Secret  string
+}
+
+// Validate enforces secret length and production guard rules.
+func (d DebugBackdoorConfig) Validate(deploymentMode string) error {
+	if !d.Enabled {
+		return nil
+	}
+	if deploymentMode == "production" {
+		return fmt.Errorf("ENABLE_DEBUG_BACK_DOOR MUST be false when DEPLOYMENT_MODE=production")
+	}
+	if len(d.Secret) < 32 {
+		return fmt.Errorf("DEBUG_BACK_DOOR_SECRET MUST be set and at least 32 characters when ENABLE_DEBUG_BACK_DOOR=true")
+	}
+	return nil
+}
+
 // Load loads configuration from environment variables.
 func Load() (*Config, error) {
 	// Load .env file if it exists (ignore error if not found)
@@ -193,6 +220,17 @@ func Load() (*Config, error) {
 				"http://localhost:3000",
 			}),
 		},
+		Deployment: DeploymentConfig{
+			Mode: getEnv("DEPLOYMENT_MODE", "self-hosted"),
+		},
+		DebugBackdoor: DebugBackdoorConfig{
+			Enabled: getEnvAsBool("ENABLE_DEBUG_BACK_DOOR", false),
+			Secret:  getEnv("DEBUG_BACK_DOOR_SECRET", ""),
+		},
+	}
+
+	if err := cfg.DebugBackdoor.Validate(cfg.Deployment.Mode); err != nil {
+		return nil, err
 	}
 
 	return cfg, nil
