@@ -27,7 +27,7 @@ type tokenCacheEntry struct {
 }
 
 // AuthMiddleware validates Bearer tokens by delegating to the platform service.
-// Successful validations are cached for a short TTL to amortise the round-trip.
+// Successful validations are cached for a short TTL to amortize the round-trip.
 type AuthMiddleware struct {
 	validator TokenValidator
 	cacheTTL  time.Duration

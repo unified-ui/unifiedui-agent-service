@@ -11,8 +11,8 @@ import (
 	"github.com/unifiedui/agent-service/internal/services/platform"
 )
 
-// TestNewFromConfig_Success tests successful factory creation from config.
-func TestNewFromConfig_Success(t *testing.T) {
+// TestCreateWorkflowClient_Success tests successful factory creation from config.
+func TestCreateWorkflowClient_Success(t *testing.T) {
 	config := &platform.AgentConfig{
 		Type:        platform.AgentTypeFoundry,
 		TenantID:    "tenant-123",
@@ -25,22 +25,22 @@ func TestNewFromConfig_Success(t *testing.T) {
 		},
 	}
 
-	client, err := foundry.NewFromConfig(config, "test-api-token")
+	client, err := foundry.NewFactory().CreateWorkflowClient(config, "test-api-token")
 	require.NoError(t, err)
 	require.NotNil(t, client)
 	client.Close()
 }
 
-// TestNewFromConfig_NilConfig tests error when config is nil.
-func TestNewFromConfig_NilConfig(t *testing.T) {
-	client, err := foundry.NewFromConfig(nil, "test-token")
+// TestCreateWorkflowClient_NilConfig tests error when config is nil.
+func TestCreateWorkflowClient_NilConfig(t *testing.T) {
+	client, err := foundry.NewFactory().CreateWorkflowClient(nil, "test-token")
 	require.Error(t, err)
 	assert.Nil(t, client)
 	assert.Contains(t, err.Error(), "config is required")
 }
 
-// TestNewFromConfig_MissingToken tests error when token is empty.
-func TestNewFromConfig_MissingToken(t *testing.T) {
+// TestCreateWorkflowClient_MissingToken tests error when token is empty.
+func TestCreateWorkflowClient_MissingToken(t *testing.T) {
 	config := &platform.AgentConfig{
 		Type:        platform.AgentTypeFoundry,
 		TenantID:    "tenant-123",
@@ -51,14 +51,14 @@ func TestNewFromConfig_MissingToken(t *testing.T) {
 		},
 	}
 
-	client, err := foundry.NewFromConfig(config, "")
+	client, err := foundry.NewFactory().CreateWorkflowClient(config, "")
 	require.Error(t, err)
 	assert.Nil(t, client)
-	assert.Contains(t, err.Error(), "API token or AuthProvider is required")
+	assert.Contains(t, err.Error(), "user token is required")
 }
 
-// TestNewFromConfig_MissingProjectEndpoint tests error when project endpoint is missing.
-func TestNewFromConfig_MissingProjectEndpoint(t *testing.T) {
+// TestCreateWorkflowClient_MissingProjectEndpoint tests error when project endpoint is missing.
+func TestCreateWorkflowClient_MissingProjectEndpoint(t *testing.T) {
 	config := &platform.AgentConfig{
 		Type:        platform.AgentTypeFoundry,
 		TenantID:    "tenant-123",
@@ -68,14 +68,14 @@ func TestNewFromConfig_MissingProjectEndpoint(t *testing.T) {
 		},
 	}
 
-	client, err := foundry.NewFromConfig(config, "test-token")
+	client, err := foundry.NewFactory().CreateWorkflowClient(config, "test-token")
 	require.Error(t, err)
 	assert.Nil(t, client)
 	assert.Contains(t, err.Error(), "project endpoint is required")
 }
 
-// TestNewFromConfig_MissingAgentName tests error when agent name is missing.
-func TestNewFromConfig_MissingAgentName(t *testing.T) {
+// TestCreateWorkflowClient_MissingAgentName tests error when agent name is missing.
+func TestCreateWorkflowClient_MissingAgentName(t *testing.T) {
 	config := &platform.AgentConfig{
 		Type:        platform.AgentTypeFoundry,
 		TenantID:    "tenant-123",
@@ -85,14 +85,14 @@ func TestNewFromConfig_MissingAgentName(t *testing.T) {
 		},
 	}
 
-	client, err := foundry.NewFromConfig(config, "test-token")
+	client, err := foundry.NewFactory().CreateWorkflowClient(config, "test-token")
 	require.Error(t, err)
 	assert.Nil(t, client)
 	assert.Contains(t, err.Error(), "agent name is required")
 }
 
-// TestNewFromConfig_DefaultAPIVersion tests that API version defaults when not set.
-func TestNewFromConfig_DefaultAPIVersion(t *testing.T) {
+// TestCreateWorkflowClient_DefaultAPIVersion tests that API version defaults when not set.
+func TestCreateWorkflowClient_DefaultAPIVersion(t *testing.T) {
 	config := &platform.AgentConfig{
 		Type:        platform.AgentTypeFoundry,
 		TenantID:    "tenant-123",
@@ -104,7 +104,7 @@ func TestNewFromConfig_DefaultAPIVersion(t *testing.T) {
 		},
 	}
 
-	client, err := foundry.NewFromConfig(config, "test-token")
+	client, err := foundry.NewFactory().CreateWorkflowClient(config, "test-token")
 	require.NoError(t, err)
 	require.NotNil(t, client)
 	client.Close()

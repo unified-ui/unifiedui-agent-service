@@ -325,7 +325,7 @@ func reactionToFeedbackRating(rt models.ReactionType) string {
 	return "THUMBS_DOWN"
 }
 
-func (h *ReactionsHandler) proxyUpsertToPlatform(_ context.Context, tenantID, conversationID, messageID, authToken string, req UpsertReactionRequest) {
+func (h *ReactionsHandler) proxyUpsertToPlatform(ctx context.Context, tenantID, conversationID, messageID, authToken string, req UpsertReactionRequest) {
 	if h.platformClient == nil || authToken == "" {
 		return
 	}
@@ -340,7 +340,7 @@ func (h *ReactionsHandler) proxyUpsertToPlatform(_ context.Context, tenantID, co
 	}
 	go func() {
 		defer func() { _ = recover() }()
-		bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		bgCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 		if err := h.platformClient.UpsertMessageFeedback(bgCtx, tenantID, conversationID, messageID, authToken, payload); err != nil {
 			slog.Error("failed to proxy feedback upsert to platform",
@@ -354,13 +354,13 @@ func (h *ReactionsHandler) proxyUpsertToPlatform(_ context.Context, tenantID, co
 	}()
 }
 
-func (h *ReactionsHandler) proxyDeleteToPlatform(_ context.Context, tenantID, conversationID, messageID, authToken string) {
+func (h *ReactionsHandler) proxyDeleteToPlatform(ctx context.Context, tenantID, conversationID, messageID, authToken string) {
 	if h.platformClient == nil || authToken == "" {
 		return
 	}
 	go func() {
 		defer func() { _ = recover() }()
-		bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		bgCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 		_ = h.platformClient.DeleteMessageFeedback(bgCtx, tenantID, conversationID, messageID, authToken)
 	}()

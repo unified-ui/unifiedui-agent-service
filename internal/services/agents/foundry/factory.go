@@ -47,7 +47,7 @@ func (f *Factory) CreateWorkflowClient(config *platform.AgentConfig, userToken s
 }
 
 // buildAuthProvider returns an AuthProvider matching the agent's configured auth_type.
-// When auth_type is empty, the legacy ENTRA_ID_USER_TOKEN behaviour is used.
+// When auth_type is empty, the legacy ENTRA_ID_USER_TOKEN behavior is used.
 func (f *Factory) buildAuthProvider(config *platform.AgentConfig, userToken string) (AuthProvider, error) {
 	authType := AuthType(config.Settings.AuthType)
 	if authType == "" {
@@ -134,8 +134,8 @@ func extractAppRegistrationCredentials(cred *platform.Credentials) (clientcreden
 
 // NewFromConfig creates a Foundry workflow client from platform configuration.
 //
-// Deprecated: prefer Factory.CreateWorkflowClient, which honours
-// config.Settings.AuthType. This shim preserves the legacy behaviour where the
+// Deprecated: prefer Factory.CreateWorkflowClient, which honors
+// config.Settings.AuthType. This shim preserves the legacy behavior where the
 // caller-supplied bearer token is used unconditionally.
 func NewFromConfig(config *platform.AgentConfig, apiToken string) (*WorkflowClient, error) {
 	if config == nil {

@@ -107,6 +107,7 @@ func (c *CachedTokenClient) tryGet(ctx context.Context, creds Credentials, scope
 }
 
 func (c *CachedTokenClient) tryStore(ctx context.Context, creds Credentials, scope string, tok *Token) error {
+	//nolint:gosec // Token JSON is encrypted with AES-GCM before it is written to cache.
 	plaintext, err := json.Marshal(tok)
 	if err != nil {
 		return err
@@ -155,4 +156,4 @@ func (c *CachedTokenClient) decrypt(ciphertext []byte) ([]byte, error) {
 	return gcm.Open(nil, nonce, data, nil)
 }
 
-var _ CacheBackend = (cache.Cache)(nil)
+var _ CacheBackend = cache.Cache(nil)

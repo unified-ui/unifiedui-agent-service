@@ -2,7 +2,7 @@
 //
 // When `cfg.DebugBackdoor.Enabled` is true and a request carries the matching
 // `X-Debug-Backdoor` secret header plus identity headers, the auth middleware
-// short-circuits remote token validation and synthesises a UserInfo locally.
+// short-circuits remote token validation and synthesizes a UserInfo locally.
 // This enables Copilot/Playwright/manual debugging to call any endpoint as any
 // user without bringing up the platform service.
 //

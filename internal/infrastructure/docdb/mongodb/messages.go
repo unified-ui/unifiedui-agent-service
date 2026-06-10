@@ -251,7 +251,9 @@ func (c *MessagesCollection) GetMessageStats(ctx context.Context, tenantID strin
 	if err != nil {
 		return nil, fmt.Errorf("failed to aggregate message stats: %w", err)
 	}
-	defer cursor.Close(ctx)
+	defer func() {
+		_ = cursor.Close(ctx)
+	}()
 
 	type groupRow struct {
 		ID     interface{} `bson:"_id"`
